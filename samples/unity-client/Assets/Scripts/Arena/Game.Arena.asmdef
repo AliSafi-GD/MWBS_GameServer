@@ -1,0 +1,22 @@
+{
+  "name": "Game.Arena",
+  "rootNamespace": "Game.Arena",
+  "references": [
+    "GameServer.Client",
+    "Game.Core",
+    "Game.Meta",
+    "UnityEngine.UI",
+    "Unity.InputSystem"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "Newtonsoft.Json.dll"
+  ],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

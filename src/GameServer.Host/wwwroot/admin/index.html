@@ -1,0 +1,2106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GameServer Console</title>
+<style>
+  :root {
+    --bg: #f3f4f8; --panel: #ffffff; --panel-2: #f8f9fc; --text: #1b1e2b; --muted: #5f667a; --line: #e3e5ec;
+    --accent: #5b4ee6; --accent-soft: rgba(91, 78, 230, .1); --on-accent: #ffffff;
+    --danger: #c62828; --danger-soft: rgba(198, 40, 40, .08); --ok: #18794e; --ok-soft: rgba(24, 121, 78, .1);
+    --side-bg: #171a2b; --side-line: #262a40; --side-text: #b9bed6; --side-muted: #737a99;
+    --side-hover: rgba(255, 255, 255, .06); --side-active: rgba(143, 132, 255, .18); --side-accent: #9b91ff;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .05);
+    --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+    --side-w: 236px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1119; --panel: #181b28; --panel-2: #1d2131; --text: #e6e8f0; --muted: #9aa1b8; --line: #2a2e40;
+      --accent: #8f84ff; --accent-soft: rgba(143, 132, 255, .14); --on-accent: #11121c;
+      --danger: #ff6b6b; --danger-soft: rgba(255, 107, 107, .1); --ok: #4cc38a; --ok-soft: rgba(76, 195, 138, .12);
+      --side-bg: #0b0d15; --side-line: #1d2132; --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, "Segoe UI", Roboto, Tahoma, sans-serif; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+  /* ---- shell: sidebar + top bar + content ---- */
+  .side { position: fixed; inset: 0 auto 0 0; width: var(--side-w); background: var(--side-bg); color: var(--side-text);
+          display: flex; flex-direction: column; z-index: 20; transition: transform .2s ease; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 18px 18px 16px; border-bottom: 1px solid var(--side-line); }
+  .brand svg { flex: none; }
+  .brand b { display: block; color: #fff; font-size: 15px; line-height: 1.2; }
+  .brand small { color: var(--side-muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+  .nav { flex: 1; overflow-y: auto; padding: 8px 10px 16px; }
+  .nav-title { margin: 16px 10px 6px; color: var(--side-muted); font-size: 11px; font-weight: 600;
+               letter-spacing: .08em; text-transform: uppercase; }
+  .nav a { position: relative; display: flex; align-items: center; gap: 11px; padding: 8px 10px; margin: 1px 0;
+           border-radius: 6px; color: var(--side-text); text-decoration: none; transition: background .15s, color .15s; }
+  .nav a:hover { background: var(--side-hover); color: #fff; }
+  .nav a.active { background: var(--side-active); color: #fff; }
+  .nav a.active::before { content: ""; position: absolute; left: -10px; top: 6px; bottom: 6px; width: 3px;
+                          border-radius: 0 3px 3px 0; background: var(--side-accent); }
+  .nav a.active svg { color: var(--side-accent); }
+  .side-foot { padding: 12px 18px; border-top: 1px solid var(--side-line); display: flex; gap: 14px; font-size: 12px; }
+  .side-foot a { color: var(--side-muted); text-decoration: none; }
+  .side-foot a:hover { color: #fff; }
+  .shade { display: none; }
+
+  .col { margin-left: var(--side-w); min-height: 100%; display: flex; flex-direction: column; }
+  .top { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px; min-height: 64px;
+         padding: 10px 28px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  .top h1 { margin: 0; font-size: 18px; line-height: 1.3; }
+  .top p { margin: 0; color: var(--muted); font-size: 13px; }
+  .top .grow { flex: 1; min-width: 0; }
+  .top .menu-btn { display: none; }
+  .nav { scrollbar-width: thin; scrollbar-color: var(--side-line) transparent; }
+  .who { display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; flex: none;
+            background: var(--accent-soft); color: var(--accent); font-weight: 700; text-transform: uppercase; }
+  .who-text { line-height: 1.25; }
+  .who-text b { display: block; font-size: 13px; }
+  .who-text span { color: var(--muted); font-size: 12px; }
+  main { padding: 24px 28px 40px; width: 100%; max-width: 1440px; }
+
+  @media (max-width: 960px) {
+    .side { transform: translateX(-100%); }
+    body.nav-open .side { transform: none; }
+    body.nav-open .shade { display: block; position: fixed; inset: 0; background: rgba(0, 0, 0, .45); z-index: 15; }
+    .col { margin-left: 0; }
+    .top .menu-btn { display: inline-grid; place-items: center; }
+    .top { padding: 10px 16px; }
+    .top p, .who-text { display: none; }
+    main { padding: 16px; }
+  }
+
+  /* ---- login ---- */
+  body.auth .side, body.auth .top { display: none; }
+  body.auth .col { margin-left: 0; background: radial-gradient(1200px 600px at 20% -10%, #2b2470 0%, var(--side-bg) 55%); }
+  body.auth main { max-width: none; flex: 1; display: grid; place-items: center; }
+  .login { width: 100%; max-width: 400px; display: grid; gap: 14px; padding: 28px; }
+  .login .brand { padding: 0 0 6px; border: 0; }
+  .login .brand b { color: var(--text); font-size: 17px; }
+  .login h2 { margin: 0; font-size: 20px; }
+
+  /* ---- building blocks ---- */
+  .grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px; box-shadow: var(--shadow);
+          overflow-x: auto; }
+  .card > h2:first-child, .card > div > h2:first-child { font-size: 15px; }
+  .muted { color: var(--muted); margin: 0; }
+  .err { color: var(--danger); margin: 0; min-height: 1.2em; }
+  h2 { font-size: 16px; }
+  input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px;
+          background: var(--panel); color: var(--text); font: inherit; transition: border-color .15s, box-shadow .15s; }
+  input, select { min-height: 36px; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  input:disabled { background: var(--panel-2); color: var(--muted); }
+  input[type=checkbox] { width: 16px; height: 16px; min-height: 0; accent-color: var(--accent); }
+  textarea { min-height: 260px; font: 12px/1.5 var(--mono); resize: vertical; }
+  button { min-height: 34px; padding: 6px 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel);
+           color: var(--text); font: inherit; font-weight: 500; cursor: pointer; white-space: nowrap;
+           transition: background .15s, border-color .15s, color .15s; }
+  button:hover { background: var(--panel-2); border-color: var(--muted); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  button.primary:hover { filter: brightness(1.08); }
+  button.danger { color: var(--danger); border-color: var(--danger); }
+  button.danger:hover { background: var(--danger-soft); }
+  button.icon { min-height: 36px; width: 36px; padding: 0; display: inline-grid; place-items: center; }
+  button:disabled { opacity: .5; cursor: default; }
+  td button { min-height: 28px; padding: 3px 10px; font-size: 13px; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap;
+           overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+  th { background: var(--panel-2); color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .06em;
+       text-transform: uppercase; }
+  thead tr:first-child th:first-child { border-top-left-radius: 6px; }
+  thead tr:first-child th:last-child { border-top-right-radius: 6px; }
+  tbody tr { cursor: pointer; transition: background .12s; }
+  tbody tr:hover { background: var(--accent-soft); }
+  tbody tr.sel { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+  tbody tr:last-child td { border-bottom: 0; }
+  .mono { font-family: var(--mono); font-size: 12px; }
+  td.mono { max-width: 150px; }
+  .card, main { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 1px 9px; border-radius: 999px; font-size: 12px;
+           font-weight: 500; background: var(--ok-soft); color: var(--ok); }
+  .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .badge.banned { background: var(--danger-soft); color: var(--danger); }
+  .pager { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; gap: 8px; }
+  .detail h2 { margin: 0 0 2px; font-size: 18px; }
+  .detail h3, .card h3 { margin: 20px 0 8px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .form { display: grid; gap: 10px; margin-top: 10px; }
+  .head ~ div .form { max-width: 680px; }
+  .form label { display: grid; gap: 4px; font-size: 12px; font-weight: 500; color: var(--muted); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .kv { display: grid; grid-template-columns: 130px 1fr; gap: 6px 12px; margin: 10px 0; }
+  .kv span:nth-child(odd) { color: var(--muted); }
+  pre { margin: 6px 0 0; padding: 12px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+        overflow: auto; max-height: 280px; font: 12px/1.5 var(--mono); }
+  details { border-bottom: 1px solid var(--line); padding: 8px 0; }
+  summary { cursor: pointer; }
+  .inline { display: flex; gap: 8px; align-items: center; }
+  .inline input[type=checkbox] { width: 16px; }
+  .ro { padding: 10px 14px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 6px;
+        background: var(--panel); margin-bottom: 16px; color: var(--muted); }
+  .banner { padding: 12px 14px; border-radius: 8px; border: 1px solid var(--line); border-left: 3px solid var(--ok);
+            background: var(--panel); margin-bottom: 16px; display: grid; gap: 8px; }
+  .banner.on { border-left-color: var(--danger); background: var(--danger-soft); }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; margin-bottom: 16px; }
+  .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; box-shadow: var(--shadow); }
+  .kpi > .muted:first-child { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+  .kpi .big { font-size: 30px; font-weight: 700; line-height: 1.25; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+  .bar { display: grid; grid-template-columns: 48px 1fr 36px; gap: 8px; align-items: center; margin: 6px 0; }
+  .bar .fill { height: 10px; background: var(--accent); border-radius: 4px; min-width: 2px; }
+  .grid + .grid, .kpis + .grid { margin-top: 16px; }
+
+  /* time-series chart */
+  .chart-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+  .chart-now { font-size: 26px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+  .chart-area { position: relative; }
+  .chart-plot { height: 190px; touch-action: pan-y; cursor: crosshair; border-radius: 4px; }
+  .chart-plot svg { display: block; overflow: visible; }
+  .chart-plot text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .chart-plot .grid { stroke: var(--line); stroke-dasharray: 2 3; }
+  .chart-plot .base { stroke: var(--muted); stroke-opacity: .5; }
+  .chart-plot .line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .chart-plot .area { fill: var(--accent); fill-opacity: .12; }
+  .chart-plot .dot { fill: var(--accent); stroke: var(--panel); stroke-width: 2; }
+  .chart-plot .cross { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+  .chart-tip { position: absolute; pointer-events: none; padding: 6px 10px; border-radius: 6px; white-space: nowrap;
+               background: var(--panel); border: 1px solid var(--line); box-shadow: 0 6px 18px rgba(0, 0, 0, .18); font-size: 13px; }
+  .chart-tip .muted { font-size: 12px; }
+
+  /* tabs inside a page (player detail) */
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: 0 -18px 16px; padding: 0 18px;
+          overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+  .head .inline button { min-height: 26px; padding: 2px 10px; font-size: 12px; }
+  .tabs button { border: 0; border-radius: 0; background: none; padding: 10px 12px; color: var(--muted);
+                 border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tabs button:hover { color: var(--text); background: none; }
+  .tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .crumbs { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; color: var(--muted); }
+  .crumbs a { color: var(--accent); text-decoration: none; }
+  .crumbs a:hover { text-decoration: underline; }
+  .head { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
+  .head .avatar { width: 48px; height: 48px; font-size: 18px; }
+  .head .grow { flex: 1; min-width: 200px; }
+  .head h2 { margin: 0; font-size: 20px; }
+  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .toolbar input[type=search] { max-width: 420px; }
+
+  /* phones: 16px inputs stop iOS zooming on focus, bigger touch targets, tighter cards */
+  @media (max-width: 600px) {
+    input, select, textarea { font-size: 16px; }
+    input, select, button { min-height: 42px; }
+    td button, .head .inline button { min-height: 34px; }
+    .nav a { padding: 11px 10px; }
+    .card { padding: 14px; }
+    .tabs { margin: 0 -14px 14px; padding: 0 14px; }
+    .tabs button { padding: 12px 10px; }
+    .head .toolbar { width: 100%; }
+    .head .toolbar button { flex: 1; }
+    .kv { grid-template-columns: 100px 1fr; }
+    .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .kpi { padding: 12px 14px; }
+    .kpi .big { font-size: 24px; }
+    body .toast { left: 16px; right: 16px; transform: none; text-align: center; }
+  }
+
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--ok);
+           color: #fff; padding: 10px 18px; border-radius: 8px; z-index: 50; box-shadow: 0 8px 24px rgba(0, 0, 0, .2); }
+  .toast.err { background: var(--danger); }
+</style>
+</head>
+<body>
+<aside class="side" id="side">
+  <div class="brand">
+    <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
+      <path d="M16 2 28 9v14l-12 7-12-7V9z" fill="#7b6ff0"/><path d="M16 2 28 9 16 16 4 9z" fill="#9b91ff"/><path d="M16 9l6 3.5v7L16 23l-6-3.5v-7z" fill="#171a2b" opacity=".55"/>
+    </svg>
+    <div><b>GameServer</b><small>Console</small></div>
+  </div>
+  <nav class="nav" id="nav" aria-label="Sections"></nav>
+  <div class="side-foot"><a href="/playground/" target="_blank" rel="noopener">Playground</a><a href="/arena/" target="_blank" rel="noopener">Arena</a></div>
+</aside>
+<div class="shade" id="shade"></div>
+<div class="col">
+  <header class="top">
+    <button class="icon menu-btn" id="menu" aria-label="Open menu"></button>
+    <div class="grow"><h1 id="pageTitle"></h1><p id="pageSub"></p></div>
+    <div class="who">
+      <div class="avatar" id="whoAvatar" aria-hidden="true"></div>
+      <div class="who-text"><b id="whoName"></b><span id="whoRole"></span></div>
+      <button id="logout" hidden>Sign out</button>
+    </div>
+  </header>
+  <main id="app"></main>
+</div>
+
+<script>
+'use strict';
+
+const app = document.getElementById('app');
+const logoutBtn = document.getElementById('logout');
+const navEl = document.getElementById('nav');
+let me = { name: '', role: 'ReadOnly', root: false };
+
+let adminKey = '';
+try { adminKey = sessionStorage.getItem('adminKey') || ''; } catch (e) { /* storage may be blocked */ }
+
+// ---- small helpers -------------------------------------------------------------------------------------
+
+// Builds DOM nodes. Text is always inserted as text (never as HTML), so player-controlled names are safe.
+function h(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (k === 'class') el.className = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else if (v !== false && v != null) el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const kid of kids.flat()) {
+    el.append(kid instanceof Node ? kid : document.createTextNode(String(kid ?? '')));
+  }
+  return el;
+}
+
+function fmt(s) { return s ? new Date(s).toLocaleString() : '-'; }
+
+function toast(message, isError) {
+  const t = h('div', { class: 'toast' + (isError ? ' err' : '') }, message);
+  document.body.append(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+async function api(path, options = {}) {
+  const res = await fetch('/admin/api' + path, {
+    ...options,
+    headers: { 'X-Admin-Key': adminKey, 'Content-Type': 'application/json', ...(options.headers || {}) }
+  });
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch (e) { /* not JSON */ }
+  if (!res.ok) {
+    const err = new Error((data && (data.message || data.error)) || res.statusText || 'Request failed');
+    err.status = res.status;
+    err.code = data && data.error;
+    throw err;
+  }
+  return data;
+}
+
+function signOut(message) {
+  adminKey = '';
+  try { sessionStorage.removeItem('adminKey'); } catch (e) { /* ignore */ }
+  renderLogin(message);
+}
+
+// Line icons (24x24, stroke). Fixed strings only, so setting innerHTML is safe.
+const ICONS = {
+  status: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+  users: '<circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M16 4a4 4 0 0 1 0 8M22 21a7 7 0 0 0-4-6.3"/>',
+  online: '<circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19.1 4.9a10 10 0 0 1 0 14.2M4.9 19.1a10 10 0 0 1 0-14.2"/>',
+  groups: '<path d="M12 3 2 8l10 5 10-5z"/><path d="m2 13 10 5 10-5"/><path d="m2 18 10 5 10-5" opacity=".5"/>',
+  chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12z"/>',
+  boards: '<path d="M8 21V11M16 21V7M12 21V3M4 21h16"/>',
+  matches: '<rect x="2" y="7" width="20" height="12" rx="4"/><path d="M7 11v4M5 13h4M15.5 12h.01M18 14h.01"/>',
+  progress: '<circle cx="12" cy="9" r="6"/><path d="m8.5 14-1.5 8 5-3 5 3-1.5-8"/>',
+  shop: '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18M16 10a4 4 0 0 1-8 0"/>',
+  liveops: '<path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1zM16 8a5 5 0 0 1 0 8M19 5a9 9 0 0 1 0 14"/>',
+  modules: '<path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/>',
+  config: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  social: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/>',
+  admins: '<path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5z"/><path d="m9 12 2 2 4-4"/>',
+  audit: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>',
+  menu: '<path d="M3 6h18M3 12h18M3 18h18"/>',
+  back: '<path d="m15 18-6-6 6-6"/>'
+};
+
+function icon(name, size) {
+  const s = size || 18;
+  const span = h('span', { 'aria-hidden': 'true', style: 'display:inline-flex' });
+  span.innerHTML = `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ` +
+    `stroke-linecap="round" stroke-linejoin="round">${ICONS[name] || ''}</svg>`;
+  return span;
+}
+
+// Sidebar sections. [route, label, icon, page subtitle, render function name]
+const PAGES = [
+  [null, 'Server'],
+  ['dashboard', 'Status', 'status', 'Live players, matches and economy at a glance'],
+  [null, 'Players'],
+  ['users', 'Accounts', 'users', 'Search, edit, ban and inspect player accounts'],
+  ['online', 'Online', 'online', 'Players with an open realtime connection'],
+  ['groups', 'Groups', 'groups', 'Clans and groups, their settings and members'],
+  ['chat', 'Chat messages', 'chat', 'Read channels, remove messages and mute players'],
+  [null, 'Game'],
+  ['boards', 'Leaderboards', 'boards', 'Scores per board and period'],
+  ['matches', 'Matches', 'matches', 'Running matches and the matchmaker queue'],
+  ['progress', 'Progress', 'progress', 'Achievements, quests, daily rewards and player stats'],
+  ['shop', 'Shop', 'shop', 'Catalog and limited purchases'],
+  ['liveops', 'Live-Ops', 'liveops', 'Scheduled inbox messages and tournaments'],
+  [null, 'Runtime'],
+  ['modules', 'Modules & RPC', 'modules', 'Loaded modules, match handlers and the RPC explorer'],
+  ['config', 'Configuration', 'config', 'Remote config keys, maintenance mode and history'],
+  ['social', 'Social rules', 'social', 'Friend limits and group types'],
+  [null, 'Administration', null, null, 'admin'],
+  ['admins', 'Admins', 'admins', 'Console accounts and their roles', 'admin'],
+  ['audit', 'Audit log', 'audit', 'Every change made through the admin API', 'admin']
+];
+
+document.getElementById('menu').append(icon('menu', 20));
+document.getElementById('menu').addEventListener('click', () => document.body.classList.toggle('nav-open'));
+document.getElementById('shade').addEventListener('click', () => document.body.classList.remove('nav-open'));
+window.addEventListener('hashchange', () => { if (adminKey) route(); });
+
+// "#/users/<id>/wallet" -> renderMain('users', ['<id>', 'wallet'])
+function route() {
+  const [tab, ...rest] = location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent);
+  renderMain(tab, rest.filter(Boolean));
+}
+
+function go(path) { location.hash = '#/' + path; }
+
+function handleError(ex) {
+  if (ex.status === 403 && ex.code === 'forbidden') signOut('The admin key was rejected.');
+  else toast(ex.message, true);
+}
+
+logoutBtn.addEventListener('click', () => signOut());
+
+// ---- login ---------------------------------------------------------------------------------------------
+
+function renderLogin(message) {
+  logoutBtn.hidden = true;
+  document.body.classList.add('auth');
+  document.title = 'Sign in · GameServer Console';
+  const input = h('input', { type: 'password', placeholder: 'Admin key', autocomplete: 'off' });
+  const error = h('p', { class: 'err' }, message || '');
+  const form = h('form', {
+    class: 'card login',
+    onsubmit: async (e) => {
+      e.preventDefault();
+      adminKey = input.value.trim();
+      try {
+        me = await api('/me');
+        try { sessionStorage.setItem('adminKey', adminKey); } catch (ex) { /* ignore */ }
+        route();
+      } catch (ex) {
+        adminKey = '';
+        error.textContent = ex.message;
+      }
+    }
+  },
+    document.querySelector('.side .brand').cloneNode(true),
+    h('h2', {}, 'Sign in'),
+    h('p', { class: 'muted' }, 'Enter the admin key configured on the server, or your own console key.'),
+    h('label', { class: 'form', style: 'margin:0' }, 'Admin key', input),
+    h('button', { type: 'submit', class: 'primary' }, 'Sign in'),
+    error);
+  app.replaceChildren(form);
+  input.focus();
+}
+
+// ---- main screen ---------------------------------------------------------------------------------------
+
+function renderMain(tab, rest) {
+  document.body.classList.remove('auth', 'nav-open');
+  logoutBtn.hidden = false;
+  const pages = PAGES.filter(p => p[4] !== 'admin' || isAdmin());
+  const page = pages.find(p => p[0] && p[0] === tab) || pages.find(p => p[0] === 'dashboard');
+  tab = page[0];
+
+  document.getElementById('whoAvatar').textContent = (me.name || '?').slice(0, 1);
+  document.getElementById('whoName').textContent = me.name;
+  document.getElementById('whoRole').textContent = me.role;
+  document.getElementById('pageTitle').textContent = page[1];
+  document.getElementById('pageSub').textContent = page[3];
+  document.title = `${page[1]} · GameServer Console`;
+  navEl.replaceChildren(...pages.map(([id, label, ic]) => id
+    ? h('a', { href: '#/' + id, class: id === tab ? 'active' : '', 'aria-current': id === tab ? 'page' : false }, icon(ic), label)
+    : h('div', { class: 'nav-title' }, label)));
+
+  const content = h('div');
+  app.replaceChildren(
+    me.role === 'ReadOnly' ? h('div', { class: 'ro' }, 'Read-only account: you can look but not change anything.') :
+    me.role === 'Support' ? h('div', { class: 'ro' }, 'Support account: you can ban/mute, delete chat messages and send messages. Other changes are blocked.') : '',
+    content);
+  const views = {
+    dashboard: renderDashboard, groups: renderGroups, chat: renderChat, progress: renderProgress, shop: renderShop,
+    matches: renderMatches, online: renderOnline, social: renderSocialRules, config: renderConfig, boards: renderBoards,
+    liveops: renderLiveOps, modules: renderModules, admins: renderAdmins, audit: renderAudit, users: renderUsers
+  };
+  views[tab](content, rest || []);
+}
+
+// Kept between visits so "back to accounts" returns to the same search and page.
+const usersState = { q: '', offset: 0, limit: 25, total: 0, selectedId: null };
+
+function renderUsers(container, [userId, userTab]) {
+  const state = usersState;
+
+  const search = h('input', { type: 'search', placeholder: 'Search username, display name or user ID', value: state.q });
+  const tbody = h('tbody');
+  const pager = h('div', { class: 'pager' });
+  const detail = h('section', { class: 'card detail' }, h('p', { class: 'muted' }, 'Loading...'));
+  const list = h('section', { class: 'card' },
+    h('div', { class: 'toolbar' }, search),
+    h('table', {},
+      h('thead', {}, h('tr', {}, ['Username', 'Display name', 'Status', 'User ID', 'Last login', 'Created'].map(t => h('th', {}, t)))),
+      tbody),
+    pager);
+
+  function badge(disabled) {
+    return h('span', { class: 'badge' + (disabled ? ' banned' : '') }, disabled ? 'Banned' : 'Active');
+  }
+
+  async function load() {
+    try {
+      const page = await api(`/users?q=${encodeURIComponent(state.q)}&limit=${state.limit}&offset=${state.offset}`);
+      state.total = page.total;
+      tbody.replaceChildren(...page.items.map(u =>
+        h('tr', { class: u.id === state.selectedId ? 'sel' : '', onclick: () => go('users/' + enc(u.id)) },
+          h('td', {}, h('strong', {}, u.username)),
+          h('td', { dir: 'auto' }, u.displayName || '-'),
+          h('td', {}, badge(u.disabled)),
+          h('td', { class: 'mono muted', title: u.id }, u.id),
+          h('td', {}, fmt(u.lastLoginUtc)),
+          h('td', {}, fmt(u.createdUtc)))));
+      if (page.items.length === 0) tbody.replaceChildren(h('tr', {}, h('td', { colspan: 6, class: 'muted' }, 'No accounts match.')));
+      const from = state.total === 0 ? 0 : state.offset + 1;
+      const to = Math.min(state.offset + state.limit, state.total);
+      pager.replaceChildren(
+        h('button', { disabled: state.offset === 0, onclick: () => { state.offset = Math.max(0, state.offset - state.limit); load(); } }, 'Previous'),
+        h('span', { class: 'muted' }, `${from}-${to} of ${state.total}`),
+        h('button', { disabled: state.offset + state.limit >= state.total, onclick: () => { state.offset += state.limit; load(); } }, 'Next'));
+    } catch (ex) { handleError(ex); }
+  }
+
+  async function select(id) {
+    state.selectedId = id;
+    try {
+      renderDetail(await api(`/users/${encodeURIComponent(id)}`));
+    } catch (ex) {
+      detail.replaceChildren(h('p', { class: 'err' }, ex.status === 404 ? 'This account does not exist.' : ex.message));
+      handleError(ex);
+    }
+  }
+
+  async function downloadExport(id) {
+    try {
+      const res = await fetch(`/admin/api/users/${encodeURIComponent(id)}/export`, { headers: { 'X-Admin-Key': adminKey } });
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = h('a', { href: url, download: `user-${id}.json` });
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (ex) { handleError(ex); }
+  }
+
+  function field(label, value, attrs) {
+    const input = h('input', { value: value ?? '', dir: 'auto', ...(attrs || {}) });
+    return { input, node: h('label', {}, label, input) };
+  }
+
+  // Send an inbox message (optionally with a reward the player claims) to this player, or to everyone.
+  function notifyBox(u) {
+    const subject = h('input', { placeholder: 'Subject (required)', dir: 'auto' });
+    const body = h('input', { placeholder: 'Message (optional)', dir: 'auto' });
+    const currency = h('input', { placeholder: 'Reward currency, e.g. coins (optional)', dir: 'ltr' });
+    const amount = h('input', { type: 'number', min: '1', step: '1', placeholder: 'Reward amount' });
+    const days = h('input', { type: 'number', min: '1', step: '1', placeholder: 'Expires in days (optional)' });
+
+    function payload() {
+      const p = { subject: subject.value.trim(), body: body.value.trim() || null };
+      const n = parseInt(amount.value, 10);
+      if (currency.value.trim() && Number.isInteger(n) && n > 0) p.reward = { wallet: { [currency.value.trim()]: n } };
+      const d = parseInt(days.value, 10);
+      if (Number.isInteger(d) && d > 0) p.expiresInDays = d;
+      return p;
+    }
+
+    async function send(toAll) {
+      if (!subject.value.trim()) { toast('Enter a subject', true); return; }
+      if (toAll && !confirm('Send this notification to ALL active players?')) return;
+      try {
+        const res = await api(toAll ? '/notifications/broadcast' : `/users/${encodeURIComponent(u.id)}/notifications`,
+          { method: 'POST', body: JSON.stringify(payload()) });
+        toast(toAll ? `Sent to ${res.sent} players` : 'Sent');
+      } catch (ex) { handleError(ex); }
+    }
+
+    return h('div', {},
+      h('div', { class: 'form' }, subject, body, currency, amount, days),
+      h('div', { class: 'row' },
+        h('button', { class: 'primary', onclick: () => send(false) }, 'Send to this player'),
+        h('button', { class: 'danger', onclick: () => send(true) }, 'Send to ALL players')));
+  }
+
+  // Balances, a form to adjust them, and the history. Every admin change is saved in the history with its reason.
+  function economyBox(u) {
+    const box = h('div', {}, h('p', { class: 'muted' }, 'Loading...'));
+    const base = `/users/${encodeURIComponent(u.id)}`;
+
+    async function load() {
+      try {
+        const [eco, ledger] = await Promise.all([api(base + '/economy'), api(base + '/ledger?limit=30')]);
+        render(eco, ledger.items);
+      } catch (ex) { handleError(ex); }
+    }
+
+    function render(eco, ledger) {
+      const kind = h('select', {}, h('option', { value: 'wallet' }, 'Currency'), h('option', { value: 'items' }, 'Item'));
+      const name = h('input', { placeholder: 'coins', dir: 'ltr' });
+      const amount = h('input', { type: 'number', step: '1', placeholder: '+100 or -50' });
+      const reason = h('input', { placeholder: 'Reason (required, saved in history)', dir: 'auto' });
+
+      async function apply() {
+        const n = name.value.trim();
+        const d = parseInt(amount.value, 10);
+        if (!n || !Number.isInteger(d) || d === 0) { toast('Enter a name and a non-zero whole amount', true); return; }
+        const body = { reason: reason.value.trim() };
+        body[kind.value] = { [n]: d };
+        try {
+          await api(base + '/economy', { method: 'POST', body: JSON.stringify(body) });
+          toast('Applied');
+          load();
+        } catch (ex) { handleError(ex); }
+      }
+
+      const rows = (title, obj) => {
+        const entries = Object.entries(obj);
+        return entries.length === 0
+          ? [h('span', {}, title), h('span', { class: 'muted' }, 'none')]
+          : entries.flatMap(([k, v], i) => [h('span', {}, i === 0 ? title : ''), h('span', {}, `${k}: ${v}`)]);
+      };
+
+      box.replaceChildren(
+        h('div', { class: 'kv' }, ...rows('Currencies', eco.wallet), ...rows('Items', eco.items)),
+        h('div', { class: 'form' }, kind, name, amount, reason),
+        h('div', { class: 'row' }, h('button', { class: 'primary', onclick: apply }, 'Apply change')),
+        h('details', {},
+          h('summary', {}, `History (latest ${ledger.length})`),
+          ...ledger.map(e => h('div', { dir: 'auto' },
+            `${fmt(e.createdUtc)}  ${e.name} ${e.delta > 0 ? '+' : ''}${e.delta} \u2192 ${e.balanceAfter}  (${e.reason})`))));
+    }
+
+    load();
+    return box;
+  }
+
+  // Friends, groups, chat mute and realtime connection of this player.
+  function socialBox(u) {
+    const box = h('div', {}, h('p', { class: 'muted' }, 'Loading...'));
+    const base = `/users/${encodeURIComponent(u.id)}`;
+
+    async function load() {
+      try {
+        const [friends, groups] = await Promise.all([api(base + '/friends'), api(base + '/groups')]);
+        render(friends.friends, groups.groups);
+      } catch (ex) { handleError(ex); }
+    }
+
+    function render(friends, groups) {
+      const minutes = h('input', { type: 'number', min: '1', step: '1', placeholder: 'Mute minutes (empty = until lifted)' });
+      const reason = h('input', { placeholder: 'Reason (optional)', dir: 'auto' });
+
+      async function call(path, method, body, done) {
+        try {
+          await api(base + path, { method, body: body ? JSON.stringify(body) : undefined });
+          toast(done);
+          load();
+        } catch (ex) { handleError(ex); }
+      }
+
+      box.replaceChildren(
+        h('div', { class: 'kv' },
+          h('span', {}, 'Friends'),
+          h('span', {}, friends.length === 0 ? 'none' : ''),
+          ...friends.flatMap(f => [h('span', {}, f.state),
+            h('span', { dir: 'auto' }, `${f.profile.username}${f.online ? ' (online)' : ''} `,
+              h('button', { onclick: () => call('/friends/' + encodeURIComponent(f.profile.id), 'DELETE', null, 'Removed') }, 'Remove'))])),
+        h('div', { class: 'kv' },
+          h('span', {}, 'Groups'),
+          h('span', {}, groups.length === 0 ? 'none' : ''),
+          ...groups.flatMap(g => [h('span', {}, g.role), h('span', { dir: 'auto' }, `${g.group.name} (${g.group.type})`)])),
+        h('div', { class: 'form' }, minutes, reason),
+        h('div', { class: 'row' },
+          h('button', { onclick: () => call('/mute', 'POST', { minutes: parseInt(minutes.value, 10) || null, reason: reason.value.trim() || null }, 'Muted') }, 'Mute in chat'),
+          h('button', { onclick: () => call('/mute', 'DELETE', null, 'Unmuted') }, 'Unmute'),
+          h('button', { class: 'danger', onclick: () => call('/disconnect', 'POST', null, 'Disconnected') }, 'Disconnect')));
+    }
+
+    load();
+    return box;
+  }
+
+  function renderDetail(data) {
+    const u = data.user;
+    const username = field('Username', u.username);
+    const displayName = field('Display name', u.displayName);
+    const avatar = field('Avatar (id or https URL)', u.avatar);
+    const lang = field('Language', u.lang, { placeholder: 'en' });
+    const timezone = field('Timezone', u.timezone, { placeholder: 'Asia/Tehran' });
+
+    async function save() {
+      try {
+        await api(`/users/${encodeURIComponent(u.id)}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            username: username.input.value,
+            displayName: displayName.input.value,
+            avatar: avatar.input.value,
+            lang: lang.input.value,
+            timezone: timezone.input.value
+          })
+        });
+        toast('Saved');
+        select(u.id);
+      } catch (ex) { handleError(ex); }
+    }
+
+    async function toggleBan() {
+      const action = u.disabled ? 'unban' : 'ban';
+      if (!u.disabled && !confirm(`Ban ${u.username}? They will be unable to log in or use any API.`)) return;
+      try {
+        await api(`/users/${encodeURIComponent(u.id)}/${action}`, { method: 'POST' });
+        toast(u.disabled ? 'User unbanned' : 'User banned');
+        select(u.id);
+      } catch (ex) { handleError(ex); }
+    }
+
+    async function remove() {
+      const typed = prompt(`This permanently deletes the account and all its data.\nType the username (${u.username}) to confirm:`);
+      if (typed !== u.username) return;
+      try {
+        await api(`/users/${encodeURIComponent(u.id)}`, { method: 'DELETE' });
+        toast('User deleted');
+        state.selectedId = null;
+        go('users');
+      } catch (ex) { handleError(ex); }
+    }
+
+    const profileTab = () => h('div', {},
+      h('div', { class: 'kv' },
+        h('span', {}, 'Status'), h('span', {}, badge(u.disabled)),
+        h('span', {}, 'Created'), h('span', {}, fmt(u.createdUtc)),
+        h('span', {}, 'Updated'), h('span', {}, fmt(u.updatedUtc)),
+        h('span', {}, 'Last login'), h('span', {}, fmt(u.lastLoginUtc))),
+      h('h3', {}, 'Profile'),
+      h('div', { class: 'form', style: 'max-width:640px' }, username.node, displayName.node, avatar.node, lang.node, timezone.node),
+      h('div', { class: 'row' }, h('button', { class: 'primary', onclick: save }, 'Save changes')),
+      h('h3', {}, 'Logins'),
+      ...(data.devices.length === 0
+        ? [h('p', { class: 'muted' }, 'None')]
+        : data.devices.map(d => h('div', {}, `Device ${d.deviceIdMasked} (since ${fmt(d.createdUtc)})`))),
+      ...(data.identities || []).map(i => h('div', {}, `${i.provider}: ${i.label || '-'} (since ${fmt(i.createdUtc)})`)));
+
+    const tabs = [
+      ['profile', 'Profile', profileTab],
+      ['wallet', 'Wallet & inventory', () => economyBox(u)],
+      ['inbox', 'Notifications', () => notifyBox(u)],
+      ['social', 'Friends, groups & chat', () => socialBox(u)],
+      ['storage', 'Storage', () => storageBox(u)],
+      ['timeline', 'Timeline', () => timelineBox(u)]];
+    const tabBar = h('div', { class: 'tabs', role: 'tablist' });
+    const body = h('div');
+
+    function show(id) {
+      const t = tabs.find(x => x[0] === id) || tabs[0];
+      tabBar.replaceChildren(...tabs.map(([tid, label]) => h('button', {
+        class: tid === t[0] ? 'active' : '', role: 'tab', 'aria-selected': tid === t[0] ? 'true' : 'false',
+        onclick: () => show(tid)
+      }, label)));
+      body.replaceChildren(t[2]());
+      // Keep the address in sync without re-rendering the page (replaceState does not fire hashchange).
+      history.replaceState(null, '', `#/users/${enc(u.id)}${t[0] === 'profile' ? '' : '/' + t[0]}`);
+      userTab = t[0];
+    }
+
+    detail.replaceChildren(
+      h('div', { class: 'head' },
+        h('div', { class: 'avatar', 'aria-hidden': 'true' }, (u.displayName || u.username || '?').slice(0, 1)),
+        h('div', { class: 'grow' },
+          h('h2', { class: 'inline' }, h('span', { dir: 'auto' }, u.displayName || u.username), badge(u.disabled)),
+          h('div', { class: 'inline', style: 'flex-wrap:wrap' },
+            h('span', { class: 'muted' }, '@' + u.username),
+            h('span', { class: 'mono muted' }, u.id), copyButton(() => u.id))),
+        h('div', { class: 'toolbar' },
+          h('button', { onclick: toggleBan }, u.disabled ? 'Unban' : 'Ban'),
+          h('button', { onclick: () => downloadExport(u.id) }, 'Export data'),
+          h('button', { class: 'danger', onclick: remove }, 'Delete account'))),
+      tabBar, body);
+    show(userTab);
+  }
+
+  if (userId) {
+    container.replaceChildren(
+      h('div', { class: 'crumbs' }, h('a', { href: '#/users' }, 'Accounts'), h('span', {}, '/'),
+        h('span', { class: 'mono' }, userId)),
+      detail);
+    select(userId);
+    return;
+  }
+
+  container.replaceChildren(list);
+  let timer = null;
+  search.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => { state.q = search.value.trim(); state.offset = 0; load(); }, 300);
+  });
+
+  load();
+}
+
+// ---- groups / clans ------------------------------------------------------------------------------------
+
+function renderGroups(container) {
+  const state = { q: '', type: '', selectedId: null };
+
+  const search = h('input', { type: 'search', placeholder: 'Search group name' });
+  const typeFilter = h('input', { placeholder: 'Type (clan, group...) - optional', dir: 'ltr' });
+  const tbody = h('tbody');
+  const detail = h('section', { class: 'card detail' }, h('p', { class: 'muted' }, 'Select a group to see its members.'));
+  const list = h('section', { class: 'card' },
+    h('div', { class: 'form' }, search, typeFilter),
+    h('table', {},
+      h('thead', {}, h('tr', {}, ['Name', 'Type', 'Members', 'Open', 'Created'].map(t => h('th', {}, t)))),
+      tbody));
+  container.replaceChildren(h('div', { class: 'grid' }, list, detail));
+
+  async function load() {
+    try {
+      const res = await api(`/groups?q=${encodeURIComponent(state.q)}&type=${encodeURIComponent(state.type)}&limit=100`);
+      tbody.replaceChildren(...res.groups.map(g =>
+        h('tr', { class: g.id === state.selectedId ? 'sel' : '', onclick: () => select(g.id) },
+          h('td', { dir: 'auto' }, g.name),
+          h('td', {}, g.type),
+          h('td', {}, `${g.memberCount}/${g.maxMembers}`),
+          h('td', {}, g.open ? 'yes' : 'no'),
+          h('td', {}, fmt(g.createdUtc)))));
+    } catch (ex) { handleError(ex); }
+  }
+
+  async function select(id) {
+    state.selectedId = id;
+    try {
+      renderDetail(await api(`/groups/${encodeURIComponent(id)}`));
+      load();
+    } catch (ex) { handleError(ex); }
+  }
+
+  function renderDetail(data) {
+    const g = data.group;
+    const base = `/groups/${encodeURIComponent(g.id)}`;
+    const name = h('input', { value: g.name, dir: 'auto' });
+    const description = h('input', { value: g.description || '', dir: 'auto' });
+    const avatar = h('input', { value: g.avatar || '', dir: 'ltr' });
+    const maxMembers = h('input', { type: 'number', min: '2', step: '1', value: String(g.maxMembers) });
+    const open = h('input', { type: 'checkbox' });
+    open.checked = g.open;
+
+    async function save() {
+      try {
+        await api(base, { method: 'PUT', body: JSON.stringify({
+          name: name.value, description: description.value, avatar: avatar.value,
+          open: open.checked, maxMembers: parseInt(maxMembers.value, 10)
+        }) });
+        toast('Saved');
+        select(g.id);
+      } catch (ex) { handleError(ex); }
+    }
+
+    async function remove() {
+      const typed = prompt(`This permanently deletes the group and its chat history.\nType the group name (${g.name}) to confirm:`);
+      if (typed !== g.name) return;
+      try {
+        await api(base, { method: 'DELETE' });
+        toast('Group deleted');
+        state.selectedId = null;
+        detail.replaceChildren(h('p', { class: 'muted' }, 'Select a group to see its members.'));
+        load();
+      } catch (ex) { handleError(ex); }
+    }
+
+    async function act(userId, action, text) {
+      if (text && !confirm(text)) return;
+      try {
+        await api(`${base}/${action === 'transfer' ? 'transfer' : 'members'}/${encodeURIComponent(userId)}${action === 'transfer' ? '' : '/' + action}`,
+          { method: 'POST' });
+        toast('Done');
+        select(g.id);
+      } catch (ex) { handleError(ex); }
+    }
+
+    const rows = data.members.map(m => h('tr', {},
+      h('td', { dir: 'auto' }, m.profile.username),
+      h('td', {}, m.role),
+      h('td', {}, fmt(m.updatedUtc)),
+      h('td', {},
+        m.role === 'banned' || m.role === 'owner' ? '' :
+          h('button', { onclick: (e) => { e.stopPropagation(); act(m.profile.id, 'kick', `Remove ${m.profile.username} from the group?`); } }, 'Remove'),
+        m.role === 'banned' || m.role === 'owner' ? '' :
+          h('button', { class: 'danger', onclick: (e) => { e.stopPropagation(); act(m.profile.id, 'ban', `Ban ${m.profile.username} from the group?`); } }, 'Ban'),
+        m.role === 'member' || m.role === 'admin'
+          ? h('button', { onclick: (e) => { e.stopPropagation(); act(m.profile.id, 'transfer', `Make ${m.profile.username} the owner?`); } }, 'Make owner')
+          : '')));
+
+    detail.replaceChildren(
+      h('h2', { dir: 'auto' }, g.name),
+      h('p', { class: 'muted' }, `${g.id} - type ${g.type} - created ${fmt(g.createdUtc)}`),
+      h('div', { class: 'form' },
+        h('label', {}, 'Name', name),
+        h('label', {}, 'Description', description),
+        h('label', {}, 'Avatar', avatar),
+        h('label', {}, 'Max members', maxMembers),
+        h('label', { class: 'inline' }, open, 'Open: anyone can join without approval')),
+      h('div', { class: 'row' },
+        h('button', { class: 'primary', onclick: save }, 'Save'),
+        h('button', { class: 'danger', onclick: remove }, 'Delete group')),
+      h('h3', {}, `Members (${data.members.length})`),
+      h('table', {},
+        h('thead', {}, h('tr', {}, ['Player', 'Role', 'Since', ''].map(t => h('th', {}, t)))),
+        h('tbody', {}, ...rows)));
+  }
+
+  let timer = null;
+  const onType = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => { state.q = search.value.trim(); state.type = typeFilter.value.trim(); load(); }, 300);
+  };
+  search.addEventListener('input', onType);
+  typeFilter.addEventListener('input', onType);
+  load();
+}
+
+// ---- chat ----------------------------------------------------------------------------------------------
+
+function renderChat(container) {
+  const channelInput = h('input', { placeholder: 'Channel, e.g. group:<id>, room:global, dm:<idA>:<idB>', dir: 'ltr' });
+  const channelsBody = h('tbody');
+  const messages = h('div', {}, h('p', { class: 'muted' }, 'Pick a channel from the list, or type one and press Open.'));
+  const sendText = h('input', { placeholder: 'System message to the open channel', dir: 'auto' });
+  const mutesBox = h('div');
+  const state = { channel: '' };
+
+  const left = h('section', { class: 'card' },
+    h('div', { class: 'inline' }, channelInput, h('button', { onclick: () => open(channelInput.value.trim()) }, 'Open')),
+    h('h3', { class: 'muted' }, 'Channels with stored messages'),
+    h('table', {}, h('thead', {}, h('tr', {}, ['Channel', 'Messages', 'Last'].map(t => h('th', {}, t)))), channelsBody),
+    h('h3', { class: 'muted' }, 'Muted players'),
+    mutesBox);
+  const right = h('section', { class: 'card detail' },
+    h('div', { class: 'inline' }, sendText,
+      h('button', { class: 'primary', onclick: sendSystem }, 'Send')),
+    messages);
+  container.replaceChildren(h('div', { class: 'grid' }, left, right));
+
+  async function loadChannels() {
+    try {
+      const res = await api('/chat/channels?limit=100');
+      channelsBody.replaceChildren(...res.channels.map(c =>
+        h('tr', { onclick: () => { channelInput.value = c.channel; open(c.channel); } },
+          h('td', {}, c.channel), h('td', {}, String(c.messages)), h('td', {}, fmt(c.lastUtc)))));
+    } catch (ex) { handleError(ex); }
+  }
+
+  async function loadMutes() {
+    try {
+      const res = await api('/chat/mutes');
+      mutesBox.replaceChildren(...(res.mutes.length === 0 ? [h('p', { class: 'muted' }, 'Nobody is muted.')] :
+        res.mutes.map(m => h('div', { class: 'inline' },
+          h('span', { dir: 'auto' }, `${m.username || m.userId} - ${m.untilUtc ? 'until ' + fmt(m.untilUtc) : 'until lifted'}${m.reason ? ' (' + m.reason + ')' : ''}`),
+          h('button', { onclick: async () => {
+            try { await api(`/users/${encodeURIComponent(m.userId)}/mute`, { method: 'DELETE' }); toast('Unmuted'); loadMutes(); }
+            catch (ex) { handleError(ex); }
+          } }, 'Unmute')))));
+    } catch (ex) { handleError(ex); }
+  }
+
+  async function open(channel) {
+    if (!channel) return;
+    state.channel = channel;
+    try {
+      const res = await api(`/chat/messages?channel=${encodeURIComponent(channel)}&limit=100`);
+      if (res.items.length === 0) { messages.replaceChildren(h('p', { class: 'muted' }, 'No stored messages.')); return; }
+      messages.replaceChildren(...res.items.map(m => h('div', { class: 'inline', dir: 'auto' },
+        h('span', { class: 'muted' }, fmt(m.createdUtc)),
+        h('strong', {}, m.senderName || (m.senderId ? m.senderId : 'system')),
+        h('span', { style: 'flex:1; white-space:normal' }, m.text),
+        h('button', { class: 'danger', onclick: async () => {
+          if (!confirm('Delete this message?')) return;
+          try { await api(`/chat/messages/${m.id}`, { method: 'DELETE' }); open(channel); } catch (ex) { handleError(ex); }
+        } }, 'Delete'),
+        m.senderId ? h('button', { onclick: async () => {
+          const minutes = prompt('Mute for how many minutes? (empty = until lifted)', '60');
+          if (minutes === null) return;
+          const reason = prompt('Reason (optional)', '') || null;
+          try {
+            await api(`/users/${encodeURIComponent(m.senderId)}/mute`,
+              { method: 'POST', body: JSON.stringify({ minutes: parseInt(minutes, 10) || null, reason }) });
+            toast('Muted'); loadMutes();
+          } catch (ex) { handleError(ex); }
+        } }, 'Mute') : '')));
+    } catch (ex) { handleError(ex); }
+  }
+
+  async function sendSystem() {
+    if (!state.channel || !sendText.value.trim()) { toast('Open a channel and type a message', true); return; }
+    try {
+      await api('/chat/send', { method: 'POST', body: JSON.stringify({ channel: state.channel, text: sendText.value }) });
+      sendText.value = '';
+      toast('Sent');
+      open(state.channel);
+    } catch (ex) { handleError(ex); }
+  }
+
+  loadChannels();
+  loadMutes();
+}
+
+// ---- progress: achievements, quests, daily reward ----------------------------------------------------------
+
+function renderProgress(container) {
+  const bundle = b => [...Object.entries((b && b.wallet) || {}), ...Object.entries((b && b.items) || {})].map(([k, v]) => `${v} ${k}`).join(', ') || '-';
+  const goalsBody = h('tbody');
+  const dailyBox = h('p', { class: 'muted' });
+  const userBox = h('input', { type: 'search', placeholder: 'User id', dir: 'ltr' });
+  const statName = h('input', { placeholder: 'stat name', dir: 'ltr' });
+  const statValue = h('input', { type: 'number', value: '1', dir: 'ltr' });
+  const statMode = h('select', {}, h('option', { value: 'add' }, 'add'), h('option', { value: 'max' }, 'raise to at least'));
+  const userOut = h('pre', { class: 'muted' });
+  container.replaceChildren(h('section', { class: 'card' },
+    h('p', { class: 'muted' }, 'Definitions are the config keys "achievements", "quests" and "daily_rewards" (Config tab). Games report stats from modules with ctx.Progress.AddStatAsync.'),
+    h('table', {}, h('thead', {}, h('tr', {}, ['Kind', 'Id', 'Name', 'Stat', 'Target', 'Period', 'Reward'].map(t => h('th', {}, t)))), goalsBody),
+    dailyBox,
+    h('h3', {}, 'A player'),
+    h('div', { class: 'inline' }, userBox, h('button', { onclick: loadUser }, 'Show stats and streak')),
+    h('div', { class: 'inline' }, statName, statValue, statMode, h('button', { onclick: changeStat }, 'Apply to this player')),
+    userOut));
+
+  async function load() {
+    try {
+      const res = await api('/progress');
+      const rows = [
+        ...res.achievements.map(g => ['achievement', g]),
+        ...res.quests.map(g => ['quest', g])];
+      goalsBody.replaceChildren(...rows.map(([kind, g]) => h('tr', {},
+        h('td', {}, kind), h('td', {}, g.id), h('td', { dir: 'auto' }, g.name), h('td', {}, g.stat),
+        h('td', {}, String(g.target)), h('td', {}, g.period), h('td', {}, bundle(g.reward)))));
+      const d = res.daily;
+      dailyBox.textContent = d.rewards.length
+        ? `Daily reward: ${d.rewards.length}-day cycle (${d.rewards.map(bundle).join(' | ')}), streak ${d.resetOnMiss ? 'resets' : 'is kept'} when a day is missed, day starts at UTC${d.utcOffsetMinutes >= 0 ? '+' : ''}${d.utcOffsetMinutes} min.`
+        : 'Daily reward: not configured.';
+    } catch (ex) { handleError(ex); }
+  }
+
+  async function loadUser() {
+    const id = userBox.value.trim();
+    if (!id) return;
+    try {
+      const res = await api('/users/' + encodeURIComponent(id) + '/progress');
+      const stats = Object.entries(res.stats).map(([k, v]) => `${k}: ${v}`).join('\n') || 'No stats yet.';
+      userOut.textContent = stats + `\n\nDaily streak: ${res.daily.streak}, claimed today: ${res.daily.claimedToday ? 'yes' : 'no'}, next reward day: ${res.daily.nextDay}`;
+    } catch (ex) { handleError(ex); }
+  }
+
+  async function changeStat() {
+    const id = userBox.value.trim();
+    if (!id || !statName.value.trim()) return;
+    try {
+      await api('/users/' + encodeURIComponent(id) + '/stats', { method: 'POST', body: JSON.stringify({ stat: statName.value.trim(), value: Number(statValue.value), mode: statMode.value }) });
+      toast('Stat changed');
+      loadUser();
+    } catch (ex) { handleError(ex); }
+  }
+  load();
+}
+
+// ---- shop ------------------------------------------------------------------------------------------------
+
+function renderShop(container) {
+  const fmt = b => [...Object.entries(b.wallet || {}), ...Object.entries(b.items || {})].map(([k, v]) => `${v} ${k}`).join(', ') || 'free';
+  const tbody = h('tbody');
+  const userBox = h('input', { type: 'search', placeholder: 'User id: show their purchases', dir: 'ltr' });
+  const purchases = h('pre', { class: 'muted' });
+  container.replaceChildren(h('section', { class: 'card' },
+    h('p', { class: 'muted' }, 'The catalog is the config key "shop" (Config tab). Prices are always read from it on the server.'),
+    h('table', {}, h('thead', {}, h('tr', {}, ['Product', 'Name', 'Category', 'Cost', 'Gives', 'Limit', 'On sale', 'Enabled'].map(t => h('th', {}, t)))), tbody),
+    h('div', { class: 'inline' }, userBox, h('button', { onclick: loadUser }, 'Show')), purchases));
+
+  async function load() {
+    try {
+      const res = await api('/shop');
+      tbody.replaceChildren(...res.products.map(p => h('tr', {},
+        h('td', {}, p.id), h('td', { dir: 'auto' }, p.name), h('td', {}, p.category || '-'),
+        h('td', {}, fmt(p.cost)), h('td', {}, fmt(p.gives)),
+        h('td', {}, p.limit ? `${p.limit.count} / ${p.limit.per}` : '-'),
+        h('td', {}, [p.startUtc ? 'from ' + p.startUtc : '', p.endUtc ? 'until ' + p.endUtc : ''].filter(Boolean).join(' ') || 'always'),
+        h('td', {}, p.enabled ? 'yes' : 'no'))));
+    } catch (ex) { handleError(ex); }
+  }
+
+  async function loadUser() {
+    const id = userBox.value.trim();
+    if (!id) return;
+    try {
+      const res = await api('/users/' + encodeURIComponent(id) + '/shop');
+      purchases.textContent = res.purchases.length
+        ? res.purchases.map(x => `${x.productId}  ${x.period}  x${x.count}`).join('\n')
+        : 'No limited purchases.';
+    } catch (ex) { handleError(ex); }
+  }
+  load();
+}
+
+// ---- matches and matchmaker ------------------------------------------------------------------------------
+
+function renderMatches(container) {
+  const summary = h('p', { class: 'muted' }, 'Loading...');
+  const modeFilter = h('input', { type: 'search', placeholder: 'Filter by mode name', dir: 'ltr' });
+  const tbody = h('tbody');
+  container.replaceChildren(h('section', { class: 'card' },
+    h('div', { class: 'inline' }, summary, modeFilter, h('button', { onclick: load }, 'Refresh')),
+    h('p', { class: 'muted' }, 'Modes and their protocols are defined in the Config tab, key "matches".'),
+    h('table', {}, h('thead', {}, h('tr', {}, ['Match', 'Mode', 'Label', 'Players', 'Connected', 'Open', 'Created', ''].map(t => h('th', {}, t)))), tbody)));
+
+  async function load() {
+    try {
+      const q = modeFilter.value.trim();
+      const res = await api('/matches?limit=200' + (q ? '&mode=' + encodeURIComponent(q) : ''));
+      const queued = Object.entries(res.queued || {}).map(([m, n]) => `${m}: ${n}`).join(', ') || 'nobody';
+      summary.textContent = `${res.running} matches running. Transports: ${(res.transports || []).join(', ') || 'none'}. In matchmaker: ${queued}`;
+      tbody.replaceChildren(...res.matches.map(m => h('tr', {},
+        h('td', {}, m.id.slice(0, 8)), h('td', {}, m.mode), h('td', { dir: 'auto' }, m.label || '-'),
+        h('td', {}, `${m.players}/${m.maxPlayers}`), h('td', {}, String(m.connected)), h('td', {}, m.open ? 'yes' : 'no'),
+        h('td', {}, new Date(m.createdUtc).toLocaleTimeString()),
+        h('td', {}, h('button', { class: 'danger', onclick: async () => {
+          if (!confirm('End this match and disconnect its players?')) return;
+          try { await api('/matches/' + m.id, { method: 'DELETE' }); toast('Match ended'); load(); }
+          catch (ex) { handleError(ex); }
+        } }, 'End')))));
+    } catch (ex) { handleError(ex); }
+  }
+  modeFilter.addEventListener('change', load);
+  load();
+}
+
+// ---- online players ------------------------------------------------------------------------------------
+
+function renderOnline(container) {
+  const summary = h('p', { class: 'muted' }, 'Loading...');
+  const tbody = h('tbody');
+  container.replaceChildren(h('section', { class: 'card' },
+    h('div', { class: 'inline' }, summary, h('button', { onclick: load }, 'Refresh')),
+    h('table', {}, h('thead', {}, h('tr', {}, ['Player', 'User ID', 'Connections', ''].map(t => h('th', {}, t)))), tbody)));
+
+  async function load() {
+    try {
+      const res = await api('/online?limit=200');
+      summary.textContent = `${res.users} players online, ${res.connections} open connections`;
+      tbody.replaceChildren(...res.items.map(x => h('tr', {},
+        h('td', { dir: 'auto' }, x.username || '-'), h('td', {}, x.userId), h('td', {}, String(x.connections)),
+        h('td', {}, h('button', { class: 'danger', onclick: async () => {
+          if (!confirm(`Disconnect ${x.username || x.userId}?`)) return;
+          try { await api(`/users/${encodeURIComponent(x.userId)}/disconnect`, { method: 'POST' }); toast('Disconnected'); load(); }
+          catch (ex) { handleError(ex); }
+        } }, 'Disconnect')))));
+    } catch (ex) { handleError(ex); }
+  }
+  load();
+}
+
+// ---- social rules (config key "social") ----------------------------------------------------------------
+
+function renderSocialRules(container) {
+  const card = h('section', { class: 'card detail' }, h('p', { class: 'muted' }, 'Loading...'));
+  container.replaceChildren(card);
+
+  async function load() {
+    try {
+      const items = (await api('/config')).items;
+      const entry = items.find(e => e.key === 'social');
+      render(entry ? entry.value : {});
+    } catch (ex) { handleError(ex); }
+  }
+
+  function render(value) {
+    const maxFriends = h('input', { type: 'number', min: '1', max: '5000', step: '1', value: String(value.maxFriends ?? 200) });
+    const types = Object.entries(value.groupTypes || { clan: { maxPerUser: 1, maxMembers: 50 }, group: { maxPerUser: 10, maxMembers: 100 } });
+    const typeRows = h('div', { class: 'form' });
+
+    function addRow(name, rule) {
+      const n = h('input', { value: name, placeholder: 'type name, e.g. clan', dir: 'ltr' });
+      const per = h('input', { type: 'number', min: '1', max: '100', step: '1', value: String(rule.maxPerUser ?? 10), title: 'Max groups of this type per player' });
+      const max = h('input', { type: 'number', min: '2', max: '10000', step: '1', value: String(rule.maxMembers ?? 100), title: 'Max members per group' });
+      const row = h('div', { class: 'inline', 'data-row': '1' }, n, per, max, h('button', { onclick: () => row.remove() }, 'Remove'));
+      row._get = () => ({ name: n.value.trim(), maxPerUser: parseInt(per.value, 10), maxMembers: parseInt(max.value, 10) });
+      typeRows.append(row);
+    }
+    types.forEach(([n, r]) => addRow(n, r));
+
+    async function save() {
+      const groupTypes = {};
+      for (const row of typeRows.children) {
+        const t = row._get();
+        if (!t.name) continue;
+        groupTypes[t.name] = { maxPerUser: t.maxPerUser, maxMembers: t.maxMembers };
+      }
+      try {
+        await api('/config/social', { method: 'PUT', body: JSON.stringify({ value: { maxFriends: parseInt(maxFriends.value, 10), groupTypes }, public: false }) });
+        toast('Saved');
+        load();
+      } catch (ex) { handleError(ex); }
+    }
+
+    card.replaceChildren(
+      h('h2', {}, 'Friends and groups'),
+      h('p', { class: 'muted' }, 'Stored as config key "social". A group type is what players pick when they create a group (a clan is just a type with max 1 per player).'),
+      h('div', { class: 'form' }, h('label', {}, 'Max friends per player', maxFriends)),
+      h('h3', {}, 'Group types (name, max per player, max members)'),
+      typeRows,
+      h('div', { class: 'row' },
+        h('button', { onclick: () => addRow('', { maxPerUser: 10, maxMembers: 100 }) }, 'Add type'),
+        h('button', { class: 'primary', onclick: save }, 'Save')));
+  }
+
+  load();
+}
+
+// ---- remote config -------------------------------------------------------------------------------------
+
+function renderConfig(container) {
+  const state = { items: [], selected: null, isNew: false };
+
+  const maintenanceMsg = h('input', { placeholder: 'Message shown to players (optional)', dir: 'auto' });
+  const banner = h('div', { class: 'banner' });
+  const tbody = h('tbody');
+  const editor = h('section', { class: 'card detail' });
+  const list = h('section', { class: 'card' },
+    h('div', { class: 'row', style: 'margin-top:0' },
+      h('button', { class: 'primary', onclick: () => startEdit(null) }, 'New key'),
+      h('button', { onclick: () => startEdit({ key: 'app_version', value: {
+        default: { latest: '1.0.0', minimum: '1.0.0', url: '' },
+        bazaar: { latest: '1.0.0', minimum: '1.0.0', url: '' },
+        googleplay: { latest: '1.0.0', minimum: '1.0.0', url: '' } }, isPublic: false }, true) }, 'App version template'),
+      ...templateButtons()),
+    h('table', {},
+      h('thead', {}, h('tr', {}, ['Key', 'Visibility', 'Updated'].map(t => h('th', {}, t)))),
+      tbody));
+  container.replaceChildren(banner, h('div', { class: 'grid' }, list, editor));
+
+  function templateButtons() {
+    const day = 24 * 3600 * 1000;
+    const templates = {
+      'Economy template': ['economy', {
+        currencies: { coins: { name: { fa: 'سکه', en: 'Coins' }, max: 999999999 } },
+        items: { card_fire: { name: { fa: 'کارت آتش', en: 'Fire card' }, stack: 99 } } }],
+      'Leaderboards template': ['leaderboards', {
+        weekly_score: { sort: 'desc', operator: 'best', reset: 'weekly' },
+        all_time: { sort: 'desc', operator: 'best', reset: 'never' } }],
+      'Tournaments template': ['tournaments', {
+        winter_cup: {
+          name: { en: 'Winter Cup' },
+          start: new Date().toISOString(), end: new Date(Date.now() + 7 * day).toISOString(),
+          sort: 'desc', operator: 'best', entryFee: { coins: 50 },
+          rewards: [
+            { fromRank: 1, toRank: 1, wallet: { coins: 1000 } },
+            { fromRank: 2, toRank: 10, wallet: { coins: 200 } }] } }]
+    };
+    return Object.entries(templates).map(([label, [key, value]]) =>
+      h('button', { onclick: () => startEdit({ key, value, isPublic: true }, true) }, label));
+  }
+
+  const hints = {
+    economy: 'Once saved, only the currencies and items listed here are allowed in the wallet and inventory (max / stack are enforced).',
+    leaderboards: 'sort: desc|asc. operator: best|set|incr. reset: never|daily|weekly|monthly (UTC).',
+    tournaments: 'start/end are UTC dates. entryFee is paid in currencies. rewards: tiers of fromRank..toRank with wallet and/or items.'
+  };
+
+  async function load() {
+    try {
+      state.items = (await api('/config')).items;
+      renderList();
+      renderBanner();
+    } catch (ex) { handleError(ex); }
+  }
+
+  function renderList() {
+    tbody.replaceChildren(...state.items.map(e =>
+      h('tr', { class: !state.isNew && state.selected === e.key ? 'sel' : '', onclick: () => startEdit(e) },
+        h('td', {}, e.key),
+        h('td', {}, h('span', { class: 'badge' + (e.isPublic ? '' : ' banned') }, e.isPublic ? 'public' : 'server only')),
+        h('td', {}, fmt(e.updatedUtc)))));
+    if (state.items.length === 0) {
+      tbody.replaceChildren(h('tr', {}, h('td', { colspan: 3, class: 'muted' }, 'No config yet. Create a key on the right.')));
+    }
+  }
+
+  function renderBanner() {
+    const m = state.items.find(e => e.key === 'maintenance');
+    const on = !!(m && m.value && m.value.enabled === true);
+    banner.className = 'banner' + (on ? ' on' : '');
+    banner.replaceChildren(
+      h('strong', {}, on ? 'Maintenance is ON: players get 503 on login and every game API call.' : 'Maintenance is off.'),
+      on && m.value.message ? h('span', { class: 'muted', dir: 'auto' }, `Message: ${typeof m.value.message === 'string' ? m.value.message : JSON.stringify(m.value.message)}`) : '',
+      h('div', { class: 'row', style: 'margin-top:0' },
+        on ? '' : maintenanceMsg,
+        h('button', { class: on ? 'primary' : 'danger', onclick: () => setMaintenance(!on) }, on ? 'Turn maintenance off' : 'Turn maintenance on')));
+  }
+
+  async function setMaintenance(enable) {
+    if (enable && !confirm('Turn maintenance ON? Players will not be able to log in or use the game API.')) return;
+    const value = { enabled: enable };
+    const text = maintenanceMsg.value.trim();
+    if (enable && text) value.message = text;
+    try {
+      await api('/config/maintenance', { method: 'PUT', body: JSON.stringify({ value, public: true }) });
+      toast(enable ? 'Maintenance is on' : 'Maintenance is off');
+      load();
+    } catch (ex) { handleError(ex); }
+  }
+
+  function startEdit(entry, asNew) {
+    state.isNew = !entry || !!asNew;
+    state.selected = entry ? entry.key : null;
+    const key = h('input', { value: entry ? entry.key : '', placeholder: 'daily_reward', disabled: !state.isNew, dir: 'ltr' });
+    const value = h('textarea', { spellcheck: 'false', dir: 'ltr' }, entry ? JSON.stringify(entry.value, null, 2) : '{\n  \n}');
+    const isPublic = h('input', { type: 'checkbox', checked: entry ? entry.isPublic : false });
+    if (entry && entry.isPublic) isPublic.checked = true;
+
+    async function save() {
+      let parsed;
+      try { parsed = JSON.parse(value.value); }
+      catch (ex) { toast('Value is not valid JSON: ' + ex.message, true); return; }
+      const k = key.value.trim();
+      try {
+        await api(`/config/${encodeURIComponent(k)}`, { method: 'PUT', body: JSON.stringify({ value: parsed, public: isPublic.checked }) });
+        toast('Saved');
+        state.isNew = false;
+        state.selected = k;
+        await load();
+        startEdit(state.items.find(e => e.key === k));
+      } catch (ex) { handleError(ex); }
+    }
+
+    async function remove() {
+      if (!confirm(`Delete config key "${entry.key}"?`)) return;
+      try {
+        await api(`/config/${encodeURIComponent(entry.key)}`, { method: 'DELETE' });
+        toast('Deleted');
+        state.selected = null;
+        editor.replaceChildren(h('p', { class: 'muted' }, 'Select a key to edit it.'));
+        load();
+      } catch (ex) { handleError(ex); }
+    }
+
+    const histBox = h('div');
+    editor.replaceChildren(
+      h('h2', {}, state.isNew ? 'New key' : entry.key),
+      !state.isNew ? h('p', { class: 'muted' }, `Updated ${fmt(entry.updatedUtc)}`) : '',
+      h('div', { class: 'form' },
+        h('label', {}, 'Key (lowercase letters, digits, _ - .)', key),
+        h('label', {}, 'Value (JSON)', value),
+        hints[entry && entry.key] ? h('p', { class: 'muted' }, hints[entry.key]) : '',
+        h('label', { class: 'inline' }, isPublic, 'Public: sent to every client by GET /v1/config. Untick to keep it on the server only.')),
+      h('div', { class: 'row' },
+        h('button', { class: 'primary', onclick: save }, 'Save'),
+        !state.isNew ? h('button', { class: 'danger', onclick: remove }, 'Delete') : '',
+        !state.isNew ? h('button', { onclick: () => showHistory(entry.key, histBox) }, 'History') : ''),
+      histBox);
+    renderList();
+  }
+
+  async function showHistory(k, box) {
+    try {
+      const { items } = await api(`/config/${enc(k)}/history`);
+      box.replaceChildren(h('h3', {}, 'Previous versions'),
+        ...(items.length === 0 ? [h('p', { class: 'muted' }, 'No earlier versions.')] : items.map(it => h('details', {},
+          h('summary', {}, `${fmt(it.atUtc)} · replaced by ${it.changedBy || '?'}`),
+          h('pre', {}, JSON.stringify(it.value, null, 2)),
+          h('div', { class: 'row' }, h('button', {
+            class: 'primary',
+            onclick: async () => {
+              if (!confirm('Put this version back? The current one is kept in history.')) return;
+              try {
+                await api(`/config/${enc(k)}/rollback/${it.id}`, { method: 'POST' });
+                toast('Rolled back');
+                await load();
+                startEdit(state.items.find(e => e.key === k));
+              } catch (ex) { handleError(ex); }
+            }
+          }, 'Restore this version'))))));
+    } catch (ex) { handleError(ex); }
+  }
+
+  editor.replaceChildren(h('p', { class: 'muted' }, 'Select a key to edit it.'));
+  load();
+}
+
+// ---- leaderboards --------------------------------------------------------------------------------------
+
+function renderBoards(container) {
+  const id = h('input', { placeholder: 'Leaderboard id, e.g. weekly_score, or tournament:winter_cup', dir: 'ltr' });
+  const period = h('input', { placeholder: 'Period (optional): current, all, 2026-W45, 2026-11-08, 2026-11', dir: 'ltr' });
+  const out = h('div');
+
+  async function load() {
+    const boardId = id.value.trim();
+    if (!boardId) { toast('Enter a leaderboard id', true); return; }
+    const q = new URLSearchParams({ limit: '100' });
+    if (period.value.trim()) q.set('period', period.value.trim());
+    try {
+      const b = await api(`/leaderboards/${encodeURIComponent(boardId)}?${q}`);
+      out.replaceChildren(
+        h('p', { class: 'muted' }, `Period ${b.period}${b.periodEndsUtc ? ', ends ' + fmt(b.periodEndsUtc) : ''}, sort ${b.sort}`),
+        b.entries.length === 0 ? h('p', { class: 'muted' }, 'No scores yet.') :
+        h('table', {},
+          h('thead', {}, h('tr', {}, ['#', 'Player', 'Score', ''].map(t => h('th', {}, t)))),
+          h('tbody', {}, ...b.entries.map(e => h('tr', {},
+            h('td', {}, e.rank),
+            h('td', { dir: 'auto' }, e.displayName || e.username),
+            h('td', {}, e.score),
+            h('td', {}, h('button', { class: 'danger', onclick: () => remove(boardId, e) }, 'Remove'))))))); 
+    } catch (ex) { handleError(ex); }
+  }
+
+  async function remove(boardId, e) {
+    if (!confirm(`Remove ${e.username} from ${boardId} (all periods)?`)) return;
+    try {
+      await api(`/leaderboards/${encodeURIComponent(boardId)}/scores/${encodeURIComponent(e.userId)}`, { method: 'DELETE' });
+      toast('Removed');
+      load();
+    } catch (ex) { handleError(ex); }
+  }
+
+  container.replaceChildren(h('section', { class: 'card' },
+    h('p', { class: 'muted' }, 'Boards are defined in the Config tab (keys leaderboards and tournaments).'),
+    h('div', { class: 'form' }, id, period),
+    h('div', { class: 'row' }, h('button', { class: 'primary', onclick: load }, 'Load')),
+    out));
+}
+
+// ---- admin console: shared helpers ---------------------------------------------------------------------
+
+const enc = encodeURIComponent;
+const isAdmin = () => me.role === 'Admin';
+
+function toLocalInput(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+}
+
+function fromLocalInput(value) { return value ? new Date(value).toISOString() : null; }
+
+function kpi(label, value, sub) {
+  return h('div', { class: 'kpi' },
+    h('div', { class: 'muted' }, label),
+    h('div', { class: 'big' }, String(value)),
+    sub ? h('div', { class: 'muted' }, sub) : '');
+}
+
+// Round step for axis ticks: 1, 2 or 5 times a power of ten (whole numbers only, these are counts).
+function niceStep(raw) {
+  if (raw <= 1) return 1;
+  const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+  const f = raw / pow;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * pow;
+}
+
+// Time-series line chart as inline SVG, drawn at the real pixel width so text stays readable on phones.
+// Returns { el, update(points) }: update redraws in place, so the dashboard refresh does not reset a hover.
+// Only numbers and our own formatted dates go into the markup, never player text.
+function lineChart(key, label) {
+  const ht = 190, padL = 40, padR = 14, padT = 12, padB = 26;
+  const now = h('span', { class: 'chart-now' }, '-');
+  const stats = h('span', { class: 'muted' });
+  const host = h('div', { class: 'chart-plot', tabindex: '0', role: 'img' });
+  const tip = h('div', { class: 'chart-tip', hidden: true });
+  const empty = h('p', { class: 'muted', hidden: true }, 'No samples yet (the server saves one every minute).');
+  const el = h('div', { class: 'chart' }, h('div', { class: 'chart-head' }, now, stats),
+    h('div', { class: 'chart-area' }, host, tip), empty);
+  let points = [], range = null, width = 0, hover = -1, geo = null;
+
+  const time = t => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const day = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' });
+
+  function draw() {
+    width = host.clientWidth;
+    if (!points.length || width < 50) { host.innerHTML = ''; return; }
+    const vals = points.map(p => p[key]);
+    const ts = points.map(p => new Date(p.atUtc).getTime());
+    // The axis covers the chosen range, so missing data shows as empty space instead of being stretched.
+    const t0 = Math.min(range ? range[0] : ts[0], ts[0]);
+    const t1 = Math.max(range ? range[1] : ts[ts.length - 1], ts[ts.length - 1], t0 + 60000);
+    const step = niceStep(Math.max(...vals, 1) / 4);
+    const top = Math.max(step, Math.ceil(Math.max(...vals) / step) * step);
+    const x = t => padL + (t - t0) * (width - padL - padR) / (t1 - t0);
+    const y = v => padT + (top - v) * (ht - padT - padB) / top;
+    geo = { x, y, ts, t0, t1 };
+
+    // Gaps longer than 3 sample intervals (server was down) break the line instead of drawing a fake slope.
+    const diffs = ts.slice(1).map((t, i) => t - ts[i]).sort((a, b) => a - b);
+    const gap = Math.max(3 * (diffs[Math.floor(diffs.length / 2)] || 60000), 5 * 60000);
+    const runs = [[]];
+    ts.forEach((t, i) => {
+      if (i > 0 && t - ts[i - 1] > gap) runs.push([]);
+      runs[runs.length - 1].push([x(t), y(vals[i])]);
+    });
+    const line = runs.map(r => 'M' + r.map(([a, b]) => `${a.toFixed(1)},${b.toFixed(1)}`).join('L')).join('');
+    const area = runs.map(r => `M${r[0][0].toFixed(1)},${y(0)}` + r.map(([a, b]) => `L${a.toFixed(1)},${b.toFixed(1)}`).join('') +
+      `L${r[r.length - 1][0].toFixed(1)},${y(0)}Z`).join('');
+
+    let grid = '';
+    for (let v = 0; v <= top; v += step) {
+      grid += `<line x1="${padL}" x2="${width - padR}" y1="${y(v)}" y2="${y(v)}" class="${v === 0 ? 'base' : 'grid'}"/>` +
+        `<text x="${padL - 8}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
+    }
+    const multiDay = t1 - t0 > 36 * 3600000;
+    const nX = Math.max(2, Math.min(6, Math.floor((width - padL - padR) / 90)));
+    let xs = '';
+    for (let i = 0; i < nX; i++) {
+      const t = t0 + (t1 - t0) * i / (nX - 1);
+      const anchor = i === 0 ? 'start' : i === nX - 1 ? 'end' : 'middle';
+      xs += `<text x="${x(t)}" y="${ht - 6}" text-anchor="${anchor}">${multiDay ? day(t) : time(t)}</text>`;
+    }
+    const last = runs[runs.length - 1][runs[runs.length - 1].length - 1];
+    host.innerHTML = `<svg width="${width}" height="${ht}" viewBox="0 0 ${width} ${ht}">${grid}${xs}` +
+      `<path d="${area}" class="area"/><path d="${line}" class="line"/>` +
+      `<circle cx="${last[0]}" cy="${last[1]}" r="4" class="dot"/>` +
+      `<line class="cross" y1="${padT}" y2="${y(0)}" visibility="hidden"/><circle class="dot hover" r="5" visibility="hidden"/></svg>`;
+    showHover(hover);
+  }
+
+  function showHover(i) {
+    hover = i;
+    const svg = host.firstChild;
+    if (!svg || !geo) return;
+    const cross = svg.querySelector('.cross'), dot = svg.querySelector('.hover');
+    if (i < 0 || i >= points.length) {
+      cross.setAttribute('visibility', 'hidden'); dot.setAttribute('visibility', 'hidden'); tip.hidden = true; return;
+    }
+    const px = geo.x(geo.ts[i]), py = geo.y(points[i][key]);
+    cross.setAttribute('x1', px); cross.setAttribute('x2', px); cross.setAttribute('visibility', 'visible');
+    dot.setAttribute('cx', px); dot.setAttribute('cy', py); dot.setAttribute('visibility', 'visible');
+    tip.replaceChildren(h('b', {}, String(points[i][key])), ' ', label.toLowerCase(),
+      h('div', { class: 'muted' }, `${day(geo.ts[i])} ${time(geo.ts[i])}`));
+    tip.hidden = false;
+    const left = Math.min(Math.max(px - tip.offsetWidth / 2, 0), width - tip.offsetWidth);
+    tip.style.left = left + 'px';
+    // Above the point; flips below it when there is no room at the top.
+    tip.style.top = (py - tip.offsetHeight - 12 >= 0 ? py - tip.offsetHeight - 12 : py + 14) + 'px';
+  }
+
+  function nearest(clientX) {
+    if (!geo) return -1;
+    const t = geo.t0 + (clientX - host.getBoundingClientRect().left - padL) * (geo.t1 - geo.t0) / Math.max(1, width - padL - padR);
+    let best = 0;
+    geo.ts.forEach((v, i) => { if (Math.abs(v - t) < Math.abs(geo.ts[best] - t)) best = i; });
+    return best;
+  }
+
+  host.addEventListener('pointermove', e => showHover(nearest(e.clientX)));
+  host.addEventListener('pointerdown', e => showHover(nearest(e.clientX)));
+  host.addEventListener('pointerleave', () => showHover(-1));
+  host.addEventListener('blur', () => showHover(-1));
+  host.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    const start = hover < 0 ? points.length - 1 : hover + (e.key === 'ArrowLeft' ? -1 : 1);
+    showHover(Math.min(Math.max(start, 0), points.length - 1));
+  });
+  const ro = new ResizeObserver(() => {
+    if (!el.isConnected) { ro.disconnect(); return; }
+    if (host.clientWidth !== width) draw();
+  });
+  ro.observe(host);
+
+  // from / to: the chosen time range in ms, so the axis is the same whatever data exists.
+  function update(next, from, to) {
+    points = next;
+    range = from && to ? [from, to] : null;
+    empty.hidden = points.length > 0;
+    host.hidden = !points.length;
+    if (!points.length) { now.textContent = '-'; stats.textContent = ''; tip.hidden = true; return; }
+    const vals = points.map(p => p[key]);
+    const peak = Math.max(...vals), avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+    now.textContent = String(vals[vals.length - 1]);
+    stats.textContent = `latest · peak ${peak} · avg ${avg.toFixed(avg < 10 ? 1 : 0)}`;
+    host.setAttribute('aria-label', `${label}: latest ${vals[vals.length - 1]}, peak ${peak}, average ${avg.toFixed(1)}. ` +
+      'Use the left and right arrow keys to read each sample.');
+    if (hover >= points.length) hover = -1;
+    draw();
+  }
+
+  return { el, update };
+}
+
+function copyButton(getText) {
+  return h('button', {
+    onclick: async () => {
+      try { await navigator.clipboard.writeText(getText()); toast('Copied'); }
+      catch (e) { toast('Select the text and copy it by hand', true); }
+    }
+  }, 'Copy');
+}
+
+// ---- dashboard -----------------------------------------------------------------------------------------
+
+function renderDashboard(container) {
+  const state = { minutes: 180 };
+  const kpis = h('div', { class: 'kpis' });
+  const charts = h('div', { class: 'grid' });
+  const lower = h('div', { class: 'grid' });
+  const range = h('select', {
+    style: 'width:auto',
+    onchange: () => { state.minutes = Number(range.value); load(); }
+  }, ...[[60, 'Last hour'], [180, 'Last 3 hours'], [1440, 'Last 24 hours'], [10080, 'Last 7 days']]
+    .map(([v, t]) => h('option', { value: v, selected: v === state.minutes }, t)));
+  container.replaceChildren(
+    h('div', { class: 'row', style: 'margin-top:0;margin-bottom:12px;align-items:center' }, range,
+      h('span', { class: 'muted' }, 'Refreshes every 10 seconds')),
+    kpis, charts, lower);
+  const onlineChart = lineChart('online', 'Online players');
+  const matchesChart = lineChart('matches', 'Live matches');
+  charts.replaceChildren(
+    h('section', { class: 'card' }, h('h3', { style: 'margin-top:0' }, 'Online players'), onlineChart.el),
+    h('section', { class: 'card' }, h('h3', { style: 'margin-top:0' }, 'Live matches'), matchesChart.el));
+
+  let timer = null;
+
+  async function load() {
+    if (!container.isConnected) { clearInterval(timer); return; }
+    try {
+      const [d, s] = await Promise.all([api('/dashboard'), api(`/dashboard/series?minutes=${state.minutes}`)]);
+      const queueText = Object.entries(d.queue.byMode).map(([m, n]) => `${m}: ${n}`).join(', ');
+      kpis.replaceChildren(
+        kpi('Online players', d.online.users, `${d.online.connections} connections`),
+        kpi('Live matches', d.matches),
+        kpi('In matchmaking queue', d.queue.total, queueText),
+        kpi('Players', d.totals.users, `${d.totals.banned} banned`),
+        kpi('New (24 h)', d.totals.signups24h, `${d.totals.signups7d} in 7 days`),
+        kpi('Active (24 h)', d.totals.logins24h, 'logged in'));
+
+      const maxDay = Math.max(1, ...d.totals.signupsPerDay.map(x => x.count));
+      const econ = d.totals.economy24h;
+      const to = Date.now(), from = to - state.minutes * 60000;
+      onlineChart.update(s.items, from, to);
+      matchesChart.update(s.items, from, to);
+      lower.replaceChildren(
+        h('section', { class: 'card' },
+          h('h3', { style: 'margin-top:0' }, 'New players per day'),
+          ...d.totals.signupsPerDay.map(x => h('div', { class: 'bar' },
+            h('span', { class: 'muted' }, x.day.slice(5)),
+            h('div', { class: 'fill', style: `width:${Math.round(100 * x.count / maxDay)}%` }),
+            h('span', {}, x.count)))),
+        h('section', { class: 'card' },
+          h('h3', { style: 'margin-top:0' }, 'Economy, last 24 hours'),
+          econ.length === 0 ? h('p', { class: 'muted' }, 'No wallet changes yet.') :
+          h('table', {},
+            h('thead', {}, h('tr', {}, ['Currency', 'Earned', 'Spent', 'Net'].map(t => h('th', {}, t)))),
+            h('tbody', {}, ...econ.map(e => h('tr', { style: 'cursor:default' },
+              h('td', {}, e.name), h('td', {}, e.earned), h('td', {}, e.spent), h('td', {}, e.earned - e.spent)))))));
+    } catch (ex) { clearInterval(timer); handleError(ex); }
+  }
+
+  timer = setInterval(load, 10000);
+  load();
+}
+
+// ---- player 360: editable storage + timeline -----------------------------------------------------------
+
+function storageBox(u) {
+  const box = h('div');
+  const base = `/users/${enc(u.id)}/storage`;
+
+  async function load() {
+    try { render((await api(base)).items); } catch (ex) { handleError(ex); }
+  }
+
+  async function put(key, text) {
+    let parsed;
+    try { parsed = JSON.parse(text); } catch (ex) { toast('Not valid JSON: ' + ex.message, true); return; }
+    try {
+      await api(`${base}/${enc(key)}`, { method: 'PUT', body: JSON.stringify({ value: parsed }) });
+      toast('Saved');
+      load();
+    } catch (ex) { handleError(ex); }
+  }
+
+  async function del(key) {
+    if (!confirm(`Delete storage key "${key}"?`)) return;
+    try { await api(`${base}/${enc(key)}`, { method: 'DELETE' }); toast('Deleted'); load(); }
+    catch (ex) { handleError(ex); }
+  }
+
+  function render(items) {
+    const keyIn = h('input', { placeholder: 'key', dir: 'ltr' });
+    const valIn = h('textarea', { spellcheck: 'false', dir: 'ltr', style: 'min-height:90px' }, '{\n  \n}');
+    box.replaceChildren(
+      ...(items.length === 0 ? [h('p', { class: 'muted' }, 'Nothing stored')] : items.map(s => {
+        const ta = h('textarea', { spellcheck: 'false', dir: 'ltr', style: 'min-height:90px' }, JSON.stringify(s.value, null, 2));
+        return h('details', {},
+          h('summary', {}, `${s.key}  (updated ${fmt(s.updatedUtc)})`), ta,
+          h('div', { class: 'row' },
+            h('button', { class: 'primary', onclick: () => put(s.key, ta.value) }, 'Save'),
+            h('button', { class: 'danger', onclick: () => del(s.key) }, 'Delete')));
+      })),
+      h('details', {},
+        h('summary', {}, 'Add or overwrite a key'),
+        h('div', { class: 'form' }, keyIn, valIn),
+        h('div', { class: 'row' }, h('button', { class: 'primary', onclick: () => put(keyIn.value.trim(), valIn.value) }, 'Write'))));
+  }
+
+  load();
+  return box;
+}
+
+function timelineBox(u) {
+  const out = h('div');
+  let items = [];
+  const type = h('select', { style: 'width:auto', onchange: draw },
+    ...['all', 'ledger', 'notification', 'chat', 'account', 'admin'].map(t => h('option', { value: t }, t)));
+
+  function draw() {
+    const shown = items.filter(e => type.value === 'all' || e.type === type.value);
+    out.replaceChildren(shown.length === 0 ? h('p', { class: 'muted' }, 'Nothing.') :
+      h('table', {},
+        h('thead', {}, h('tr', {}, ['When', 'Type', 'What', 'Details'].map(t => h('th', {}, t)))),
+        h('tbody', {}, ...shown.map(e => h('tr', { style: 'cursor:default' },
+          h('td', {}, fmt(e.atUtc)), h('td', {}, e.type), h('td', { dir: 'auto', title: e.title }, e.title),
+          h('td', { dir: 'auto', title: e.detail || '' }, e.detail || ''))))));
+  }
+
+  async function load() {
+    try {
+      items = (await api(`/users/${enc(u.id)}/timeline?limit=200`)).items;
+      draw();
+    } catch (ex) { handleError(ex); }
+  }
+
+  return h('div', {},
+    h('div', { class: 'row', style: 'margin-top:0;align-items:center' }, h('button', { onclick: load }, 'Load timeline'), type),
+    out);
+}
+
+// ---- live-ops: scheduled broadcasts + tournaments ------------------------------------------------------
+
+function renderLiveOps(container) {
+  const bcast = h('section', { class: 'card' });
+  const tour = h('section', { class: 'card' });
+  container.replaceChildren(h('div', { class: 'grid' }, bcast, tour));
+  renderBroadcasts(bcast);
+  renderTournaments(tour);
+}
+
+function renderBroadcasts(box) {
+  const subject = h('input', { placeholder: 'Subject', dir: 'auto' });
+  const body = h('input', { placeholder: 'Message (optional)', dir: 'auto' });
+  const when = h('input', { type: 'datetime-local' });
+  const audience = h('select', {}, h('option', { value: 'all' }, 'All active players'), h('option', { value: 'online' }, 'Only players online at send time'));
+  const currency = h('input', { placeholder: 'currency, e.g. coins', dir: 'ltr' });
+  const amount = h('input', { type: 'number', min: '1', placeholder: 'amount' });
+  const itemId = h('input', { placeholder: 'item id (optional)', dir: 'ltr' });
+  const itemQty = h('input', { type: 'number', min: '1', placeholder: 'qty' });
+  const days = h('input', { type: 'number', min: '1', placeholder: 'expires after N days (optional)' });
+  const list = h('div');
+
+  async function create() {
+    const reward = {};
+    if (currency.value.trim() && Number(amount.value) > 0) reward.wallet = { [currency.value.trim()]: Number(amount.value) };
+    if (itemId.value.trim() && Number(itemQty.value) > 0) reward.items = { [itemId.value.trim()]: Number(itemQty.value) };
+    const payload = {
+      subject: subject.value.trim(), body: body.value.trim() || null, audience: audience.value,
+      runAtUtc: fromLocalInput(when.value), expiresInDays: days.value ? Number(days.value) : null,
+      reward: reward.wallet || reward.items ? reward : null
+    };
+    try {
+      await api('/liveops/broadcasts', { method: 'POST', body: JSON.stringify(payload) });
+      toast(when.value ? 'Scheduled' : 'Queued: it is sent within seconds');
+      subject.value = ''; body.value = '';
+      load();
+    } catch (ex) { handleError(ex); }
+  }
+
+  async function load() {
+    try {
+      const { items } = await api('/liveops/broadcasts?limit=50');
+      list.replaceChildren(items.length === 0 ? h('p', { class: 'muted' }, 'No broadcasts yet.') :
+        h('table', {},
+          h('thead', {}, h('tr', {}, ['When', 'Subject', 'To', 'Status', 'Sent', ''].map(t => h('th', {}, t)))),
+          h('tbody', {}, ...items.map(b => h('tr', { style: 'cursor:default' },
+            h('td', {}, fmt(b.runUtc)),
+            h('td', { dir: 'auto', title: b.error || b.subject }, b.subject),
+            h('td', {}, b.audience),
+            h('td', {}, h('span', { class: 'badge' + (b.status === 'failed' ? ' banned' : '') }, b.status)),
+            h('td', {}, b.sentCount ?? '-'),
+            h('td', {}, b.status === 'sending' ? '' : h('button', {
+              class: 'danger',
+              onclick: async () => {
+                try { await api(`/liveops/broadcasts/${b.id}`, { method: 'DELETE' }); load(); } catch (ex) { handleError(ex); }
+              }
+            }, b.status === 'pending' ? 'Cancel' : 'Remove')))))));
+    } catch (ex) { handleError(ex); }
+  }
+
+  box.replaceChildren(
+    h('h2', { style: 'margin-top:0' }, 'Scheduled messages'),
+    h('p', { class: 'muted' }, 'Inbox messages (with an optional reward) sent at a chosen time. Leave the time empty to send now. Times are in your local time zone.'),
+    h('div', { class: 'form' },
+      subject, body,
+      h('label', {}, 'Send at', when),
+      h('label', {}, 'Audience', audience),
+      h('div', { class: 'row', style: 'margin-top:0' }, currency, amount),
+      h('div', { class: 'row', style: 'margin-top:0' }, itemId, itemQty),
+      days),
+    h('div', { class: 'row' }, h('button', { class: 'primary', onclick: create }, 'Schedule')),
+    list);
+  load();
+}
+
+function renderTournaments(box) {
+  const state = { value: {}, isPublic: true };
+  const standings = h('div');
+  const list = h('div');
+  const form = h('div');
+
+  async function load() {
+    try {
+      const cfg = (await api('/config')).items.find(e => e.key === 'tournaments');
+      state.value = cfg ? cfg.value : {};
+      state.isPublic = cfg ? cfg.isPublic : true;
+      draw();
+    } catch (ex) { handleError(ex); }
+  }
+
+  async function saveAll(next, message) {
+    try {
+      await api('/config/tournaments', { method: 'PUT', body: JSON.stringify({ value: next, public: true }) });
+      toast(message || 'Saved');
+      await load();
+    } catch (ex) { handleError(ex); }
+  }
+
+  function statusOf(t) {
+    const now = Date.now();
+    if (now < new Date(t.start)) return 'upcoming';
+    if (now >= new Date(t.end)) return 'ended';
+    return 'active';
+  }
+
+  async function showStandings(id) {
+    try {
+      const b = await api(`/leaderboards/${enc('tournament:' + id)}?limit=20`);
+      standings.replaceChildren(
+        h('h3', {}, `Standings: ${id}`),
+        b.entries.length === 0 ? h('p', { class: 'muted' }, 'No scores yet.') :
+        h('table', {},
+          h('thead', {}, h('tr', {}, ['#', 'Player', 'Score'].map(t => h('th', {}, t)))),
+          h('tbody', {}, ...b.entries.map(e => h('tr', { style: 'cursor:default' },
+            h('td', {}, e.rank), h('td', { dir: 'auto' }, e.displayName || e.username), h('td', {}, e.score))))));
+    } catch (ex) { handleError(ex); }
+  }
+
+  function draw() {
+    const ids = Object.keys(state.value);
+    list.replaceChildren(ids.length === 0 ? h('p', { class: 'muted' }, 'No tournaments yet.') :
+      h('table', {},
+        h('thead', {}, h('tr', {}, ['Id', 'Status', 'Ends', ''].map(t => h('th', {}, t)))),
+        h('tbody', {}, ...ids.map(id => {
+          const t = state.value[id];
+          return h('tr', { style: 'cursor:default' },
+            h('td', {}, id), h('td', {}, statusOf(t)), h('td', {}, fmt(t.end)),
+            h('td', {},
+              h('div', { class: 'inline' },
+                h('button', { onclick: () => edit(id) }, 'Edit'),
+                h('button', { onclick: () => showStandings(id) }, 'Standings'),
+                h('button', {
+                  onclick: () => {
+                    const next = structuredClone(state.value);
+                    next[id].end = new Date(new Date(t.end).getTime() + 7 * 86400000).toISOString();
+                    saveAll(next, 'Extended by 7 days');
+                  }
+                }, '+7d'),
+                h('button', {
+                  class: 'danger',
+                  onclick: () => {
+                    if (!confirm(`Remove tournament "${id}" from the config? Scores already recorded stay in the database.`)) return;
+                    const next = structuredClone(state.value);
+                    delete next[id];
+                    saveAll(next, 'Removed');
+                  }
+                }, 'Delete'))));
+        }))));
+    edit(null);
+  }
+
+  function edit(id) {
+    const t = id ? state.value[id] : null;
+    const idIn = h('input', { value: id || '', placeholder: 'winter_cup', disabled: !!id, dir: 'ltr' });
+    const nameEn = h('input', { value: (t && t.name && t.name.en) || '', placeholder: 'Name (English)' });
+    const nameFa = h('input', { value: (t && t.name && t.name.fa) || '', placeholder: 'نام (فارسی)', dir: 'rtl' });
+    const start = h('input', { type: 'datetime-local', value: toLocalInput(t ? t.start : new Date().toISOString()) });
+    const end = h('input', { type: 'datetime-local', value: toLocalInput(t ? t.end : new Date(Date.now() + 7 * 86400000).toISOString()) });
+    const sort = h('select', {}, h('option', { value: 'desc' }, 'higher score is better'), h('option', { value: 'asc' }, 'lower score is better'));
+    sort.value = (t && t.sort) || 'desc';
+    const op = h('select', {}, ...['best', 'set', 'incr'].map(o => h('option', { value: o }, 'operator: ' + o)));
+    op.value = (t && t.operator) || 'best';
+    const feeEntries = Object.entries((t && t.entryFee) || {});
+    const feeName = h('input', { value: feeEntries[0] ? feeEntries[0][0] : 'coins', dir: 'ltr' });
+    const feeAmount = h('input', { type: 'number', min: '0', value: feeEntries[0] ? feeEntries[0][1] : 0 });
+    const rewards = h('textarea', { spellcheck: 'false', dir: 'ltr', style: 'min-height:120px' },
+      JSON.stringify((t && t.rewards) || [{ fromRank: 1, toRank: 1, wallet: { coins: 1000 } }], null, 2));
+
+    function save() {
+      const key = idIn.value.trim();
+      let parsedRewards;
+      try { parsedRewards = JSON.parse(rewards.value); } catch (ex) { toast('Rewards is not valid JSON: ' + ex.message, true); return; }
+      if (!start.value || !end.value) { toast('Start and end are required', true); return; }
+      const entry = Object.assign({}, t || {}, {
+        name: Object.fromEntries([['en', nameEn.value.trim()], ['fa', nameFa.value.trim()]].filter(([, v]) => v)),
+        start: fromLocalInput(start.value), end: fromLocalInput(end.value),
+        sort: sort.value, operator: op.value, rewards: parsedRewards
+      });
+      if (Number(feeAmount.value) > 0 && feeName.value.trim()) entry.entryFee = { [feeName.value.trim()]: Number(feeAmount.value) };
+      else delete entry.entryFee;
+      const next = structuredClone(state.value);
+      next[key] = entry;
+      saveAll(next);
+    }
+
+    form.replaceChildren(
+      h('h3', {}, id ? `Edit ${id}` : 'New tournament'),
+      h('div', { class: 'form' },
+        idIn, nameEn, nameFa,
+        h('label', {}, 'Starts', start), h('label', {}, 'Ends', end),
+        sort, op,
+        h('div', { class: 'row', style: 'margin-top:0' }, feeName, feeAmount),
+        h('label', {}, 'Rewards (JSON: tiers of fromRank..toRank with wallet and/or items)', rewards)),
+      h('div', { class: 'row' },
+        h('button', { class: 'primary', onclick: save }, 'Save'),
+        id ? h('button', { onclick: () => edit(null) }, 'New instead') : ''));
+  }
+
+  box.replaceChildren(
+    h('h2', { style: 'margin-top:0' }, 'Tournaments'),
+    h('p', { class: 'muted' }, 'Stored in the config key "tournaments" (every change is in the audit log and can be rolled back in the Config tab).'),
+    list, form, standings);
+  load();
+}
+
+// ---- modules + RPC tester ------------------------------------------------------------------------------
+
+function renderModules(container) {
+  const info = h('section', { class: 'card' });
+  const tester = h('section', { class: 'card' });
+  container.replaceChildren(h('div', { class: 'grid' }, info, tester));
+
+  const userId = h('input', { placeholder: 'Player id (or search by name below)', dir: 'ltr' });
+  const search = h('input', { placeholder: 'Search players by name…', dir: 'auto' });
+  const found = h('div', { class: 'row', style: 'margin-top:0' });
+  const rpc = h('select', {});
+  const payload = h('textarea', { spellcheck: 'false', dir: 'ltr', style: 'min-height:110px' }, '{}');
+  const out = h('div');
+  let timer = null;
+
+  search.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      const q = search.value.trim();
+      if (!q) { found.replaceChildren(); return; }
+      try {
+        const page = await api(`/users?q=${enc(q)}&limit=8`);
+        found.replaceChildren(...page.items.map(u => h('button', {
+          dir: 'auto', onclick: () => { userId.value = u.id; found.replaceChildren(); }
+        }, u.displayName || u.username)));
+      } catch (ex) { handleError(ex); }
+    }, 300);
+  });
+
+  async function run() {
+    const body = { userId: userId.value.trim(), id: rpc.value, payload: payload.value };
+    try {
+      const r = await api('/rpc-test', { method: 'POST', body: JSON.stringify(body) });
+      let shown = r.ok ? r.result : `${r.error}: ${r.message}`;
+      if (r.ok) { try { shown = JSON.stringify(JSON.parse(r.result), null, 2); } catch (e) { /* not JSON */ } }
+      out.replaceChildren(
+        h('p', { class: r.ok ? 'muted' : 'err' }, `${r.ok ? 'OK' : 'Failed'} in ${r.ms} ms`),
+        h('pre', {}, shown));
+    } catch (ex) { handleError(ex); }
+  }
+
+  async function load() {
+    try {
+      const m = await api('/modules');
+      const hooked = new Set(m.rpcHooks);
+      rpc.replaceChildren(...m.rpcs.map(id => h('option', { value: id }, id)));
+      info.replaceChildren(
+        h('h2', { style: 'margin-top:0' }, 'Loaded modules'),
+        h('h3', {}, `RPCs (${m.rpcs.length})`),
+        m.rpcs.length === 0 ? h('p', { class: 'muted' }, 'No RPCs registered.') :
+          h('div', {}, ...m.rpcs.map(id => h('div', {}, id, hooked.has(id) ? h('span', { class: 'muted' }, '  (has hooks)') : ''))),
+        h('h3', {}, `Match handlers (${m.matchHandlers.length})`),
+        m.matchHandlers.length === 0 ? h('p', { class: 'muted' }, 'None.') : h('div', {}, ...m.matchHandlers.map(n => h('div', {}, n))),
+        h('h3', {}, 'Match transports'),
+        h('div', {}, m.transports.join(', ') || '-'));
+    } catch (ex) { handleError(ex); }
+  }
+
+  tester.replaceChildren(
+    h('h2', { style: 'margin-top:0' }, 'RPC tester'),
+    h('p', { class: 'muted' }, 'Runs a module RPC as the chosen player, hooks included. It changes real data, so test on a test account.'),
+    h('div', { class: 'form' }, search, found, userId, rpc, h('label', {}, 'Payload', payload)),
+    h('div', { class: 'row' }, h('button', { class: 'primary', onclick: run }, 'Run')),
+    out);
+  load();
+}
+
+// ---- admin accounts ------------------------------------------------------------------------------------
+
+function renderAdmins(container) {
+  const list = h('section', { class: 'card' });
+  const form = h('section', { class: 'card' });
+  const keyBox = h('div');
+  container.replaceChildren(h('div', { class: 'grid' }, list, h('div', {}, form, keyBox)));
+
+  function showKey(who, key) {
+    const pre = h('pre', {}, key);
+    keyBox.replaceChildren(h('section', { class: 'card', style: 'margin-top:16px' },
+      h('strong', {}, `Key for ${who}`),
+      h('p', { class: 'muted' }, 'Copy it now. Only a hash is stored, so it cannot be shown again (use "New key" if it gets lost).'),
+      pre, h('div', { class: 'row' }, copyButton(() => key))));
+  }
+
+  async function load() {
+    try {
+      const { items } = await api('/admins');
+      list.replaceChildren(
+        h('h2', { style: 'margin-top:0' }, 'Admins'),
+        h('p', { class: 'muted' }, 'The key from the server settings always works as "root" (Admin). Everyone else is listed here.'),
+        items.length === 0 ? h('p', { class: 'muted' }, 'No other admins yet.') :
+        h('table', {},
+          h('thead', {}, h('tr', {}, ['Name', 'Role', 'Last used', ''].map(t => h('th', {}, t)))),
+          h('tbody', {}, ...items.map(a => {
+            const role = h('select', { style: 'width:auto', onchange: () => update(a.id, { role: role.value }) },
+              ...['Admin', 'Support', 'ReadOnly'].map(r => h('option', { value: r }, r)));
+            role.value = a.role;
+            return h('tr', { style: 'cursor:default' },
+              h('td', {}, a.name, a.disabled ? h('span', { class: 'badge banned', style: 'margin-left:6px' }, 'disabled') : ''),
+              h('td', {}, role), h('td', {}, fmt(a.lastUsedUtc)),
+              h('td', {}, h('div', { class: 'inline' },
+                h('button', { onclick: () => update(a.id, { disabled: !a.disabled }) }, a.disabled ? 'Enable' : 'Disable'),
+                h('button', {
+                  onclick: async () => {
+                    if (!confirm(`Replace the key of ${a.name}? The old key stops working.`)) return;
+                    try { showKey(a.name, (await api(`/admins/${a.id}/reset-key`, { method: 'POST' })).key); } catch (ex) { handleError(ex); }
+                  }
+                }, 'New key'),
+                h('button', {
+                  class: 'danger',
+                  onclick: async () => {
+                    if (!confirm(`Delete admin ${a.name}?`)) return;
+                    try { await api(`/admins/${a.id}`, { method: 'DELETE' }); load(); } catch (ex) { handleError(ex); }
+                  }
+                }, 'Delete'))));
+          }))));
+    } catch (ex) { handleError(ex); }
+  }
+
+  async function update(id, patch) {
+    try { await api(`/admins/${id}`, { method: 'PUT', body: JSON.stringify(patch) }); toast('Saved'); load(); }
+    catch (ex) { handleError(ex); load(); }
+  }
+
+  const name = h('input', { placeholder: 'Name, e.g. sara', dir: 'ltr' });
+  const role = h('select', {},
+    h('option', { value: 'Support' }, 'Support: moderation only (ban, mute, delete chat, send messages)'),
+    h('option', { value: 'ReadOnly' }, 'ReadOnly: can look, cannot change anything'),
+    h('option', { value: 'Admin' }, 'Admin: everything, including admins and config'));
+  form.replaceChildren(
+    h('h2', { style: 'margin-top:0' }, 'New admin'),
+    h('div', { class: 'form' }, name, role),
+    h('div', { class: 'row' }, h('button', {
+      class: 'primary',
+      onclick: async () => {
+        try {
+          const r = await api('/admins', { method: 'POST', body: JSON.stringify({ name: name.value.trim(), role: role.value }) });
+          name.value = '';
+          showKey(r.account.name, r.key);
+          load();
+        } catch (ex) { handleError(ex); }
+      }
+    }, 'Create')));
+  load();
+}
+
+// ---- audit log -----------------------------------------------------------------------------------------
+
+function renderAudit(container) {
+  const actor = h('input', { placeholder: 'Actor (exact name)', dir: 'ltr' });
+  const q = h('input', { placeholder: 'Search path or body…', dir: 'auto' });
+  const tbody = h('tbody');
+  const more = h('button', {}, 'Load more');
+  let last = null;
+
+  async function load(append) {
+    const params = new URLSearchParams({ limit: '100' });
+    if (actor.value.trim()) params.set('actor', actor.value.trim());
+    if (q.value.trim()) params.set('q', q.value.trim());
+    if (append && last) params.set('before', String(last));
+    try {
+      const { items } = await api('/audit?' + params);
+      if (!append) tbody.replaceChildren();
+      for (const e of items) {
+        tbody.append(h('tr', { style: 'cursor:default', title: e.body || '' },
+          h('td', {}, fmt(e.atUtc)),
+          h('td', {}, `${e.actor} (${e.role})`),
+          h('td', {}, `${e.method} ${e.path}`),
+          h('td', {}, h('span', { class: 'badge' + (e.status >= 400 ? ' banned' : '') }, e.status)),
+          h('td', { dir: 'ltr', title: e.body || '' }, e.body || ''),
+          h('td', {}, e.ip || '')));
+        last = e.id;
+      }
+      more.hidden = items.length < 100;
+    } catch (ex) { handleError(ex); }
+  }
+
+  more.addEventListener('click', () => load(true));
+  container.replaceChildren(h('section', { class: 'card' },
+    h('h2', { style: 'margin-top:0' }, 'Audit log'),
+    h('p', { class: 'muted' }, 'Every change made through the admin API, kept for 180 days. Secrets in request bodies are hidden. Hover a row to see the full body.'),
+    h('div', { class: 'row', style: 'margin-top:0' }, actor, q, h('button', { class: 'primary', onclick: () => load(false) }, 'Search')),
+    h('table', {},
+      h('thead', {}, h('tr', {}, ['When', 'Who', 'Action', 'Status', 'Body', 'IP'].map(t => h('th', {}, t)))),
+      tbody),
+    h('div', { class: 'row' }, more)));
+  load(false);
+}
+
+// ---- start ---------------------------------------------------------------------------------------------
+
+(async function start() {
+  if (!adminKey) { renderLogin(); return; }
+  try {
+    me = await api('/me');
+    route();
+  } catch (ex) {
+    signOut(ex.status === 403 && ex.code === 'forbidden' ? 'The admin key was rejected.' : ex.message);
+  }
+})();
+</script>
+</body>
+</html>

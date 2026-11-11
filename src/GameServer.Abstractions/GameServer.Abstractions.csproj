@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>GameServer.Abstractions</PackageId>
+    <!-- Semantic versioning: only ADD to this assembly after a release. Never remove or change members. -->
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+</Project>

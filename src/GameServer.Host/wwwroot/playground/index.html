@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="fa">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GameServer Playground</title>
+<style>
+  :root {
+    --bg:#f6f7f9; --panel:#fff; --text:#1c2127; --muted:#6b7480; --line:#e1e4e8; --accent:#2563eb; --on-accent:#fff;
+    --danger:#c62828; --ok:#1b7f4b; --code:#f0f2f5;
+    --get:#1b7f4b; --post:#2563eb; --put:#b7791f; --delete:#c62828;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171a; --panel:#1c2024; --text:#e6e8eb; --muted:#9aa4af; --line:#2c3238; --accent:#6ea0ff; --on-accent:#0b1020;
+            --danger:#ff6b6b; --ok:#4cc38a; --code:#111417; --get:#4cc38a; --post:#6ea0ff; --put:#e0b04a; --delete:#ff6b6b; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.6 system-ui,"Segoe UI",Tahoma,sans-serif; }
+  header { position:sticky; top:0; z-index:5; display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:10px 16px;
+           background:var(--panel); border-bottom:1px solid var(--line); }
+  header h1 { font-size:15px; margin:0 8px 0 0; }
+  header .grow { flex:1; }
+  .layout { display:grid; grid-template-columns:220px minmax(0,1fr); gap:16px; max-width:1300px; margin:0 auto; padding:16px; }
+  @media (max-width:860px) { .layout { grid-template-columns:1fr; } nav { position:static !important; } }
+  nav { position:sticky; top:62px; align-self:start; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:8px; max-height:calc(100vh - 80px); overflow:auto; }
+  nav a { display:block; padding:5px 10px; border-radius:6px; color:var(--text); text-decoration:none; cursor:pointer; }
+  nav a:hover, nav a.on { background:var(--code); color:var(--accent); }
+  nav h4 { margin:10px 10px 2px; font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  input, select, textarea { padding:6px 9px; border:1px solid var(--line); border-radius:6px; background:transparent; color:var(--text); font:inherit; }
+  textarea { width:100%; font-family:ui-monospace,Consolas,monospace; font-size:12.5px; direction:ltr; text-align:left; }
+  input.ltr, textarea, pre, code { direction:ltr; text-align:left; }
+  button { padding:6px 12px; border-radius:6px; border:1px solid var(--line); background:transparent; color:var(--text); font:inherit; cursor:pointer; }
+  button:hover { border-color:var(--accent); }
+  button.primary { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  button:disabled { opacity:.5; cursor:default; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin-bottom:12px; }
+  h2 { margin:20px 0 10px; font-size:17px; } h2:first-child { margin-top:0; }
+  h3 { margin:0; font-size:14px; }
+  .muted { color:var(--muted); }
+  .ep-head { display:flex; gap:10px; align-items:center; cursor:pointer; }
+  .badge { font:700 11px ui-monospace,Consolas,monospace; padding:2px 7px; border-radius:5px; color:#fff; min-width:54px; text-align:center; }
+  .GET{background:var(--get)} .POST{background:var(--post)} .PUT{background:var(--put)} .DELETE{background:var(--delete)}
+  .ep-path { font-family:ui-monospace,Consolas,monospace; font-size:13px; direction:ltr; }
+  .lock { font-size:11px; color:var(--muted); }
+  .ep-body { display:none; margin-top:10px; border-top:1px dashed var(--line); padding-top:10px; }
+  .ep.open .ep-body { display:block; }
+  .row { display:flex; gap:8px; align-items:center; margin:5px 0; }
+  .row label { min-width:110px; font-family:ui-monospace,Consolas,monospace; font-size:12px; direction:ltr; text-align:left; color:var(--muted); }
+  .row input { flex:1; direction:ltr; }
+  pre { background:var(--code); border-radius:8px; padding:10px 12px; margin:8px 0 0; overflow:auto; max-height:360px; font-size:12.5px; white-space:pre-wrap; word-break:break-word; }
+  .st { font-weight:700; } .st.ok { color:var(--ok); } .st.bad { color:var(--danger); }
+  .tools { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; align-items:center; }
+  .log { height:320px; overflow:auto; background:var(--code); border-radius:8px; padding:8px 10px; font:12px ui-monospace,Consolas,monospace; direction:ltr; text-align:left; }
+  .log div { white-space:pre-wrap; word-break:break-all; padding:1px 0; }
+  .log .in { color:var(--ok); } .log .out { color:var(--accent); } .log .sys { color:var(--muted); } .log .err { color:var(--danger); }
+  .step { display:flex; gap:12px; }
+  .step .n { flex:none; width:28px; height:28px; border-radius:50%; background:var(--accent); color:var(--on-accent); display:grid; place-items:center; font-weight:700; }
+  .step.done .n { background:var(--ok); }
+  .pill { display:inline-block; padding:1px 8px; border-radius:99px; background:var(--code); font-size:12px; }
+  .hidden { display:none !important; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; } @media (max-width:760px){ .grid2{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎮 GameServer Playground</h1>
+  <label class="muted">Server</label>
+  <input id="base" class="ltr" size="26" title="Base URL">
+  <button id="btnHealth">Health</button>
+  <span id="healthOut" class="muted"></span>
+  <span class="grow"></span>
+  <span id="who" class="pill">Not logged in</span>
+  <button id="btnLogin" class="primary">Login (device)</button>
+  <button id="btnLogout">Logout</button>
+</header>
+
+<div class="layout">
+  <nav id="nav"></nav>
+  <main id="main"></main>
+</div>
+
+<script>
+"use strict";
+// ============================================================================================================
+// State
+// ============================================================================================================
+const $ = (s, el = document) => el.querySelector(s);
+const el = (tag, attrs = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v; else if (k === "html") e.innerHTML = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v);
+  }
+  for (const k of kids.flat()) e.append(k instanceof Node ? k : document.createTextNode(k));
+  return e;
+};
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("gs." + k); return v === null ? d : v; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("gs." + k, v); } catch {} }
+};
+const S = {
+  base: store.get("base", location.origin),
+  token: store.get("token", ""), refresh: store.get("refresh", ""), userId: store.get("userId", ""), username: store.get("username", ""),
+  deviceId: store.get("deviceId", "") || (() => { const d = "web-" + crypto.randomUUID().replace(/-/g, ""); store.set("deviceId", d); return d; })(),
+};
+const base = () => $("#base").value.replace(/\/+$/, "");
+function saveSession(r) {
+  S.token = r.token; S.refresh = r.refreshToken || S.refresh; S.userId = r.userId || S.userId; S.username = r.username || S.username;
+  store.set("token", S.token); store.set("refresh", S.refresh); store.set("userId", S.userId); store.set("username", S.username);
+  renderWho();
+}
+function clearSession() {
+  S.token = S.refresh = S.userId = S.username = "";
+  for (const k of ["token", "refresh", "userId", "username"]) store.set(k, "");
+  renderWho();
+}
+function renderWho() {
+  $("#who").textContent = S.token ? `${S.username || "?"} · ${S.userId.slice(0, 8)}…` : "Not logged in";
+  $("#who").title = S.userId;
+}
+
+// ============================================================================================================
+// HTTP helper (auto refresh on 401)
+// ============================================================================================================
+async function rawFetch(method, url, body, auth) {
+  const headers = {};
+  if (body !== undefined && body !== null && body !== "") headers["Content-Type"] = "application/json";
+  if (auth && S.token) headers["Authorization"] = "Bearer " + S.token;
+  const t0 = performance.now();
+  const res = await fetch(url, { method, headers, body: body === undefined || body === "" ? undefined : body });
+  const text = await res.text();
+  let json = null; try { json = text ? JSON.parse(text) : null; } catch {}
+  return { status: res.status, ok: res.ok, text, json, ms: Math.round(performance.now() - t0), headers: res.headers };
+}
+async function tryRefresh() {
+  if (!S.refresh) return false;
+  const r = await rawFetch("POST", base() + "/v1/auth/refresh", JSON.stringify({ refreshToken: S.refresh }), false);
+  if (r.ok && r.json && r.json.token) { saveSession(r.json); return true; }
+  return false;
+}
+async function api(method, url, body, auth = true) {
+  let r = await rawFetch(method, url, body, auth);
+  if (r.status === 401 && auth && await tryRefresh()) r = await rawFetch(method, url, body, auth);
+  return r;
+}
+async function deviceLogin() {
+  const r = await rawFetch("POST", base() + "/v1/auth/device", JSON.stringify({ deviceId: S.deviceId, create: true }), false);
+  if (r.ok) saveSession(r.json);
+  return r;
+}
+
+// ============================================================================================================
+// Endpoint catalog (documentation + live test). {name} in path = path param.
+// ============================================================================================================
+const G = (group, items) => items.map(i => ({ group, auth: true, ...i }));
+const CATALOG = [
+  ...G("Auth", [
+    { m: "POST", p: "/v1/auth/device", auth: false, t: "ورود با شناسه دستگاه", d: "اولین بار حساب می‌سازد. deviceId باید ۱۶ تا ۱۲۸ کاراکتر باشد. خروجی: token (JWT کوتاه‌مدت) و refreshToken.", body: { deviceId: "REPLACE_DEVICE", create: true } },
+    { m: "GET", p: "/v1/auth/providers", auth: false, t: "روش‌های ورود فعال", d: "لیست providerهایی که سرور فعال کرده (مثلاً google, phone)." },
+    { m: "POST", p: "/v1/auth/{provider}/begin", auth: false, t: "شروع ورود با provider", d: "برای providerهایی مثل SMS که اول کد می‌فرستند.", body: { credential: "+989120000000" } },
+    { m: "POST", p: "/v1/auth/{provider}", auth: false, t: "ورود با provider", d: "credential همان توکن/کد provider است.", body: { credential: "" } },
+    { m: "POST", p: "/v1/auth/refresh", auth: false, t: "تمدید توکن", d: "با refreshToken توکن جدید می‌دهد. این صفحه خودش روی 401 همین را صدا می‌زند.", body: { refreshToken: "REPLACE_REFRESH" } },
+    { m: "POST", p: "/v1/auth/logout", auth: false, t: "خروج (این نشست)", d: "refreshToken را باطل می‌کند.", body: { refreshToken: "REPLACE_REFRESH" } },
+  ]),
+  ...G("Account", [
+    { m: "GET", p: "/v1/account", t: "پروفایل من", d: "اطلاعات حساب فعلی." },
+    { m: "PUT", p: "/v1/account", t: "ویرایش پروفایل", d: "فقط فیلدهایی که عوض می‌شوند را بفرست. username: ۳ تا ۲۰ حرف انگلیسی/عدد/_ ؛ displayName آزاد تا ۳۲ کاراکتر.", body: { displayName: "Player One", avatar: "avatar_01", lang: "fa" } },
+    { m: "DELETE", p: "/v1/account", t: "حذف حساب", d: "حساب و همه‌ی داده‌هایش پاک می‌شود. برگشت ندارد!" },
+    { m: "POST", p: "/v1/account/logout-all", t: "خروج از همه‌ی دستگاه‌ها", d: "همه‌ی refreshTokenها باطل می‌شوند." },
+    { m: "POST", p: "/v1/account/link/{provider}", t: "اتصال provider به حساب", d: "مثلاً اتصال حساب گوگل به حساب دستگاه.", body: { credential: "" } },
+    { m: "DELETE", p: "/v1/account/link/{provider}", t: "قطع اتصال provider", d: "" },
+    { m: "GET", p: "/v1/users", q: [["ids", "id1,id2"]], t: "پروفایل عمومی بازیکن‌ها", d: "تا ۱۰۰ شناسه با کاما." },
+  ]),
+  ...G("Config", [
+    { m: "GET", p: "/v1/config", auth: false, t: "کانفیگ ریموت", d: "ETag برمی‌گرداند؛ با If-None-Match می‌شود کش کرد. در حالت maintenance هم در دسترس است." },
+    { m: "GET", p: "/v1/version-check", auth: false, q: [["store", "bazaar"], ["version", "1.0.0"]], t: "بررسی نسخه", d: "نیاز به آپدیت یا آپدیت اجباری را می‌گوید." },
+  ]),
+  ...G("Economy", [
+    { m: "GET", p: "/v1/wallet", t: "کیف پول", d: "موجودی هر ارز (نام ارزها همان‌طور که هست برمی‌گردد)." },
+    { m: "GET", p: "/v1/inventory", t: "انبار", d: "آیتم‌های بازیکن." },
+    { m: "GET", p: "/v1/shop", q: [["category", ""]], t: "فروشگاه", d: "محصولات قابل خرید با ارز بازی؛ تعریفشان در کانفیگ shop است." },
+    { m: "POST", p: "/v1/shop/{id}/buy", t: "خرید", d: "requestId برای جلوگیری از خرید دوباره روی تکرار درخواست (idempotency) است.", body: { requestId: "REPLACE_UUID" }, ex: { id: "starter_pack" } },
+  ]),
+  ...G("Progress", [
+    { m: "GET", p: "/v1/stats", t: "آمار بازیکن", d: "شمارنده‌هایی که ماژول‌ها/هوک‌ها ثبت می‌کنند." },
+    { m: "GET", p: "/v1/achievements", t: "دستاوردها", d: "پیشرفت و وضعیت هر کدام." },
+    { m: "POST", p: "/v1/achievements/{id}/claim", t: "گرفتن جایزه دستاورد", d: "فقط وقتی کامل شده باشد." },
+    { m: "GET", p: "/v1/quests", t: "کوئست‌ها", d: "کوئست‌های روزانه/هفتگی." },
+    { m: "POST", p: "/v1/quests/{id}/claim", t: "گرفتن جایزه کوئست", d: "" },
+    { m: "GET", p: "/v1/daily", t: "جایزه روزانه", d: "وضعیت استریک و اینکه امروز قابل دریافت است یا نه." },
+    { m: "POST", p: "/v1/daily/claim", t: "دریافت جایزه روزانه", d: "" },
+  ]),
+  ...G("Competitions", [
+    { m: "GET", p: "/v1/leaderboards/{id}", q: [["limit", "50"], ["around", ""], ["period", ""]], t: "لیدربورد", d: "around=N یعنی N نفر بالا/پایین خودم هم بیاید." },
+    { m: "GET", p: "/v1/tournaments", t: "تورنمنت‌ها", d: "" },
+    { m: "GET", p: "/v1/tournaments/{id}", q: [["limit", "50"]], t: "جزئیات تورنمنت", d: "" },
+    { m: "POST", p: "/v1/tournaments/{id}/join", t: "ورود به تورنمنت", d: "" },
+    { m: "POST", p: "/v1/tournaments/{id}/claim", t: "دریافت جایزه تورنمنت", d: "" },
+  ]),
+  ...G("Notifications", [
+    { m: "GET", p: "/v1/notifications", q: [["limit", "50"], ["unread", ""]], t: "صندوق اعلان‌ها", d: "" },
+    { m: "POST", p: "/v1/notifications/{id}/read", t: "خوانده شد", d: "" },
+    { m: "POST", p: "/v1/notifications/{id}/claim", t: "گرفتن پاداش اعلان", d: "" },
+    { m: "DELETE", p: "/v1/notifications/{id}", t: "حذف اعلان", d: "" },
+  ]),
+  ...G("Friends", [
+    { m: "GET", p: "/v1/friends", q: [["state", ""], ["limit", "100"]], t: "لیست دوستان", d: "state: friend | invite_sent | invite_received | blocked" },
+    { m: "POST", p: "/v1/friends", t: "درخواست دوستی", d: "با userId یا username. اگر طرف مقابل قبلاً درخواست داده باشد، دوست می‌شوید.", body: { username: "someone" } },
+    { m: "DELETE", p: "/v1/friends/{id}", t: "حذف دوست / رد درخواست", d: "" },
+    { m: "POST", p: "/v1/friends/{id}/block", t: "بلاک", d: "" },
+    { m: "DELETE", p: "/v1/friends/{id}/block", t: "آنبلاک", d: "" },
+    { m: "GET", p: "/v1/online", q: [["ids", "id1,id2"]], t: "آنلاین بودن", d: "" },
+  ]),
+  ...G("Groups", [
+    { m: "POST", p: "/v1/groups", t: "ساخت کلن", d: "", body: { name: "my-clan", description: "hello", open: true, maxMembers: 50 } },
+    { m: "GET", p: "/v1/groups", q: [["q", ""], ["type", ""], ["limit", "20"]], t: "جستجوی کلن", d: "" },
+    { m: "GET", p: "/v1/groups/mine", t: "کلن‌های من", d: "" },
+    { m: "GET", p: "/v1/groups/{id}", t: "جزئیات کلن", d: "" },
+    { m: "PUT", p: "/v1/groups/{id}", t: "ویرایش کلن", d: "فقط ادمین/سازنده.", body: { description: "new text" } },
+    { m: "DELETE", p: "/v1/groups/{id}", t: "حذف کلن", d: "" },
+    { m: "POST", p: "/v1/groups/{id}/join", t: "عضویت / درخواست عضویت", d: "" },
+    { m: "POST", p: "/v1/groups/{id}/leave", t: "خروج", d: "" },
+    { m: "GET", p: "/v1/groups/{id}/members", q: [["pending", ""], ["limit", "100"]], t: "اعضا", d: "" },
+    { m: "POST", p: "/v1/groups/{id}/invite/{userId}", t: "دعوت", d: "" },
+    { m: "POST", p: "/v1/groups/{id}/members/{userId}/accept", t: "قبول درخواست", d: "" },
+    { m: "POST", p: "/v1/groups/{id}/members/{userId}/kick", t: "اخراج", d: "" },
+    { m: "POST", p: "/v1/groups/{id}/members/{userId}/promote", t: "ارتقا", d: "" },
+    { m: "POST", p: "/v1/groups/{id}/members/{userId}/demote", t: "تنزل", d: "" },
+  ]),
+  ...G("Parties", [
+    { m: "POST", p: "/v1/parties", t: "ساخت پارتی", d: "پارتی موقت برای ورود گروهی به matchmaker.", body: { open: false, maxSize: 4 } },
+    { m: "GET", p: "/v1/parties/mine", t: "پارتی من", d: "" },
+    { m: "GET", p: "/v1/parties/{id}", t: "جزئیات پارتی", d: "" },
+    { m: "POST", p: "/v1/parties/{id}/join", t: "ورود", d: "" },
+    { m: "POST", p: "/v1/parties/leave", t: "خروج", d: "" },
+    { m: "POST", p: "/v1/parties/invite/{userId}", t: "دعوت", d: "" },
+    { m: "POST", p: "/v1/parties/kick/{userId}", t: "اخراج", d: "" },
+    { m: "POST", p: "/v1/parties/promote/{userId}", t: "لیدر کردن", d: "" },
+    { m: "DELETE", p: "/v1/parties/mine", t: "منحل کردن", d: "" },
+  ]),
+  ...G("Chat", [
+    { m: "GET", p: "/v1/realtime", auth: false, t: "ترنسپورت‌های realtime", d: "ترنسپورت‌های فعال (websocket/tcp) و آدرسشان؛ بدون لاگین." },
+    { m: "GET", p: "/v1/chat/history", q: [["channel", "global"], ["limit", "50"], ["before", ""]], t: "تاریخچه‌ی چت", d: "کانال‌ها: global، group:ID، dm:USERID، party:ID" },
+  ]),
+  ...G("Matches", [
+    { m: "GET", p: "/v1/match/modes", auth: false, t: "مودهای بازی", d: "مودها و ترنسپورت‌های match (websocket/udp)." },
+    { m: "POST", p: "/v1/matchmaker/tickets", t: "ورود به صف matchmaker", d: "وقتی مچ پیدا شد رویداد matchmaker.matched روی ws می‌آید.", body: { mode: "duel", properties: {} } },
+    { m: "GET", p: "/v1/matchmaker/tickets", t: "تیکت‌های من", d: "" },
+    { m: "DELETE", p: "/v1/matchmaker/tickets/{id}", t: "لغو تیکت", d: "" },
+    { m: "POST", p: "/v1/matches", t: "ساخت مچ", d: "خروجی شامل connect (آدرس و توکن یک‌بارمصرف) است.", body: { mode: "relay", label: "test" } },
+    { m: "GET", p: "/v1/matches", q: [["mode", ""], ["limit", "20"]], t: "لیست مچ‌ها", d: "" },
+    { m: "GET", p: "/v1/matches/{id}", t: "جزئیات مچ", d: "" },
+    { m: "POST", p: "/v1/matches/{id}/join", t: "ورود به مچ", d: "توکن اتصال می‌دهد؛ در تب «Match» استفاده کن." },
+  ]),
+  ...G("RPC", [
+    { m: "POST", p: "/v1/rpc/{id}", t: "فراخوانی RPC ماژول", d: "بدنه هر رشته‌ای است (معمولاً JSON). id همان نامی است که ماژول ثبت کرده؛ لیستش در /healthz هست.", body: { hello: "world" } },
+  ]),
+];
+
+// ============================================================================================================
+// Rendering endpoints
+// ============================================================================================================
+function fillTemplates(obj) {
+  const s = JSON.stringify(obj, null, 2) ?? "";
+  return s.replace("REPLACE_DEVICE", S.deviceId).replace("REPLACE_REFRESH", S.refresh).replace("REPLACE_UUID", crypto.randomUUID());
+}
+function curlOf(method, url, body, auth) {
+  let c = `curl -X ${method} '${url}'`;
+  if (auth) c += ` \\\n  -H 'Authorization: Bearer ${S.token ? S.token.slice(0, 16) + "…" : "<token>"}'`;
+  if (body) c += ` \\\n  -H 'Content-Type: application/json' \\\n  -d '${body.replace(/\s*\n\s*/g, " ")}'`;
+  return c;
+}
+function renderEndpoint(ep) {
+  const params = [...ep.p.matchAll(/\{(\w+)\}/g)].map(x => x[1]);
+  const inputs = {};
+  const body = ep.body !== undefined ? el("textarea", { rows: Math.min(10, JSON.stringify(ep.body, null, 2).split("\n").length + 1) }) : null;
+  if (body) body.value = fillTemplates(ep.body);
+  const out = el("div");
+  const root = el("div", { class: "card ep" });
+
+  const head = el("div", { class: "ep-head", onclick: () => root.classList.toggle("open") },
+    el("span", { class: "badge " + ep.m }, ep.m),
+    el("span", { class: "ep-path" }, ep.p),
+    el("span", { class: "muted" }, "— " + ep.t),
+    ep.auth ? el("span", { class: "lock" }, "🔒") : "");
+
+  const rows = [];
+  for (const p of params) {
+    const i = el("input", { class: "ltr", placeholder: p, value: (ep.ex && ep.ex[p]) || "" }); inputs["p:" + p] = i;
+    rows.push(el("div", { class: "row" }, el("label", {}, p + " (path)"), i));
+  }
+  for (const [name, ex] of ep.q || []) {
+    const i = el("input", { class: "ltr", placeholder: "(optional)", value: ex }); inputs["q:" + name] = i;
+    rows.push(el("div", { class: "row" }, el("label", {}, name + " (query)"), i));
+  }
+  const send = el("button", { class: "primary", onclick: async () => {
+    let path = ep.p;
+    for (const p of params) {
+      const v = inputs["p:" + p].value.trim();
+      if (!v) { out.replaceChildren(el("pre", { class: "st bad" }, `پارامتر ${p} را پر کن`)); return; }
+      path = path.replace("{" + p + "}", encodeURIComponent(v));
+    }
+    const qs = new URLSearchParams();
+    for (const [name] of ep.q || []) { const v = inputs["q:" + name].value.trim(); if (v) qs.set(name, v); }
+    const url = base() + path + (qs.toString() ? "?" + qs : "");
+    let bodyText;
+    if (body) {
+      bodyText = body.value.trim();
+      if (bodyText) { try { JSON.parse(bodyText); } catch (e) { if (ep.p.startsWith("/v1/rpc/") === false) { out.replaceChildren(el("pre", { class: "st bad" }, "JSON نامعتبر: " + e.message)); return; } } }
+    }
+    send.disabled = true;
+    try {
+      const r = await api(ep.m, url, bodyText, ep.auth);
+      if (ep.p === "/v1/auth/device" && r.ok) saveSession(r.json);
+      if (ep.p === "/v1/auth/refresh" && r.ok) saveSession(r.json);
+      if (ep.p === "/v1/auth/logout" && r.ok) clearSession();
+      const pretty = r.json !== null ? JSON.stringify(r.json, null, 2) : (r.text || "(empty)");
+      out.replaceChildren(
+        el("div", { class: "tools" }, el("span", { class: "st " + (r.ok ? "ok" : "bad") }, `${r.status}`), el("span", { class: "muted" }, `${r.ms} ms`),
+          el("button", { onclick: () => navigator.clipboard.writeText(curlOf(ep.m, url, bodyText, ep.auth)) }, "کپی curl")),
+        el("pre", {}, pretty));
+    } catch (e) {
+      out.replaceChildren(el("pre", { class: "st bad" }, "خطای شبکه: " + e.message + "\n(سرور بالاست؟ آدرس Server درست است؟)"));
+    } finally { send.disabled = false; }
+  } }, "Send");
+
+  root.append(head, el("div", { class: "ep-body" },
+    ep.d ? el("p", { class: "muted", style: "margin:0 0 8px" }, ep.d) : "",
+    ...rows,
+    body ? el("div", { class: "row", style: "align-items:flex-start" }, el("label", {}, "body (JSON)"), body) : "",
+    el("div", { class: "tools" }, send), out));
+  return root;
+}
+
+// ============================================================================================================
+// Logging widget
+// ============================================================================================================
+function makeLog() {
+  const box = el("div", { class: "log" });
+  const add = (cls, text) => { box.append(el("div", { class: cls }, `${new Date().toLocaleTimeString("en-GB")}  ${text}`)); box.scrollTop = box.scrollHeight; };
+  return { box, add, clear: () => box.replaceChildren() };
+}
+const pj = v => { try { return JSON.stringify(JSON.parse(v)); } catch { return v; } };
+
+// ============================================================================================================
+// Realtime tab (ws)
+// ============================================================================================================
+const RT = { ws: null, log: makeLog(), pending: new Map(), ping: null };
+function rtConnect(path) {
+  if (RT.ws) return;
+  if (!S.token) { RT.log.add("err", "اول لاگین کن (دکمه بالا)."); return; }
+  const u = new URL(base()); u.protocol = u.protocol === "https:" ? "wss:" : "ws:"; u.pathname = path || "/ws"; u.search = "";
+  RT.log.add("sys", "connecting " + u);
+  const ws = new WebSocket(u); RT.ws = ws;
+  ws.onopen = () => { RT.log.add("sys", "open → sending auth"); rtSend("auth", { token: S.token }); setRtState(); };
+  ws.onmessage = e => { RT.log.add("in", "⬇ " + pj(e.data)); };
+  ws.onclose = e => { RT.log.add("sys", `closed (${e.code}) ${e.reason || ""}`); RT.ws = null; clearInterval(RT.ping); setRtState(); };
+  ws.onerror = () => RT.log.add("err", "socket error");
+  RT.ping = setInterval(() => { if (RT.ws && RT.ws.readyState === 1) rtSend("ping", {}, true); }, 25000);
+}
+function rtSend(type, data, quiet) {
+  if (!RT.ws || RT.ws.readyState !== 1) { RT.log.add("err", "وصل نیستی."); return; }
+  const frame = JSON.stringify({ type, id: crypto.randomUUID().slice(0, 8), data });
+  RT.ws.send(frame); if (!quiet) RT.log.add("out", "⬆ " + frame);
+}
+function setRtState() { const b = $("#rtState"); if (b) b.textContent = RT.ws ? "connected" : "disconnected"; }
+const RT_TEMPLATES = {
+  "channel.join": { channel: "global" },
+  "channel.send": { channel: "global", text: "سلام!" },
+  "channel.leave": { channel: "global" },
+  "channel.history": { channel: "global", limit: 20 },
+  "matchmaker.add": { mode: "duel", properties: {} },
+  "matchmaker.remove": { ticketId: "" },
+  "match.create": { mode: "relay", label: "test" },
+  "match.join": { matchId: "" },
+  "match.list": { mode: "relay", limit: 20 },
+};
+
+// ============================================================================================================
+// Match tab
+// ============================================================================================================
+const MT = { ws: null, log: makeLog() };
+function mtConnect(url, token) {
+  if (MT.ws) { MT.log.add("err", "قبلاً وصل است."); return; }
+  const u = new URL(url, base()); if (u.protocol === "http:") u.protocol = "ws:"; if (u.protocol === "https:") u.protocol = "wss:";
+  u.searchParams.set("token", token);
+  MT.log.add("sys", "connecting " + u.origin + u.pathname);
+  const ws = new WebSocket(u); ws.binaryType = "arraybuffer"; MT.ws = ws;
+  ws.onopen = () => MT.log.add("sys", "open");
+  ws.onmessage = e => {
+    if (typeof e.data === "string") { MT.log.add("in", "⬇ text " + e.data); return; }
+    const b = new Uint8Array(e.data); const txt = new TextDecoder().decode(b);
+    MT.log.add("in", `⬇ ${b.length} bytes  hex=${[...b.slice(0, 24)].map(x => x.toString(16).padStart(2, "0")).join(" ")}${b.length > 24 ? "…" : ""}  utf8="${txt.replace(/[\x00-\x08]/g, "·")}"`);
+  };
+  ws.onclose = e => { MT.log.add("sys", `closed (${e.code}) ${e.reason || ""}`); MT.ws = null; };
+  ws.onerror = () => MT.log.add("err", "socket error");
+}
+
+// ============================================================================================================
+// Pages
+// ============================================================================================================
+const PAGES = [];
+function page(id, title, group, build) { PAGES.push({ id, title, group, build }); }
+
+page("intro", "شروع سریع", "راهنما", () => {
+  const log = makeLog();
+  const stepEl = (n, title, body, action) => el("div", { class: "card step" }, el("div", { class: "n" }, String(n)),
+    el("div", { style: "flex:1" }, el("h3", {}, title), el("p", { class: "muted", style: "margin:4px 0 8px" }, body), action || ""));
+  const run = (label, fn) => el("button", { class: "primary", onclick: async (e) => {
+    const b = e.target; b.disabled = true;
+    try { const r = await fn(); log.add(r.ok ? "in" : "err", `${r.status}  ${r.text.slice(0, 600)}`); if (r.ok) b.closest(".step").classList.add("done"); }
+    catch (err) { log.add("err", err.message); } finally { b.disabled = false; }
+  } }, label);
+  return el("div", {},
+    el("h2", {}, "آموزش قدم‌به‌قدم"),
+    el("p", { class: "muted" }, "هر قدم یک دکمه دارد که همان درخواست را واقعاً به سرور می‌زند. خروجی پایین صفحه نمایش داده می‌شود. بعد از این‌ها برو سراغ بخش‌های API در منوی کنار."),
+    stepEl(1, "سلامت سرور", "GET /healthz بدون لاگین جواب می‌دهد و نام RPCهای بارگذاری‌شده را می‌گوید.", run("Health", () => rawFetch("GET", base() + "/healthz"))),
+    stepEl(2, "ورود با دستگاه", "POST /v1/auth/device با یک deviceId ثابت (در مرورگر ذخیره شده). اولین بار حساب ساخته می‌شود. توکن در همین صفحه نگه‌داری می‌شود و روی 401 خودکار تمدید می‌شود.", run("Login", deviceLogin)),
+    stepEl(3, "پروفایل من", "GET /v1/account با هدر Authorization: Bearer <token>.", run("GET /v1/account", () => api("GET", base() + "/v1/account"))),
+    stepEl(4, "کیف پول و فروشگاه", "ارزها و محصولات از کانفیگ سرور می‌آیند (کلیدهای shop و economy).", el("div", { class: "tools" }, run("Wallet", () => api("GET", base() + "/v1/wallet")), run("Shop", () => api("GET", base() + "/v1/shop")))),
+    stepEl(5, "جایزه روزانه", "اول وضعیت را بخوان، بعد دریافت کن.", el("div", { class: "tools" }, run("GET /v1/daily", () => api("GET", base() + "/v1/daily")), run("Claim", () => api("POST", base() + "/v1/daily/claim")))),
+    stepEl(6, "چت realtime", "برو تب «Realtime»، Connect بزن، بعد channel.join و channel.send را بفرست. با دو تب مرورگر (هر کدام یک deviceId جدا — از تب «تنظیمات» عوضش کن) می‌توانی گفتگو را ببینی.", ""),
+    stepEl(7, "مچ", "در «Matches» یک مچ relay بساز، بعد در تب «Match» با توکن وصل شو. هر پیام را سرور با یک بایت شماره‌ی اسلات فرستنده برای بقیه پخش می‌کند.", ""),
+    el("h3", { style: "margin-top:14px" }, "خروجی"), log.box,
+    el("h2", {}, "مفاهیم"),
+    el("div", { class: "card" }, el("ul", { style: "margin:0;padding-inline-start:20px" },
+      el("li", {}, "خطاها همیشه به شکل ", el("code", {}, '{ "error": "code", "message": "..." }'), " هستند؛ کد را چک کن نه متن را."),
+      el("li", {}, "توکن (JWT) کوتاه‌مدت است؛ refreshToken برای گرفتن توکن جدید. بعد از logout-all همه‌ی refreshTokenها باطل می‌شوند."),
+      el("li", {}, "حساب بن یا حذف‌شده روی هر درخواست رد می‌شود، حتی با توکن معتبر."),
+      el("li", {}, "در حالت maintenance همه‌ی /v1 به‌جز config و version-check جواب 503 می‌دهند."),
+      el("li", {}, "ws realtime: بعد از اتصال باید ظرف چند ثانیه ", el("code", {}, '{"type":"auth","data":{"token":"…"}}'), " بفرستی."),
+      el("li", {}, "هر فریم realtime شکل ", el("code", {}, '{type, id, data}'), " دارد؛ جواب با همان id می‌آید و رویدادهای سرور id ندارند."))));
+});
+
+page("realtime", "Realtime (ws)", "زنده", () => {
+  const sel = el("select", {}, ...Object.keys(RT_TEMPLATES).map(k => el("option", {}, k)));
+  const ta = el("textarea", { rows: 4 });
+  const fill = () => ta.value = JSON.stringify(RT_TEMPLATES[sel.value], null, 2);
+  sel.onchange = fill; fill();
+  const path = el("input", { class: "ltr", value: "/ws", size: 8 });
+  return el("div", {},
+    el("h2", {}, "Realtime روی WebSocket"),
+    el("p", { class: "muted" }, "اتصال، احراز هویت و ارسال فریم‌های JSON. رویدادهای سرور مثل channel.message، notification.new، matchmaker.matched، party.invite اینجا در لاگ می‌آیند. (ترنسپورت TCP از مرورگر ممکن نیست؛ برای آن از SDK استفاده کن.)"),
+    el("div", { class: "card" },
+      el("div", { class: "tools" }, el("label", { class: "muted" }, "path"), path,
+        el("button", { class: "primary", onclick: () => rtConnect(path.value) }, "Connect"),
+        el("button", { onclick: () => RT.ws && RT.ws.close() }, "Disconnect"),
+        el("span", { id: "rtState", class: "pill" }, RT.ws ? "connected" : "disconnected"),
+        el("button", { onclick: RT.log.clear }, "پاک کردن لاگ")),
+      RT.log.box),
+    el("div", { class: "card" }, el("h3", {}, "ارسال فریم"),
+      el("div", { class: "tools" }, sel, el("button", { class: "primary", onclick: () => {
+        try { rtSend(sel.value, JSON.parse(ta.value)); } catch (e) { RT.log.add("err", "JSON نامعتبر: " + e.message); }
+      } }, "Send")), ta));
+});
+
+page("match", "Match (ws)", "زنده", () => {
+  const url = el("input", { class: "ltr", value: "/match", style: "flex:1" });
+  const tok = el("input", { class: "ltr", placeholder: "connect.token", style: "flex:1" });
+  const txt = el("input", { class: "ltr", value: "hello", style: "flex:1" });
+  const create = async () => {
+    const r = await api("POST", base() + "/v1/matches", JSON.stringify({ mode: "relay", label: "playground" }));
+    MT.log.add(r.ok ? "sys" : "err", r.text.slice(0, 500));
+    if (r.ok && r.json && r.json.connect) {
+      const c = r.json.connect; tok.value = c.token;
+      if (c.endpoint && c.endpoint.path) url.value = c.endpoint.path;
+      MT.log.add("sys", `match ${c.matchId || (r.json.match && r.json.match.id)} ساخته شد (transport=${c.transport}). توکن پر شد؛ Connect بزن.`);
+    }
+  };
+  return el("div", {},
+    el("h2", {}, "اتصال به مچ (WebSocket)"),
+    el("p", { class: "muted" }, "توکن اتصال یک‌بارمصرف و کوتاه‌مدت است (از ساخت مچ، join یا matchmaker.matched می‌آید). UDP از مرورگر ممکن نیست. با handler پیش‌فرض relay هر پیامی که بفرستی برای بقیه با یک بایت پیشوند (شماره‌ی اسلات) می‌رسد؛ برای دیدنش با تب دوم هم وصل شو."),
+    el("div", { class: "card" },
+      el("div", { class: "tools" }, el("button", { onclick: create }, "ساخت مچ relay و پر کردن توکن")),
+      el("div", { class: "row" }, el("label", {}, "path"), url),
+      el("div", { class: "row" }, el("label", {}, "token"), tok),
+      el("div", { class: "tools" }, el("button", { class: "primary", onclick: () => mtConnect(url.value, tok.value.trim()) }, "Connect"),
+        el("button", { onclick: () => MT.ws && MT.ws.close() }, "Disconnect"), el("button", { onclick: MT.log.clear }, "پاک کردن لاگ")),
+      MT.log.box),
+    el("div", { class: "card" }, el("h3", {}, "ارسال پیام"),
+      el("div", { class: "row" }, txt,
+        el("button", { class: "primary", onclick: () => {
+          if (!MT.ws || MT.ws.readyState !== 1) { MT.log.add("err", "وصل نیستی."); return; }
+          MT.ws.send(new TextEncoder().encode(txt.value)); MT.log.add("out", "⬆ " + txt.value);
+        } }, "Send (binary)"))));
+});
+
+page("sdk", "نمونه کد SDK", "راهنما", () => {
+  const code = (title, s) => el("div", { class: "card" }, el("h3", {}, title), el("pre", {}, s.trim()));
+  return el("div", {},
+    el("h2", {}, "همین کارها با Unity SDK"),
+    el("p", { class: "muted" }, "پکیج: sdk/unity/com.gameserver.client — جزئیات نصب در sdk/unity/README.md."),
+    code("ورود و پروفایل", `
+var client = new GameClient(new GameClientOptions { BaseUrl = "${base()}", Storage = new PlayerPrefsStorage() });
+if (!await client.Auth.TryRestoreSessionAsync())
+    await client.Auth.LoginDeviceAsync();
+var me = await client.Account.GetAsync();`),
+    code("چت", `
+await client.Realtime.ConnectAsync();
+client.Realtime.ChatMessageReceived += m => Debug.Log(m.Text);
+await client.Realtime.JoinChannelAsync("global");
+await client.Realtime.SendMessageAsync("global", "hello");`),
+    code("مچ‌میکینگ و مچ", `
+client.Realtime.MatchFound += async found => {
+    var conn = await client.Matches.ConnectAsync(found);
+    conn.MessageReceived += (data, delivery) => { /* ... */ };
+    await conn.SendTextAsync("hi");
+};
+await client.Realtime.AddToMatchmakerAsync("duel");`),
+    code("خرید و جایزه روزانه", `
+var res = await client.Shop.BuyAsync("starter_pack");
+var daily = await client.Progress.ClaimDailyAsync();`),
+    code("خطاها", `
+try { await client.Shop.BuyAsync("x"); }
+catch (ApiException e) when (e.Code == "insufficient_funds") { /* ... */ }
+catch (ApiException e) when (e.IsNetworkError) { /* retry later */ }`));
+});
+
+page("settings", "تنظیمات", "راهنما", () => {
+  const dev = el("input", { class: "ltr", value: S.deviceId, style: "flex:1" });
+  return el("div", {},
+    el("h2", {}, "تنظیمات صفحه"),
+    el("div", { class: "card" },
+      el("p", { class: "muted", style: "margin-top:0" }, "هر deviceId یک حساب جدا است. برای تست دو بازیکن، در تب دوم مرورگر یا پنجره‌ی ناشناس یک deviceId دیگر بگذار."),
+      el("div", { class: "row" }, el("label", {}, "deviceId"), dev,
+        el("button", { onclick: () => { S.deviceId = dev.value.trim(); store.set("deviceId", S.deviceId); clearSession(); } }, "ذخیره و خروج"),
+        el("button", { onclick: () => { dev.value = "web-" + crypto.randomUUID().replace(/-/g, ""); } }, "جدید")),
+      el("div", { class: "row" }, el("label", {}, "token"), el("input", { class: "ltr", readonly: "", value: S.token, style: "flex:1" })),
+      el("div", { class: "row" }, el("label", {}, "refreshToken"), el("input", { class: "ltr", readonly: "", value: S.refresh, style: "flex:1" })),
+      el("div", { class: "row" }, el("label", {}, "userId"), el("input", { class: "ltr", readonly: "", value: S.userId, style: "flex:1" }))));
+});
+
+// API pages (one per catalog group)
+for (const g of [...new Set(CATALOG.map(e => e.group))]) {
+  page("api-" + g, g, "API", () => el("div", {}, el("h2", {}, g),
+    el("p", { class: "muted" }, "روی هر ردیف کلیک کن تا باز شود. 🔒 یعنی نیاز به لاگین (هدر Bearer)."),
+    ...CATALOG.filter(e => e.group === g).map(renderEndpoint)));
+}
+
+// ============================================================================================================
+// Shell
+// ============================================================================================================
+function buildNav() {
+  const nav = $("#nav"); nav.replaceChildren();
+  let last = null;
+  for (const p of PAGES) {
+    if (p.group !== last) { nav.append(el("h4", {}, p.group)); last = p.group; }
+    nav.append(el("a", { "data-id": p.id, onclick: () => { location.hash = p.id; } }, p.title));
+  }
+}
+function show() {
+  const id = location.hash.slice(1) || "intro";
+  const p = PAGES.find(x => x.id === id) || PAGES[0];
+  $("#main").replaceChildren(p.build());
+  document.querySelectorAll("nav a").forEach(a => a.classList.toggle("on", a.dataset.id === p.id));
+  // make pages' open-state friendly: open first endpoint card when there are few
+  const eps = document.querySelectorAll(".ep"); if (eps.length && eps.length <= 2) eps.forEach(e => e.classList.add("open"));
+}
+
+$("#base").value = S.base;
+$("#base").addEventListener("change", () => store.set("base", base()));
+$("#btnHealth").onclick = async () => {
+  try { const r = await rawFetch("GET", base() + "/healthz"); $("#healthOut").textContent = r.ok ? `ok (${r.ms} ms)` : `HTTP ${r.status}`; }
+  catch { $("#healthOut").textContent = "unreachable"; }
+};
+$("#btnLogin").onclick = async () => {
+  try { const r = await deviceLogin(); $("#healthOut").textContent = r.ok ? "logged in" : `login failed: ${r.json && r.json.error || r.status}`; }
+  catch { $("#healthOut").textContent = "unreachable"; }
+};
+$("#btnLogout").onclick = async () => {
+  if (S.refresh) { try { await rawFetch("POST", base() + "/v1/auth/logout", JSON.stringify({ refreshToken: S.refresh }), false); } catch {} }
+  clearSession();
+};
+window.addEventListener("hashchange", show);
+buildNav(); renderWho(); show();
+</script>
+</body>
+</html>

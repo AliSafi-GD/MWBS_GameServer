@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GameServer.Abstractions/GameServer.Abstractions.csproj" />
+    <Project Path="src/GameServer.Core/GameServer.Core.csproj" />
+    <Project Path="src/GameServer.Host/GameServer.Host.csproj" />
+    <Project Path="src/GameServer.Transport.LiteNetLib/GameServer.Transport.LiteNetLib.csproj" />
+    <Project Path="src/GameServer.Transport.WebSocket/GameServer.Transport.WebSocket.csproj" />
+    <Project Path="src/GameServer.Transport.Tcp/GameServer.Transport.Tcp.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/HelloGame.Modules/HelloGame.Modules.csproj" />
+  </Folder>
+</Solution>

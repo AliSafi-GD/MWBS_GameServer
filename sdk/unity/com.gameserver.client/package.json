@@ -1,0 +1,17 @@
+{
+  "name": "com.gameserver.client",
+  "displayName": "GameServer Client SDK",
+  "version": "0.1.0",
+  "unity": "2021.3",
+  "description": "Client for the GameServer (accounts, wallet, shop, progress, social, chat, matchmaking, matches over WebSocket/TCP/UDP).",
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.1"
+  },
+  "samples": [
+    {
+      "displayName": "Quick start",
+      "description": "Login, realtime chat and matchmaking in one script.",
+      "path": "Samples~/QuickStart"
+    }
+  ]
+}

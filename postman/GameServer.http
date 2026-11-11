@@ -1,0 +1,418 @@
+### GameServer - for Rider / VS Code HTTP client. Select the "dev" environment (top right of this file).
+### Run "Guest login" first: it saves token and userId for the requests below.
+
+### Health
+GET {{baseUrl}}/healthz
+
+> {%
+    client.test("200", () => client.assert(response.status === 200));
+%}
+
+### 1.1 Guest login (saves token + userId)
+POST {{baseUrl}}/v1/auth/device
+Content-Type: application/json
+
+{ "deviceId": "{{deviceId}}", "create": true }
+
+> {%
+    client.test("200", () => client.assert(response.status === 200));
+    client.global.set("token", response.body.token);
+    client.global.set("userId", response.body.userId);
+    client.global.set("refreshToken", response.body.refreshToken);
+%}
+
+### 1.2 Guest login - restore only (create=false)
+POST {{baseUrl}}/v1/auth/device
+Content-Type: application/json
+
+{ "deviceId": "{{deviceId}}", "create": false }
+
+### 1.3 Bad device id (expect 400)
+POST {{baseUrl}}/v1/auth/device
+Content-Type: application/json
+
+{ "deviceId": "short" }
+
+> {% client.test("400", () => client.assert(response.status === 400)); %}
+
+### 1.4 List providers
+GET {{baseUrl}}/v1/auth/providers
+
+### 1.5 Phone: begin (Development: read the code in the server log, "DEV SMS to ...", then put it in otp in http-client.env.json)
+POST {{baseUrl}}/v1/auth/phone/begin
+Content-Type: application/json
+
+{ "credential": { "phone": "{{phone}}" } }
+
+### 1.6 Phone: login
+POST {{baseUrl}}/v1/auth/phone
+Content-Type: application/json
+
+{ "credential": { "phone": "{{phone}}", "code": "{{otp}}" }, "create": true }
+
+> {%
+    client.test("200", () => client.assert(response.status === 200));
+    client.global.set("token", response.body.token);
+    client.global.set("userId", response.body.userId);
+    client.global.set("refreshToken", response.body.refreshToken);
+%}
+
+### 1.6a Refresh token: new token + new refreshToken (each refresh token works once)
+POST {{baseUrl}}/v1/auth/refresh
+Content-Type: application/json
+
+{ "refreshToken": "{{refreshToken}}" }
+
+> {%
+    client.test("200", () => client.assert(response.status === 200));
+    client.global.set("token", response.body.token);
+    client.global.set("refreshToken", response.body.refreshToken);
+%}
+
+### 1.6b Refresh with a bad token (expect 401)
+POST {{baseUrl}}/v1/auth/refresh
+Content-Type: application/json
+
+{ "refreshToken": "not-a-real-token" }
+
+> {% client.test("401", () => client.assert(response.status === 401)); %}
+
+### 1.6c Logout (ends this session; Refresh must fail afterwards)
+POST {{baseUrl}}/v1/auth/logout
+Content-Type: application/json
+
+{ "refreshToken": "{{refreshToken}}" }
+
+### 1.7 Google Play: login (needs a real serverAuthCode and GooglePlay config)
+POST {{baseUrl}}/v1/auth/googleplay
+Content-Type: application/json
+
+{ "credential": { "serverAuthCode": "{{serverAuthCode}}" }, "create": true }
+
+### 2.1 My account
+GET {{baseUrl}}/v1/account
+Authorization: Bearer {{token}}
+
+### 2.2 Update profile
+PUT {{baseUrl}}/v1/account
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "displayName": "Ali", "lang": "fa", "timezone": "Asia/Tehran", "avatar": "avatar_1" }
+
+### 2.3 Update profile - Persian name
+PUT {{baseUrl}}/v1/account
+Authorization: Bearer {{token}}
+Content-Type: application/json; charset=utf-8
+
+{ "displayName": "علی" }
+
+### 2.4 Invalid username (expect 400)
+PUT {{baseUrl}}/v1/account
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "username": "a" }
+
+### 2.5 Link phone (do 1.5 first and set otp; 409 is a valid answer)
+POST {{baseUrl}}/v1/account/link/phone
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "credential": { "phone": "{{phone}}", "code": "{{otp}}" } }
+
+### 2.6 Link Google Play
+POST {{baseUrl}}/v1/account/link/googleplay
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "credential": { "serverAuthCode": "{{serverAuthCode}}" } }
+
+### 2.7 Unlink phone (204, or 403 if it is the only login)
+DELETE {{baseUrl}}/v1/account/link/phone
+Authorization: Bearer {{token}}
+
+### 2.8 Public profiles
+GET {{baseUrl}}/v1/users?ids={{userId}}
+Authorization: Bearer {{token}}
+
+### 2.9 No token (expect 401)
+GET {{baseUrl}}/v1/account
+
+### 2.9a Logout everywhere (all devices)
+POST {{baseUrl}}/v1/account/logout-all
+Authorization: Bearer {{token}}
+
+### 2.10 Delete my account (permanent)
+DELETE {{baseUrl}}/v1/account
+Authorization: Bearer {{token}}
+
+### 3.1 RPC hello
+POST {{baseUrl}}/v1/rpc/hello
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "name": "Ali" }
+
+### 3.2 RPC claim_daily_reward
+POST {{baseUrl}}/v1/rpc/claim_daily_reward
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### 3.3 Unknown RPC (expect 404)
+POST {{baseUrl}}/v1/rpc/does_not_exist
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### 4.1 Admin: list users
+GET {{baseUrl}}/admin/api/users?limit=25&offset=0
+X-Admin-Key: {{adminKey}}
+
+### 4.2 Admin: user detail
+GET {{baseUrl}}/admin/api/users/{{userId}}
+X-Admin-Key: {{adminKey}}
+
+### 4.3 Admin: export
+GET {{baseUrl}}/admin/api/users/{{userId}}/export
+X-Admin-Key: {{adminKey}}
+
+### 4.4 Admin: edit profile
+PUT {{baseUrl}}/admin/api/users/{{userId}}
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "displayName": "Edited by admin" }
+
+### 4.5 Admin: ban
+POST {{baseUrl}}/admin/api/users/{{userId}}/ban
+X-Admin-Key: {{adminKey}}
+
+### 4.6 Admin: unban
+POST {{baseUrl}}/admin/api/users/{{userId}}/unban
+X-Admin-Key: {{adminKey}}
+
+### 4.7 Admin: delete user
+DELETE {{baseUrl}}/admin/api/users/{{userId}}
+X-Admin-Key: {{adminKey}}
+
+### 4.8 Wrong admin key (expect 403)
+GET {{baseUrl}}/admin/api/users
+X-Admin-Key: wrong
+
+### 5.1 Public config (no login)
+GET {{baseUrl}}/v1/config
+
+### 5.2 Admin: list config
+GET {{baseUrl}}/admin/api/config
+X-Admin-Key: {{adminKey}}
+
+### 5.3 Admin: set daily_reward (server-only)
+PUT {{baseUrl}}/admin/api/config/daily_reward
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "value": { "coins": 50 }, "public": false }
+
+### 5.4 Admin: set shop_banner (public)
+PUT {{baseUrl}}/admin/api/config/shop_banner
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "value": { "text": "Sale!", "discount": 20 }, "public": true }
+
+### 5.5 Admin: set app_version
+PUT {{baseUrl}}/admin/api/config/app_version
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "value": { "default": { "latest": "1.4.0", "minimum": "1.2.0", "url": "https://example.com" }, "bazaar": { "latest": "1.5.0", "minimum": "1.3.0", "url": "bazaar://details?id=com.example.game" } }, "public": false }
+
+### 5.6 Version check: update_required
+GET {{baseUrl}}/v1/version-check?store=bazaar&version=1.2.0
+
+### 5.7 Version check: update_available
+GET {{baseUrl}}/v1/version-check?store=bazaar&version=1.4.0
+
+### 5.8 Version check: ok
+GET {{baseUrl}}/v1/version-check?store=bazaar&version=1.5.0
+
+### 5.9 Admin: delete shop_banner
+DELETE {{baseUrl}}/admin/api/config/shop_banner
+X-Admin-Key: {{adminKey}}
+
+### 5.10 Maintenance ON
+PUT {{baseUrl}}/admin/api/config/maintenance
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "value": { "enabled": true, "message": "Back in 30 minutes" }, "public": true }
+
+### 5.11 While maintenance: guest login (expect 503)
+POST {{baseUrl}}/v1/auth/device
+Content-Type: application/json
+
+{ "deviceId": "{{deviceId}}" }
+
+### 5.12 Maintenance OFF (run this after 5.10!)
+PUT {{baseUrl}}/admin/api/config/maintenance
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "value": { "enabled": false }, "public": true }
+
+### 6.1 My wallet
+GET {{baseUrl}}/v1/wallet
+Authorization: Bearer {{token}}
+
+### 6.2 My inventory
+GET {{baseUrl}}/v1/inventory
+Authorization: Bearer {{token}}
+
+### 6.3 Admin: grant 500 coins
+POST {{baseUrl}}/admin/api/users/{{userId}}/economy
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "wallet": { "coins": 500 }, "reason": "http test" }
+
+### 6.4 Admin: grant 3 cards
+POST {{baseUrl}}/admin/api/users/{{userId}}/economy
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "items": { "card_fire": 3 }, "reason": "http test" }
+
+### 6.5 Admin: overspend (expect 409, nothing changes)
+POST {{baseUrl}}/admin/api/users/{{userId}}/economy
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "wallet": { "coins": -999999 }, "reason": "http test" }
+
+### 6.6 Admin: economy of user
+GET {{baseUrl}}/admin/api/users/{{userId}}/economy
+X-Admin-Key: {{adminKey}}
+
+### 6.7 Admin: ledger
+GET {{baseUrl}}/admin/api/users/{{userId}}/ledger?limit=20
+X-Admin-Key: {{adminKey}}
+
+### 6.8 RPC buy_card (100 coins -> 1 card)
+POST {{baseUrl}}/v1/rpc/buy_card
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "card": "card_water" }
+
+### 6.9 Admin: set economy catalog (only these names are allowed afterwards!)
+PUT {{baseUrl}}/admin/api/config/economy
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "value": { "currencies": { "coins": { "max": 1000000 }, "gems": {} }, "items": { "card_fire": { "stack": 5 }, "card_water": { "stack": 99 } } }, "public": true }
+
+### 6.10 Admin: unknown currency (expect 400)
+POST {{baseUrl}}/admin/api/users/{{userId}}/economy
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "wallet": { "coinz": 5 }, "reason": "typo test" }
+
+### 6.11 Admin: delete economy catalog (turn enforcement off)
+DELETE {{baseUrl}}/admin/api/config/economy
+X-Admin-Key: {{adminKey}}
+
+### 7.1 Admin: set leaderboards
+PUT {{baseUrl}}/admin/api/config/leaderboards
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "value": { "weekly_score": { "sort": "desc", "operator": "best", "reset": "weekly" } }, "public": true }
+
+### 7.2 Admin: set tournaments (ends in 2 minutes)
+< {%
+    request.variables.set("cupStart", new Date(Date.now() - 3600000).toISOString());
+    request.variables.set("cupEnd", new Date(Date.now() + 120000).toISOString());
+%}
+PUT {{baseUrl}}/admin/api/config/tournaments
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "value": { "postman_cup": { "name": { "en": "Postman Cup" }, "start": "{{cupStart}}", "end": "{{cupEnd}}", "entryFee": { "coins": 50 }, "rewards": [ { "fromRank": 1, "toRank": 100, "wallet": { "coins": 500 } } ] } }, "public": true }
+
+### 7.3 RPC submit_score
+POST {{baseUrl}}/v1/rpc/submit_score
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "score": 1500 }
+
+### 7.4 Leaderboard weekly_score (top + me)
+GET {{baseUrl}}/v1/leaderboards/weekly_score?limit=10
+Authorization: Bearer {{token}}
+
+### 7.5 Tournaments list
+GET {{baseUrl}}/v1/tournaments
+Authorization: Bearer {{token}}
+
+### 7.6 Tournament: join (pays 50 coins)
+POST {{baseUrl}}/v1/tournaments/postman_cup/join
+Authorization: Bearer {{token}}
+
+### 7.7 RPC submit_score into the tournament
+POST {{baseUrl}}/v1/rpc/submit_score
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "score": 900, "tournament": "postman_cup" }
+
+### 7.8 Tournament standings
+GET {{baseUrl}}/v1/tournaments/postman_cup?limit=10
+Authorization: Bearer {{token}}
+
+### 7.9 Tournament: claim (after it ended)
+POST {{baseUrl}}/v1/tournaments/postman_cup/claim
+Authorization: Bearer {{token}}
+
+### 7.10 Admin: view leaderboard
+GET {{baseUrl}}/admin/api/leaderboards/weekly_score?limit=20
+X-Admin-Key: {{adminKey}}
+
+### 8.1 Admin: send notification with reward
+POST {{baseUrl}}/admin/api/users/{{userId}}/notifications
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "subject": "Welcome gift", "body": "25 coins for you", "reward": { "wallet": { "coins": 25 } }, "expiresInDays": 30 }
+
+### 8.2 My notifications (saves notificationId)
+GET {{baseUrl}}/v1/notifications?limit=20
+Authorization: Bearer {{token}}
+
+> {%
+    const open = response.body.notifications.find(n => n.reward && !n.claimed);
+    if (open) client.global.set("notificationId", open.id);
+%}
+
+### 8.3 Mark as read
+POST {{baseUrl}}/v1/notifications/{{notificationId}}/read
+Authorization: Bearer {{token}}
+
+### 8.4 Claim reward
+POST {{baseUrl}}/v1/notifications/{{notificationId}}/claim
+Authorization: Bearer {{token}}
+
+### 8.5 Delete notification
+DELETE {{baseUrl}}/v1/notifications/{{notificationId}}
+Authorization: Bearer {{token}}
+
+### 8.6 Admin: broadcast to all players
+POST {{baseUrl}}/admin/api/notifications/broadcast
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "subject": "Server news", "body": "Hello everyone" }

@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <!-- Private=false + runtime excluded: the host provides Abstractions, don't ship a second copy. -->
+    <ProjectReference Include="..\..\src\GameServer.Abstractions\GameServer.Abstractions.csproj">
+      <Private>false</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </ProjectReference>
+  </ItemGroup>
+</Project>

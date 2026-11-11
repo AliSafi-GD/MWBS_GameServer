@@ -1,0 +1,40 @@
+bin/
+obj/
+modules/
+.vs/
+*.user
+.env
+
+# logs and test screenshots
+logs/
+*.log
+
+# IDE and tool folders
+.idea/
+.idea.*/
+.vscode/
+.claude/
+
+# Unity project (samples/unity-client): generated and local-only
+samples/unity-client/Library/
+samples/unity-client/Temp/
+samples/unity-client/Logs/
+samples/unity-client/UserSettings/
+samples/unity-client/obj/
+samples/unity-client/Builds/
+samples/unity-client/*.csproj
+samples/unity-client/*.sln
+samples/unity-client/*.slnx
+samples/unity-client/.vs/
+# the server address baked into a build is machine-specific
+samples/unity-client/Assets/Resources/
+samples/unity-client/Assets/Resources.meta
+# Unity also writes project files next to the SDK package; keep its .meta files, drop the rest
+*.pdb
+*.apk
+*.aab
+*.unitypackage
+
+# Unity Android build scratch
+samples/unity-client/.utmp/
+samples/unity-client/Assets/StreamingAssets/aa/

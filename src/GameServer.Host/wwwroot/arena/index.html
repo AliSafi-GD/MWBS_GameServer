@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tank Arena</title>
+<style>
+  :root { --bg:#0f1318; --panel:#171d25; --panel2:#1e2631; --text:#e8ecf1; --muted:#8c97a6; --line:#2a3441; --accent:#4d9bff;
+          --good:#46c37b; --bad:#ff6b6b; --gold:#f5c542; --r:10px; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 system-ui,"Segoe UI",Tahoma,sans-serif; }
+  button, input, select { font:inherit; color:inherit; }
+  button { background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:7px 13px; cursor:pointer; }
+  button:hover { border-color:var(--accent); }
+  button.primary { background:var(--accent); color:#06101f; border-color:var(--accent); font-weight:600; }
+  button.danger { color:var(--bad); }
+  button:disabled { opacity:.45; cursor:default; }
+  input, select { background:#0d1117; border:1px solid var(--line); border-radius:8px; padding:7px 10px; }
+  .hidden { display:none !important; }
+  .muted { color:var(--muted); } .good { color:var(--good); } .bad { color:var(--bad); } .gold { color:var(--gold); }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:6px 0; }
+  .grow { flex:1; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:14px 16px; margin-bottom:12px; }
+  .card h3 { margin:0 0 8px; font-size:15px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px; }
+  .pill { background:var(--panel2); border:1px solid var(--line); border-radius:99px; padding:2px 10px; font-size:12px; }
+  .bar { height:8px; background:#0d1117; border-radius:99px; overflow:hidden; } .bar > i { display:block; height:100%; background:var(--accent); }
+  .bar.done > i { background:var(--good); }
+  table { width:100%; border-collapse:collapse; } td, th { padding:5px 8px; border-bottom:1px solid var(--line); text-align:left; }
+  tr.me td { background:#1a2a3d; }
+
+  #login { max-width:430px; margin:7vh auto; padding:0 16px; }
+  #login h1 { margin:0 0 6px; font-size:28px; }
+  #app header { position:sticky; top:0; z-index:5; display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:9px 16px;
+                background:var(--panel); border-bottom:1px solid var(--line); }
+  #app header h1 { margin:0; font-size:17px; }
+  nav { display:flex; gap:4px; flex-wrap:wrap; padding:8px 16px 0; max-width:1100px; margin:0 auto; }
+  nav button { border-radius:8px 8px 0 0; border-bottom:none; background:transparent; }
+  nav button.on { background:var(--panel); border-color:var(--accent); color:var(--accent); }
+  #view { max-width:1100px; margin:0 auto; padding:12px 16px 60px; }
+  #toasts { position:fixed; right:14px; bottom:14px; display:grid; gap:8px; z-index:50; max-width:340px; }
+  .toast { background:var(--panel2); border:1px solid var(--accent); border-radius:10px; padding:9px 12px; box-shadow:0 6px 20px #0008; }
+  .toast.err { border-color:var(--bad); } .toast.ok { border-color:var(--good); }
+
+  #game { position:fixed; inset:0; background:#0a0d11; z-index:30; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; }
+  #cv { background:#1b2430; border:2px solid var(--line); border-radius:8px; max-width:98vw; max-height:78vh; touch-action:none; cursor:crosshair; }
+  #hud { width:min(98vw,800px); display:flex; justify-content:space-between; align-items:center; gap:8px; font-weight:600; }
+  #gamechat { width:min(98vw,800px); display:flex; gap:6px; }
+  #gamechat input { flex:1; }
+  #gamelog { width:min(98vw,800px); height:46px; overflow:auto; font-size:12px; color:var(--muted); }
+  #banner { position:absolute; top:42%; left:0; right:0; text-align:center; font-size:46px; font-weight:800; text-shadow:0 2px 12px #000; pointer-events:none; }
+  #banner small { display:block; font-size:16px; font-weight:500; color:var(--muted); }
+  .chatlog { height:300px; overflow:auto; background:#0d1117; border:1px solid var(--line); border-radius:8px; padding:8px; font-size:13px; }
+  .chatlog div { padding:1px 0; } .chatlog b { color:var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- ============================ login ============================ -->
+<div id="login">
+  <h1>🎯 Tank Arena</h1>
+  <p class="muted">A small 1v1 tank game that uses every part of the GameServer: login, wallet, shop, quests, leaderboards, friends, clans, chat, parties, matchmaker and server-side matches.</p>
+  <div class="card">
+    <div class="row"><span class="muted">Profile</span><span class="pill" id="profLabel"></span>
+      <span class="muted">(open <code>?p=2</code> in another tab for a second player)</span></div>
+    <div class="row"><input id="uname" class="grow" placeholder="Username (3-20 letters/digits/_), only for a new account" maxlength="20"></div>
+    <div class="row"><button class="primary grow" id="btnLogin">Play</button></div>
+    <div class="row muted" id="loginMsg"></div>
+  </div>
+  <div class="card">
+    <h3>Server setup (admin)</h3>
+    <p class="muted" style="margin-top:0">Writes the game config (modes, shop, quests, achievements, leaderboards, tournament). Needed once per database.</p>
+    <div class="row"><input id="adminKey" class="grow" value="dev-admin-key-do-not-use-in-production-0123456789"></div>
+    <div class="row"><button id="btnSetup">Write game config</button></div>
+    <pre id="setupOut" class="muted" style="white-space:pre-wrap;margin:6px 0 0;font-size:12px"></pre>
+  </div>
+</div>
+
+<!-- ============================ app ============================ -->
+<div id="app" class="hidden">
+  <header>
+    <h1>🎯 Tank Arena</h1>
+    <span class="pill" id="hName"></span>
+    <span class="pill gold" id="hCoins">0 coins</span>
+    <span class="pill" id="hGems">0 gems</span>
+    <span class="pill" id="hRt">offline</span>
+    <span class="grow"></span>
+    <button id="btnLogout">Logout</button>
+  </header>
+  <nav id="nav"></nav>
+  <div id="view"></div>
+</div>
+
+<!-- ============================ game ============================ -->
+<div id="game" class="hidden">
+  <div id="hud"><span id="hudP0"></span><span id="hudTime"></span><span id="hudP1"></span></div>
+  <div style="position:relative">
+    <canvas id="cv" width="800" height="500"></canvas>
+    <div id="banner"></div>
+  </div>
+  <div class="muted" id="hudNet"></div>
+  <div id="gamelog"></div>
+  <div id="gamechat"><input id="gchat" placeholder="Match chat (Enter to send)" maxlength="120"><button id="btnLeave">Leave</button></div>
+  <div class="muted">Move: WASD / arrows · Aim: mouse · Fire: click or Space</div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+"use strict";
+// =========================================================================================================
+// helpers
+// =========================================================================================================
+const $ = (s, e = document) => e.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now());
+const qs = new URLSearchParams(location.search);
+const PROFILE = qs.get("p") || "1";
+const K = k => `arena.${PROFILE}.${k}`;
+const store = {
+  get(k, d = "") { try { const v = localStorage.getItem(K(k)); return v === null ? d : v; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(K(k), v); } catch {} }
+};
+const BASE = (qs.get("server") || location.origin).replace(/\/+$/, "");
+const S = { token: store.get("token"), refresh: store.get("refresh"), userId: store.get("userId"), username: store.get("username"),
+            deviceId: store.get("deviceId") || ("web-" + uuid().replace(/-/g, "")) };
+store.set("deviceId", S.deviceId);
+
+function toast(msg, kind = "", ms = 4500, actions = []) {
+  const t = document.createElement("div");
+  t.className = "toast " + kind;
+  t.innerHTML = `<div>${esc(msg)}</div>`;
+  if (actions.length) {
+    const row = document.createElement("div"); row.className = "row";
+    for (const a of actions) { const b = document.createElement("button"); b.textContent = a.label; b.onclick = () => { a.fn(); t.remove(); }; row.append(b); }
+    t.append(row);
+  }
+  $("#toasts").append(t);
+  setTimeout(() => t.remove(), ms);
+}
+
+// =========================================================================================================
+// http
+// =========================================================================================================
+async function raw(method, path, body, auth, extra = {}) {
+  const headers = { ...extra };
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (auth && S.token) headers["Authorization"] = "Bearer " + S.token;
+  const res = await fetch(BASE + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  const text = await res.text();
+  let json = null; try { json = text ? JSON.parse(text) : null; } catch {}
+  return { status: res.status, ok: res.ok, json, text };
+}
+function saveSession(j) {
+  S.token = j.token; S.refresh = j.refreshToken || S.refresh; S.userId = j.userId || S.userId; S.username = j.username || S.username;
+  store.set("token", S.token); store.set("refresh", S.refresh); store.set("userId", S.userId); store.set("username", S.username);
+}
+function clearSession() { S.token = S.refresh = S.userId = S.username = ""; for (const k of ["token", "refresh", "userId", "username"]) store.set(k, ""); }
+let refreshing = null;
+async function refreshToken() {
+  if (!S.refresh) return false;
+  refreshing ??= (async () => {
+    const r = await raw("POST", "/v1/auth/refresh", { refreshToken: S.refresh }, false);
+    if (r.ok && r.json?.token) { saveSession(r.json); return true; }
+    return false;
+  })().finally(() => { refreshing = null; });
+  return refreshing;
+}
+/** Calls the API; throws Error with .code/.status. Refreshes the token once on 401. */
+async function call(method, path, body, auth = true) {
+  let r = await raw(method, path, body, auth);
+  if (r.status === 401 && auth && await refreshToken()) r = await raw(method, path, body, auth);
+  if (!r.ok) {
+    const e = new Error(r.json?.message || r.json?.error || `HTTP ${r.status}`);
+    e.code = r.json?.error; e.status = r.status;
+    throw e;
+  }
+  return r.json;
+}
+const safe = fn => async (...a) => { try { return await fn(...a); } catch (e) { toast(e.message, "err"); console.warn(e); } };
+
+// =========================================================================================================
+// realtime (ws /ws): request/response by id, pushed events, auto reconnect + rejoin
+// =========================================================================================================
+const RT = {
+  ws: null, want: false, pending: new Map(), handlers: new Map(), channels: new Set(), retry: 0, timer: 0, ping: 0, ready: false,
+  on(type, fn) { (this.handlers.get(type) || this.handlers.set(type, []).get(type)).push(fn); },
+  emit(type, data) { for (const fn of this.handlers.get(type) || []) try { fn(data); } catch (e) { console.error(e); } for (const fn of this.handlers.get("*") || []) try { fn(type, data); } catch {} },
+  connect() {
+    this.want = true;
+    if (this.ws) return;
+    const u = new URL(BASE); u.protocol = u.protocol === "https:" ? "wss:" : "ws:"; u.pathname = "/ws"; u.search = "";
+    const ws = new WebSocket(u); this.ws = ws; this.ready = false;
+    ws.onopen = async () => {
+      try {
+        await this.request("auth", { token: S.token }, 8000, true);
+        this.ready = true; this.retry = 0; setRtLabel();
+        for (const c of [...this.channels]) this.request("channel.join", { channel: c }).catch(() => {});
+        this.emit("_ready");
+      } catch (e) { if (e.code === "unauthorized" && await refreshToken()) { ws.close(); } else console.warn("rt auth", e); }
+    };
+    ws.onmessage = ev => {
+      let f; try { f = JSON.parse(ev.data); } catch { return; }
+      const p = f.id && this.pending.get(f.id);
+      if (p) { this.pending.delete(f.id); clearTimeout(p.t); f.type === "error" ? p.rej(Object.assign(new Error(f.data?.message || f.data?.code), { code: f.data?.code })) : p.res(f.data); }
+      else this.emit(f.type, f.data);
+    };
+    ws.onclose = () => {
+      this.ws = null; this.ready = false; setRtLabel();
+      for (const [, p] of this.pending) { clearTimeout(p.t); p.rej(new Error("disconnected")); }
+      this.pending.clear();
+      if (this.want) { this.retry++; this.timer = setTimeout(() => this.connect(), Math.min(1000 * 2 ** Math.min(this.retry, 5), 30000)); }
+    };
+    ws.onerror = () => {};
+    clearInterval(this.ping);
+    this.ping = setInterval(() => { if (this.ready) this.request("ping", {}).catch(() => {}); }, 25000);
+  },
+  close() { this.want = false; clearTimeout(this.timer); clearInterval(this.ping); this.ws?.close(); this.ws = null; this.ready = false; this.channels.clear(); setRtLabel(); },
+  request(type, data, timeout = 15000, force = false) {
+    return new Promise((res, rej) => {
+      if (!this.ws || this.ws.readyState !== 1 || (!this.ready && !force)) return rej(new Error("realtime is not connected"));
+      const id = uuid().slice(0, 8);
+      const t = setTimeout(() => { this.pending.delete(id); rej(new Error(type + " timed out")); }, timeout);
+      this.pending.set(id, { res, rej, t });
+      this.ws.send(JSON.stringify({ type, id, data }));
+    });
+  },
+  async join(channel) { this.channels.add(channel); try { await this.request("channel.join", { channel }); } catch (e) { this.channels.delete(channel); throw e; } },
+  async leave(channel) { this.channels.delete(channel); await this.request("channel.leave", { channel }).catch(() => {}); },
+};
+function setRtLabel() { const l = $("#hRt"); l.textContent = RT.ready ? "online" : RT.want ? "connecting…" : "offline"; l.className = "pill " + (RT.ready ? "good" : "bad"); }
+
+// =========================================================================================================
+// state: wallet, inventory, party
+// =========================================================================================================
+const ME = { wallet: {}, items: {}, party: null, friends: [], ticket: null, ticketSince: 0, skin: "" };
+async function loadMe() {
+  const [w, i] = await Promise.all([call("GET", "/v1/wallet"), call("GET", "/v1/inventory")]);
+  ME.wallet = w.wallet || {}; ME.items = i.items || {};
+  if (ME.skin && !ME.items[ME.skin]) ME.skin = "";
+  $("#hCoins").textContent = (ME.wallet.coins || 0) + " coins";
+  $("#hGems").textContent = (ME.wallet.gems || 0) + " gems";
+}
+function bundleText(b) {
+  if (!b) return "";
+  const parts = [];
+  for (const [k, v] of Object.entries(b.wallet || {})) parts.push(`${v} ${k}`);
+  for (const [k, v] of Object.entries(b.items || {})) parts.push(`${v}× ${k}`);
+  return parts.join(", ") || "free";
+}
+
+// =========================================================================================================
+// views
+// =========================================================================================================
+const TABS = ["Play", "Shop", "Quests", "Ranks", "Friends", "Clan", "Chat", "Inbox"];
+let tab = "Play";
+function buildNav() {
+  $("#nav").innerHTML = TABS.map(t => `<button class="${t === tab ? "on" : ""}" data-act="tab" data-t="${t}">${t}</button>`).join("");
+}
+async function show(t = tab) {
+  tab = t; buildNav();
+  const v = $("#view");
+  try { await VIEWS[t](v); } catch (e) { v.innerHTML = `<div class="card bad">${esc(e.message)}</div>`; }
+}
+const VIEWS = {};
+
+// ---------- Play ----------
+VIEWS.Play = async v => {
+  const [pr, st] = await Promise.all([call("GET", "/v1/parties/mine"), call("GET", "/v1/stats")]);
+  ME.party = pr.party || null;
+  const stats = st.stats || {};
+  const isLeader = ME.party && ME.party.leaderId === S.userId;
+  const searching = !!ME.ticket;
+  v.innerHTML = `
+    <div class="grid">
+      <div class="card">
+        <h3>Ranked duel</h3>
+        <p class="muted">The matchmaker pairs you with another player (or your whole party). The server runs the match.</p>
+        <div class="row">
+          <button class="primary" data-act="queue" ${searching || (ME.party && !isLeader) ? "disabled" : ""}>${ME.party ? "Queue with party" : "Find match"}</button>
+          <button data-act="unqueue" ${searching ? "" : "disabled"}>Cancel</button>
+          <span class="muted" id="qState">${searching ? "Searching…" : ME.party && !isLeader ? "Only the leader can queue" : ""}</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Private match</h3>
+        <div class="row"><button data-act="mkmatch">Create</button><span class="muted">gives a code to share</span></div>
+        <div class="row"><input id="joinCode" class="grow" placeholder="match code"><button data-act="joinmatch">Join</button></div>
+        <div class="row"><button data-act="listmatches">Open matches</button></div>
+        <div id="matchList" class="muted"></div>
+      </div>
+      <div class="card">
+        <h3>Party</h3>
+        ${ME.party ? `
+          <div class="row"><span class="pill">${ME.party.members.length}/${ME.party.maxSize}</span><span class="muted">leader: ${esc(ME.party.members.find(m => m.userId === ME.party.leaderId)?.username || "?")}</span></div>
+          <div>${ME.party.members.map(m => `<div>${esc(m.displayName || m.username)} ${m.userId === ME.party.leaderId ? "👑" : ""}</div>`).join("")}</div>
+          <div class="row"><button data-act="partyleave">Leave party</button></div>
+          <div class="muted" style="margin-top:6px">Invite from the Friends tab.</div>` :
+        `<p class="muted">Play with friends: create a party, invite them (Friends tab), then queue together.</p>
+         <div class="row"><button data-act="partycreate">Create party</button></div>`}
+      </div>
+      <div class="card">
+        <h3>My stats</h3>
+        ${Object.keys(stats).length ? Object.entries(stats).map(([k, val]) => `<div class="row"><span class="grow">${esc(k)}</span><b>${val}</b></div>`).join("") : '<span class="muted">Play a match first.</span>'}
+      </div>
+    </div>`;
+};
+
+// ---------- Shop ----------
+VIEWS.Shop = async v => {
+  const [shop] = await Promise.all([call("GET", "/v1/shop"), loadMe()]);
+  const products = shop.products || [];
+  const skins = Object.keys(ME.items).filter(k => k.startsWith("skin_") && ME.items[k] > 0);
+  v.innerHTML = `
+    <div class="card"><h3>My tank skin</h3>
+      <div class="row">
+        <label><input type="radio" name="skin" value="" ${ME.skin === "" ? "checked" : ""} data-act="skin"> default</label>
+        ${skins.map(s => `<label><input type="radio" name="skin" value="${esc(s)}" ${ME.skin === s ? "checked" : ""} data-act="skin"> ${esc(s)}</label>`).join("")}
+      </div>
+      <div class="muted">The server only shows skins you really own.</div></div>
+    <div class="grid">${products.map(p => `
+      <div class="card">
+        <h3>${esc(p.name || p.id)}</h3>
+        <div class="muted">cost: ${esc(bundleText(p.cost))}</div>
+        <div class="muted">gives: ${esc(bundleText(p.gives))}</div>
+        <div class="muted">${p.limit ? `limit ${p.limit.count}/${p.limit.per}${p.remaining != null ? ` · ${p.remaining} left` : ""}` : "no limit"}</div>
+        <div class="row"><button class="primary" data-act="buy" data-id="${esc(p.id)}" ${p.active === false || p.remaining === 0 ? "disabled" : ""}>Buy</button></div>
+      </div>`).join("") || '<div class="card muted">The shop is empty. Write the game config on the login page.</div>'}</div>`;
+};
+
+// ---------- Quests ----------
+VIEWS.Quests = async v => {
+  const [d, q, a] = await Promise.all([call("GET", "/v1/daily"), call("GET", "/v1/quests"), call("GET", "/v1/achievements")]);
+  const daily = d.daily || {};
+  const goal = (kind, g) => {
+    const pct = Math.min(100, Math.round(100 * g.progress / Math.max(1, g.target)));
+    return `<div class="card"><div class="row"><b class="grow">${esc(g.name || g.id)}</b><span class="pill">${esc(bundleText(g.reward))}</span></div>
+      <div class="bar ${g.completed ? "done" : ""}"><i style="width:${pct}%"></i></div>
+      <div class="row"><span class="muted grow">${g.progress}/${g.target}${g.period ? " · " + g.period : ""}</span>
+      <button data-act="claimgoal" data-kind="${kind}" data-id="${esc(g.id)}" ${g.completed && !g.claimed ? "" : "disabled"}>${g.claimed ? "Claimed" : "Claim"}</button></div></div>`;
+  };
+  v.innerHTML = `
+    <div class="card"><h3>Daily reward</h3>
+      <div class="row">${(daily.rewards || []).map((r, i) => `<span class="pill ${i + 1 === daily.nextDay ? "gold" : ""}">Day ${i + 1}: ${esc(bundleText(r))}</span>`).join("")}</div>
+      <div class="row"><span class="muted grow">streak ${daily.streak ?? 0} · ${daily.claimedToday ? "claimed today" : "ready"}</span>
+      <button class="primary" data-act="claimdaily" ${daily.claimedToday ? "disabled" : ""}>Claim day ${daily.nextDay ?? 1}</button></div></div>
+    <h3>Quests</h3>${(q.quests || []).map(g => goal("quest", g)).join("") || '<div class="muted">none</div>'}
+    <h3>Achievements</h3>${(a.achievements || []).map(g => goal("achievement", g)).join("") || '<div class="muted">none</div>'}`;
+};
+
+// ---------- Ranks ----------
+let board = "arena_wins";
+VIEWS.Ranks = async v => {
+  const [b, t] = await Promise.all([call("GET", `/v1/leaderboards/${board}?limit=20&around=0`), call("GET", "/v1/tournaments")]);
+  const rows = (b.entries || []).map(e => `<tr class="${e.userId === S.userId ? "me" : ""}"><td>${e.rank}</td><td>${esc(e.displayName || e.username)}</td><td>${e.score}</td></tr>`).join("");
+  v.innerHTML = `
+    <div class="card"><div class="row">
+      ${["arena_wins", "arena_weekly", "arena_best_hits"].map(id => `<button class="${id === board ? "primary" : ""}" data-act="board" data-id="${id}">${id}</button>`).join("")}
+      <span class="muted">period: ${esc(b.period || "")}</span></div>
+      <table><tr><th>#</th><th>Player</th><th>Score</th></tr>${rows || '<tr><td colspan=3 class="muted">no scores yet</td></tr>'}</table>
+      ${b.me ? `<div class="muted">You: #${b.me.rank} · ${b.me.score}</div>` : ""}</div>
+    <h3>Tournaments</h3>
+    ${(t.tournaments || []).map(x => `<div class="card"><div class="row"><b class="grow">${esc(x.name?.en || x.id)}</b><span class="pill">${esc(x.status)}</span></div>
+      <div class="muted">fee: ${esc(Object.entries(x.entryFee || {}).map(([k, n]) => n + " " + k).join(", ") || "free")} · ends ${esc(x.endUtc)}</div>
+      <div class="row"><button data-act="tjoin" data-id="${esc(x.id)}" ${x.joined ? "disabled" : ""}>${x.joined ? "Joined" : "Join"}</button>
+        <button data-act="tshow" data-id="${esc(x.id)}">Standings</button>
+        <button data-act="tclaim" data-id="${esc(x.id)}" ${x.claimed ? "disabled" : ""}>Claim reward</button></div>
+      <div id="t_${esc(x.id)}"></div></div>`).join("") || '<div class="muted">none</div>'}`;
+};
+
+// ---------- Friends ----------
+VIEWS.Friends = async v => {
+  const [fr, inc, out, party] = await Promise.all([
+    call("GET", "/v1/friends?state=friend&limit=100"), call("GET", "/v1/friends?state=invite_received&limit=50"),
+    call("GET", "/v1/friends?state=invite_sent&limit=50"), call("GET", "/v1/parties/mine")]);
+  ME.party = party.party || null;
+  const row = (f, extra) => `<div class="row"><span class="grow">${f.online ? "🟢" : "⚪"} ${esc(f.profile.displayName || f.profile.username)} <span class="muted">@${esc(f.profile.username)}</span></span>${extra}</div>`;
+  v.innerHTML = `
+    <div class="card"><h3>Add friend</h3><div class="row"><input id="fname" class="grow" placeholder="username"><button class="primary" data-act="addfriend">Add</button></div></div>
+    ${(inc.friends || []).length ? `<div class="card"><h3>Requests</h3>${inc.friends.map(f => row(f, `<button class="primary" data-act="acceptfriend" data-id="${esc(f.profile.id)}">Accept</button><button class="danger" data-act="rmfriend" data-id="${esc(f.profile.id)}">Decline</button>`)).join("")}</div>` : ""}
+    <div class="card"><h3>Friends</h3>${(fr.friends || []).map(f => row(f,
+      `<button data-act="dm" data-id="${esc(f.profile.id)}" data-name="${esc(f.profile.username)}">Message</button>
+       <button data-act="partyinvite" data-id="${esc(f.profile.id)}">Invite to party</button>
+       <button class="danger" data-act="rmfriend" data-id="${esc(f.profile.id)}">Remove</button>
+       <button class="danger" data-act="block" data-id="${esc(f.profile.id)}">Block</button>`)).join("") || '<span class="muted">No friends yet.</span>'}</div>
+    ${(out.friends || []).length ? `<div class="card"><h3>Sent</h3>${out.friends.map(f => row(f, '<span class="muted">pending</span>')).join("")}</div>` : ""}`;
+};
+
+// ---------- Clan ----------
+VIEWS.Clan = async v => {
+  const mine = (await call("GET", "/v1/groups/mine")).groups || [];
+  if (mine.length) {
+    const g = mine[0].group, role = mine[0].role;
+    const members = (await call("GET", `/v1/groups/${g.id}/members`)).members || [];
+    v.innerHTML = `<div class="card"><h3>${esc(g.name)} <span class="pill">${esc(role)}</span></h3>
+      <div class="muted">${esc(g.description || "")} · ${g.memberCount}/${g.maxMembers} members · ${g.open ? "open" : "invite/approval"}</div>
+      <div class="row"><button data-act="clanchat" data-id="${esc(g.id)}">Clan chat</button><button class="danger" data-act="clanleave" data-id="${esc(g.id)}">Leave</button>
+      ${role === "owner" || role === "superadmin" ? `<button class="danger" data-act="clandelete" data-id="${esc(g.id)}">Delete</button>` : ""}</div></div>
+      <div class="card"><h3>Members</h3>${members.map(m => `<div class="row"><span class="grow">${esc(m.profile.displayName || m.profile.username)} <span class="pill">${esc(m.role)}</span></span>
+        ${(role === "owner" || role === "superadmin" || role === "admin") && m.profile.id !== S.userId ? `<button data-act="clanpromote" data-g="${esc(g.id)}" data-id="${esc(m.profile.id)}">Promote</button><button class="danger" data-act="clankick" data-g="${esc(g.id)}" data-id="${esc(m.profile.id)}">Kick</button>` : ""}</div>`).join("")}</div>`;
+    return;
+  }
+  const found = (await call("GET", "/v1/groups?limit=20")).groups || [];
+  v.innerHTML = `<div class="card"><h3>Create a clan</h3>
+      <div class="row"><input id="cname" placeholder="name"><input id="cdesc" class="grow" placeholder="description"><button class="primary" data-act="clancreate">Create</button></div></div>
+    <div class="card"><h3>Find a clan</h3><div class="row"><input id="cq" class="grow" placeholder="search"><button data-act="clansearch">Search</button></div>
+      <div id="clanres">${found.map(clanRow).join("") || '<span class="muted">none yet</span>'}</div></div>`;
+};
+const clanRow = g => `<div class="row"><span class="grow">${esc(g.name)} <span class="muted">${g.memberCount}/${g.maxMembers}</span></span><button data-act="clanjoin" data-id="${esc(g.id)}">${g.open ? "Join" : "Request"}</button></div>`;
+
+// ---------- Chat ----------
+const CHAT = { channel: "room:lobby", logs: new Map(), names: new Map() };
+VIEWS.Chat = async v => {
+  if (!RT.channels.has("room:lobby")) await RT.join("room:lobby").catch(e => toast(e.message, "err"));
+  if (!CHAT.logs.has(CHAT.channel)) await loadHistory(CHAT.channel);
+  const chans = [...RT.channels];
+  v.innerHTML = `<div class="card"><div class="row">${chans.map(c => `<button class="${c === CHAT.channel ? "primary" : ""}" data-act="chan" data-c="${esc(c)}">${esc(chanLabel(c))}</button>`).join("")}</div>
+    <div class="chatlog" id="chatlog"></div>
+    <div class="row"><input id="chatin" class="grow" placeholder="Message (Enter)" maxlength="200"><button class="primary" data-act="chatsend">Send</button></div></div>`;
+  renderChat();
+  $("#chatin").addEventListener("keydown", e => { if (e.key === "Enter") actions.chatsend(); });
+};
+const chanLabel = c => c.startsWith("dm:") ? "DM " + (CHAT.names.get(c.slice(3)) || c.slice(3, 8)) : c.startsWith("group:") ? "Clan" : c.startsWith("party:") ? "Party" : c.replace("room:", "#");
+async function loadHistory(c) {
+  try { const r = await RT.request("channel.history", { channel: c, limit: 30 }); CHAT.logs.set(c, (r.items || []).slice().reverse()); }
+  catch { CHAT.logs.set(c, []); }
+}
+function renderChat() {
+  const box = $("#chatlog"); if (!box) return;
+  box.innerHTML = (CHAT.logs.get(CHAT.channel) || []).map(m => `<div><b>${esc(m.senderName || "system")}</b>: ${esc(m.text)}</div>`).join("");
+  box.scrollTop = box.scrollHeight;
+}
+RT.on("channel.message", m => {
+  const l = CHAT.logs.get(m.channel) || []; l.push(m); CHAT.logs.set(m.channel, l.slice(-200));
+  if (m.senderId) CHAT.names.set(m.senderId, m.senderName);
+  if (tab === "Chat" && m.channel === CHAT.channel) renderChat();
+  else if (m.senderId !== S.userId && m.channel.startsWith("dm:")) toast(`${m.senderName}: ${m.text}`);
+});
+
+// ---------- Inbox ----------
+VIEWS.Inbox = async v => {
+  const n = (await call("GET", "/v1/notifications?limit=30")).notifications || [];
+  v.innerHTML = n.length ? n.map(x => `<div class="card"><div class="row"><b class="grow">${esc(x.subject)}</b>${x.read ? "" : '<span class="pill">new</span>'}</div>
+    <div class="muted">${esc(x.body || "")}</div>
+    <div class="row">${x.reward ? `<span class="pill">${esc(bundleText(x.reward))}</span><button class="primary" data-act="nclaim" data-id="${x.id}" ${x.claimed ? "disabled" : ""}>${x.claimed ? "Claimed" : "Claim"}</button>` : ""}
+    <button data-act="nread" data-id="${x.id}">Mark read</button><button class="danger" data-act="ndel" data-id="${x.id}">Delete</button></div></div>`).join("")
+    : '<div class="card muted">Inbox is empty. (Achievements and admin messages land here.)</div>';
+};
+
+// =========================================================================================================
+// actions
+// =========================================================================================================
+const actions = {
+  tab: d => show(d.t),
+  skin: (d, b) => { ME.skin = b.value; store.set("skin", ME.skin); toast(ME.skin ? "Skin: " + ME.skin : "Default skin"); },
+  buy: safe(async d => {
+    const r = await call("POST", `/v1/shop/${encodeURIComponent(d.id)}/buy`, { quantity: 1, requestId: uuid() });
+    toast("Bought " + d.id, "ok"); await show("Shop");
+  }),
+  claimdaily: safe(async () => { const r = await call("POST", "/v1/daily/claim"); toast("Daily reward: " + bundleText(r.claim?.reward), "ok"); await loadMe(); await show("Quests"); }),
+  claimgoal: safe(async d => {
+    const r = await call("POST", `/v1/${d.kind === "quest" ? "quests" : "achievements"}/${encodeURIComponent(d.id)}/claim`);
+    toast("Reward: " + bundleText(r.claim?.reward), "ok"); await loadMe(); await show("Quests");
+  }),
+  board: d => { board = d.id; show("Ranks"); },
+  tjoin: safe(async d => { await call("POST", `/v1/tournaments/${encodeURIComponent(d.id)}/join`); toast("Joined", "ok"); await loadMe(); await show("Ranks"); }),
+  tclaim: safe(async d => { const r = await call("POST", `/v1/tournaments/${encodeURIComponent(d.id)}/claim`); toast("Reward: " + JSON.stringify(r.wallet || r), "ok"); await loadMe(); await show("Ranks"); }),
+  tshow: safe(async d => {
+    const r = await call("GET", `/v1/tournaments/${encodeURIComponent(d.id)}?limit=10`);
+    $("#t_" + d.id).innerHTML = `<table>${(r.board?.entries || []).map(e => `<tr><td>${e.rank}</td><td>${esc(e.displayName || e.username)}</td><td>${e.score}</td></tr>`).join("") || '<tr><td class="muted">no scores</td></tr>'}</table>`;
+  }),
+  // party / matchmaking
+  partycreate: safe(async () => { await call("POST", "/v1/parties", { open: false, maxSize: 2 }); await show("Play"); }),
+  partyleave: safe(async () => { await call("POST", "/v1/parties/leave"); await show("Play"); }),
+  partyinvite: safe(async d => {
+    if (!ME.party) await call("POST", "/v1/parties", { open: false, maxSize: 2 });
+    await call("POST", `/v1/parties/invite/${encodeURIComponent(d.id)}`); toast("Invite sent", "ok");
+  }),
+  queue: safe(async () => {
+    const body = { mode: "arena", properties: {} };
+    if (ME.party) body.partyId = ME.party.id;
+    const r = await call("POST", "/v1/matchmaker/tickets", body);
+    ME.ticket = r.ticket?.id || r.id || "t"; ME.ticketSince = Date.now(); await show("Play"); startQueueTimer();
+  }),
+  unqueue: safe(async () => {
+    const t = (await call("GET", "/v1/matchmaker/tickets")).tickets || [];
+    for (const x of t) await call("DELETE", `/v1/matchmaker/tickets/${x.id}`).catch(() => {});
+    ME.ticket = null; await show("Play");
+  }),
+  mkmatch: safe(async () => {
+    const r = await call("POST", "/v1/matches", { mode: "arena_friendly", label: "friendly" });
+    toast("Match code: " + (r.match?.id || r.connect?.matchId), "ok", 12000);
+    await navigator.clipboard?.writeText(r.match?.id || r.connect?.matchId).catch(() => {});
+    startGame(r.connect);
+  }),
+  joinmatch: safe(async () => {
+    const id = $("#joinCode").value.trim(); if (!id) return toast("Enter a match code", "err");
+    const r = await call("POST", `/v1/matches/${encodeURIComponent(id)}/join`); startGame(r.connect || r);
+  }),
+  listmatches: safe(async () => {
+    const r = await call("GET", "/v1/matches?mode=arena_friendly&limit=10");
+    $("#matchList").innerHTML = (r.matches || []).map(m => `<div class="row"><span class="grow">${esc(m.id.slice(0, 8))}… ${m.connected}/${m.maxPlayers}</span><button data-act="joinid" data-id="${esc(m.id)}">Join</button></div>`).join("") || "none";
+  }),
+  joinid: safe(async d => { const r = await call("POST", `/v1/matches/${encodeURIComponent(d.id)}/join`); startGame(r.connect || r); }),
+  // friends
+  addfriend: safe(async () => { const u = $("#fname").value.trim(); if (!u) return; const r = await call("POST", "/v1/friends", { username: u }); toast("Result: " + r.state, "ok"); await show("Friends"); }),
+  acceptfriend: safe(async d => { await call("POST", "/v1/friends", { userId: d.id }); toast("Friend added", "ok"); await show("Friends"); }),
+  rmfriend: safe(async d => { await call("DELETE", `/v1/friends/${encodeURIComponent(d.id)}`); await show("Friends"); }),
+  block: safe(async d => { await call("POST", `/v1/friends/${encodeURIComponent(d.id)}/block`); await show("Friends"); }),
+  dm: safe(async d => { const c = "dm:" + d.id; CHAT.names.set(d.id, d.name); await RT.join(c); CHAT.channel = c; await show("Chat"); }),
+  // clan
+  clancreate: safe(async () => {
+    const name = $("#cname").value.trim(); if (!name) return toast("Name?", "err");
+    await call("POST", "/v1/groups", { name, description: $("#cdesc").value, type: "clan", open: true, maxMembers: 30 }); await show("Clan");
+  }),
+  clansearch: safe(async () => { const r = await call("GET", `/v1/groups?q=${encodeURIComponent($("#cq").value)}&limit=20`); $("#clanres").innerHTML = (r.groups || []).map(clanRow).join("") || "none"; }),
+  clanjoin: safe(async d => { const r = await call("POST", `/v1/groups/${encodeURIComponent(d.id)}/join`); toast(r.status, "ok"); await show("Clan"); }),
+  clanleave: safe(async d => { await call("POST", `/v1/groups/${encodeURIComponent(d.id)}/leave`); await show("Clan"); }),
+  clandelete: safe(async d => { await call("DELETE", `/v1/groups/${encodeURIComponent(d.id)}`); await show("Clan"); }),
+  clankick: safe(async d => { await call("POST", `/v1/groups/${d.g}/members/${encodeURIComponent(d.id)}/kick`); await show("Clan"); }),
+  clanpromote: safe(async d => { await call("POST", `/v1/groups/${d.g}/members/${encodeURIComponent(d.id)}/promote`); await show("Clan"); }),
+  clanchat: safe(async d => { const c = "group:" + d.id; await RT.join(c); CHAT.channel = c; await show("Chat"); }),
+  // chat
+  chan: d => { CHAT.channel = d.c; show("Chat"); },
+  chatsend: safe(async () => {
+    const i = $("#chatin"); const text = i.value.trim(); if (!text) return; i.value = "";
+    await RT.request("channel.send", { channel: CHAT.channel, text });
+  }),
+  // inbox
+  nclaim: safe(async d => { await call("POST", `/v1/notifications/${d.id}/claim`); toast("Claimed", "ok"); await loadMe(); await show("Inbox"); }),
+  nread: safe(async d => { await call("POST", `/v1/notifications/${d.id}/read`); await show("Inbox"); }),
+  ndel: safe(async d => { await call("DELETE", `/v1/notifications/${d.id}`); await show("Inbox"); }),
+};
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-act]");
+  if (b && actions[b.dataset.act]) actions[b.dataset.act](b.dataset, b);
+});
+function startQueueTimer() {
+  const t = setInterval(() => {
+    const s = $("#qState");
+    if (!ME.ticket || !s) { if (!ME.ticket) clearInterval(t); if (!s) clearInterval(t); return; }
+    s.textContent = `Searching… ${Math.round((Date.now() - ME.ticketSince) / 1000)}s`;
+  }, 1000);
+}
+
+// ---------- pushed events ----------
+RT.on("matchmaker.matched", d => {
+  ME.ticket = null;
+  toast("Match found!", "ok");
+  startGame({ matchId: d.matchId, mode: d.mode, transport: d.transport, token: d.token, endpoint: d.endpoint });
+});
+RT.on("matchmaker.expired", d => { ME.ticket = null; toast("Matchmaking ended: " + (d?.reason || ""), "err"); if (tab === "Play") show("Play"); });
+RT.on("party.update", p => { ME.party = p; if (tab === "Play" || tab === "Friends") show(tab); });
+RT.on("party.left", () => { ME.party = null; toast("Left the party"); if (tab === "Play") show("Play"); });
+RT.on("party.invite", d => toast(`Party invite from ${d.from?.username || d.from?.displayName || "a friend"}`, "", 20000, [{ label: "Join", fn: safe(async () => { await call("POST", `/v1/parties/${d.partyId}/join`); await show("Play"); }) }]));
+RT.on("friend.request", () => { toast("New friend request"); if (tab === "Friends") show("Friends"); });
+RT.on("friend.accepted", () => { toast("Friend request accepted", "ok"); if (tab === "Friends") show("Friends"); });
+RT.on("group.invite", d => toast(`Clan invite: ${d.groupName}`, "", 20000, [{ label: "Join", fn: safe(async () => { await call("POST", `/v1/groups/${d.groupId}/join`); await show("Clan"); }) }]));
+RT.on("goal.completed", d => { toast(`🏆 ${d.kind} done: ${d.name || d.id}${d.hasReward ? " (claim it in Quests)" : ""}`, "ok", 8000); if (tab === "Quests") show("Quests"); });
+RT.on("notification.new", d => { toast("📬 " + d.subject, "", 6000); if (tab === "Inbox") show("Inbox"); });
+
+// =========================================================================================================
+// game
+// =========================================================================================================
+const SKIN_COLORS = { skin_red: "#e5484d", skin_camo: "#7d9a3c", skin_gold: "#f5c542", skin_neon: "#39ff14" };
+const SLOT_COLORS = ["#4d9bff", "#ff9a3d"];
+const G = { ws: null, info: null, active: false, over: false, you: -1, world: { w: 800, h: 500, r: 16, walls: [] }, players: [], snap: null, prev: null, snapAt: 0, prevAt: 0,
+            keys: {}, mouse: { x: 400, y: 250 }, fire: false, aim: 0, seq: 0, sent: new Map(), rtt: 0, snaps: 0, snapRate: 0, lastSent: "", lastSendAt: 0, raf: 0, reconnecting: false, inputTimer: 0, rateTimer: 0, left: false };
+
+function glog(s) { const l = $("#gamelog"); l.insertAdjacentHTML("beforeend", `<div>${esc(s)}</div>`); l.scrollTop = l.scrollHeight; }
+function banner(main, sub = "") { $("#banner").innerHTML = main ? `${esc(main)}<small>${esc(sub)}</small>` : ""; }
+
+function startGame(info) {
+  if (G.active) return toast("Already in a match", "err");
+  Object.assign(G, { info, active: true, over: false, you: -1, players: [], snap: null, prev: null, left: false, seq: 0, sent: new Map(), rtt: 0, snaps: 0 });
+  $("#game").classList.remove("hidden"); $("#gamelog").innerHTML = ""; banner("Connecting…");
+  glog("match " + info.matchId);
+  connectMatch(info);
+  G.raf = requestAnimationFrame(frame);
+  G.inputTimer = setInterval(sendInput, 33);
+  G.rateTimer = setInterval(() => { G.snapRate = G.snaps; G.snaps = 0; }, 1000);
+}
+function connectMatch(info) {
+  const ep = info.endpoint || {};
+  const u = new URL(BASE); u.protocol = u.protocol === "https:" ? "wss:" : "ws:"; u.pathname = ep.path || "/match"; u.search = "";
+  u.searchParams.set(ep.tokenQuery || "token", info.token);
+  const ws = new WebSocket(u); ws.binaryType = "arraybuffer"; G.ws = ws;
+  ws.onopen = () => { glog("connected"); gsend({ t: "hello", skin: ME.skin }); };
+  ws.onmessage = ev => {
+    let m; try { m = JSON.parse(typeof ev.data === "string" ? ev.data : new TextDecoder().decode(ev.data)); } catch { return; }
+    onGameMsg(m);
+  };
+  ws.onclose = () => { G.ws = null; if (G.active && !G.over && !G.left) reconnectMatch(); };
+  ws.onerror = () => {};
+}
+async function reconnectMatch() {
+  if (G.reconnecting) return; G.reconnecting = true;
+  banner("Connection lost", "reconnecting…");
+  for (let i = 0; i < 12 && G.active && !G.over && !G.left; i++) {
+    await sleep(1000 + i * 300);
+    try {
+      const r = await call("POST", `/v1/matches/${encodeURIComponent(G.info.matchId)}/join`);
+      G.info = r.connect || r; connectMatch(G.info); G.reconnecting = false; return;
+    } catch (e) { if (e.code === "match_not_found") break; }
+  }
+  G.reconnecting = false;
+  if (G.active && !G.over) { toast("Lost the match", "err"); endGame(); }
+}
+function gsend(o) { if (G.ws && G.ws.readyState === 1) G.ws.send(new TextEncoder().encode(JSON.stringify(o))); }
+function sendInput() {
+  if (!G.active || G.over) return;
+  const k = G.keys;
+  const dx = (k.d || k.arrowright ? 1 : 0) - (k.a || k.arrowleft ? 1 : 0);
+  const dy = (k.s || k.arrowdown ? 1 : 0) - (k.w || k.arrowup ? 1 : 0);
+  const me = G.snap?.p.find(p => p[0] === G.you);
+  if (me) G.aim = Math.atan2(G.mouse.y - me[2], G.mouse.x - me[1]);
+  const aim = Math.round(G.aim * 100) / 100;
+  const sig = `${dx},${dy},${aim},${G.fire}`;
+  const now = performance.now();
+  if (sig === G.lastSent && now - G.lastSendAt < 250) return;
+  G.lastSent = sig; G.lastSendAt = now;
+  const seq = ++G.seq; G.sent.set(seq, now); if (G.sent.size > 300) G.sent.delete(G.sent.keys().next().value);
+  gsend({ t: "in", dx, dy, aim, fire: G.fire, seq });
+}
+function onGameMsg(m) {
+  switch (m.t) {
+    case "init": G.you = m.you; G.world = { w: m.w, h: m.h, r: m.r, walls: m.walls }; $("#cv").width = m.w; $("#cv").height = m.h; banner("Waiting for opponent…"); break;
+    case "players": G.players = m.list; hudNames(); break;
+    case "s": {
+      G.prev = G.snap; G.prevAt = G.snapAt; G.snap = m; G.snapAt = performance.now(); G.snaps++;
+      const me = m.p.find(p => p[0] === G.you);
+      if (me && G.sent.has(me[5])) { G.rtt = Math.round(performance.now() - G.sent.get(me[5])); }
+      if (m.ph === 0) banner("Waiting for opponent…");
+      else if (m.ph === 1) banner(String(Math.ceil(m.tm)), "get ready");
+      else if (m.ph === 2) banner("");
+      hudUpdate(m);
+      break;
+    }
+    case "hit": glog(`slot ${m.by} hit slot ${m.slot} (hp ${m.hp})`); break;
+    case "left": glog(`slot ${m.slot} disconnected`); break;
+    case "chat": glog(`${nameOf(m.from)}: ${m.text}`); break;
+    case "warn": glog("server warning: " + m.msg); break;
+    case "over": {
+      G.over = true;
+      const r = m.results.find(x => x.slot === G.you) || {};
+      const won = m.winner === G.you, draw = m.winner === -1;
+      banner(draw ? "DRAW" : won ? "VICTORY" : "DEFEAT", `${m.reason} · +${r.coins || 0} coins · ${r.hits || 0} hits`);
+      glog("match over: " + m.reason);
+      setTimeout(endGame, 4500);
+      break;
+    }
+  }
+}
+const nameOf = slot => G.players.find(p => p.slot === slot)?.name || "slot " + slot;
+function hudNames() {
+  const a = G.players.find(p => p.slot === 0), b = G.players.find(p => p.slot === 1);
+  $("#hudP0").textContent = (a ? a.name : "…") + (G.you === 0 ? " (you)" : "");
+  $("#hudP1").textContent = (b ? b.name : "…") + (G.you === 1 ? " (you)" : "");
+}
+function hudUpdate(m) {
+  const hp = s => { const p = m.p.find(x => x[0] === s); return p ? "♥".repeat(Math.max(0, p[4])) + "♡".repeat(Math.max(0, 3 - p[4])) : ""; };
+  $("#hudP0").textContent = `${nameOf(0)}${G.you === 0 ? " (you)" : ""}  ${hp(0)}`;
+  $("#hudP1").textContent = `${hp(1)}  ${nameOf(1)}${G.you === 1 ? " (you)" : ""}`;
+  $("#hudTime").textContent = m.ph === 2 ? Math.ceil(m.tm) + "s" : "";
+  $("#hudNet").textContent = `snapshots ${G.snapRate}/s · input→state ${G.rtt} ms`;
+}
+function endGame() {
+  if (!G.active) return;
+  G.active = false; G.left = true; cancelAnimationFrame(G.raf); clearInterval(G.inputTimer); clearInterval(G.rateTimer);
+  try { G.ws?.close(); } catch {}
+  G.ws = null; $("#game").classList.add("hidden");
+  loadMe().catch(() => {}); show(tab);
+}
+$("#btnLeave").onclick = () => { G.left = true; endGame(); };
+$("#gchat").addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Enter" && e.target.value.trim()) { gsend({ t: "chat", text: e.target.value.trim() }); e.target.value = ""; } });
+
+const cv = $("#cv"), ctx = cv.getContext("2d");
+function frame() {
+  if (!G.active) return;
+  G.raf = requestAnimationFrame(frame);
+  const W = G.world.w, H = G.world.h;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#222c39";
+  for (const w of G.world.walls) ctx.fillRect(w[0], w[1], w[2], w[3]);
+  ctx.strokeStyle = "#3a4a5f"; ctx.lineWidth = 2;
+  for (const w of G.world.walls) ctx.strokeRect(w[0], w[1], w[2], w[3]);
+  const s = G.snap; if (!s) return;
+  // smooth towards the newest snapshot (very small lag, hides the 20 Hz steps)
+  const t = G.prev ? Math.min(1, (performance.now() - G.snapAt) / Math.max(30, G.snapAt - G.prevAt) + 0) : 1;
+  for (const p of s.p) {
+    const pp = G.prev?.p.find(q => q[0] === p[0]);
+    const x = pp ? pp[1] + (p[1] - pp[1]) * t : p[1], y = pp ? pp[2] + (p[2] - pp[2]) * t : p[2];
+    const pl = G.players.find(q => q.slot === p[0]);
+    const color = SKIN_COLORS[pl?.skin] || SLOT_COLORS[p[0] % 2];
+    const aim = p[0] === G.you ? G.aim : p[3];
+    ctx.save(); ctx.translate(x, y);
+    ctx.globalAlpha = p[4] > 0 ? 1 : 0.25;
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, 0, G.world.r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#0008"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.rotate(aim); ctx.fillStyle = "#101820"; ctx.fillRect(0, -3, G.world.r + 8, 6);
+    ctx.restore();
+    if (p[0] === G.you) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, G.world.r + 4, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.fillStyle = "#fff"; ctx.font = "11px system-ui"; ctx.textAlign = "center"; ctx.fillText(pl?.name || "", x, y - G.world.r - 8);
+  }
+  for (const b of s.b) { ctx.fillStyle = SLOT_COLORS[b[2] % 2]; ctx.beginPath(); ctx.arc(b[0], b[1], 4, 0, Math.PI * 2); ctx.fill(); }
+}
+function canvasPos(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * cv.width / r.width, y: (e.clientY - r.top) * cv.height / r.height }; }
+cv.addEventListener("mousemove", e => { G.mouse = canvasPos(e); });
+cv.addEventListener("mousedown", e => { G.mouse = canvasPos(e); G.fire = true; e.preventDefault(); });
+window.addEventListener("mouseup", () => { G.fire = false; });
+cv.addEventListener("touchstart", e => { G.mouse = canvasPos(e.touches[0]); G.fire = true; e.preventDefault(); }, { passive: false });
+cv.addEventListener("touchmove", e => { G.mouse = canvasPos(e.touches[0]); e.preventDefault(); }, { passive: false });
+cv.addEventListener("touchend", () => { G.fire = false; });
+window.addEventListener("keydown", e => {
+  if (!G.active || e.target.tagName === "INPUT") return;
+  const k = e.key.toLowerCase();
+  if (k === " ") { G.fire = true; e.preventDefault(); } else G.keys[k] = true;
+});
+window.addEventListener("keyup", e => { const k = e.key.toLowerCase(); if (k === " ") G.fire = false; else delete G.keys[k]; });
+window.addEventListener("blur", () => { G.keys = {}; G.fire = false; });
+
+// =========================================================================================================
+// login, setup, boot
+// =========================================================================================================
+$("#profLabel").textContent = "#" + PROFILE;
+$("#uname").value = qs.get("name") || "";
+
+async function enterApp() {
+  $("#login").classList.add("hidden"); $("#app").classList.remove("hidden");
+  $("#hName").textContent = S.username || S.userId.slice(0, 8);
+  ME.skin = store.get("skin", "");
+  await loadMe().catch(e => toast(e.message, "err"));
+  RT.connect(); setRtLabel();
+  await show("Play");
+  // resume a running match after a page refresh? not tracked: the server drops us after the forfeit time.
+}
+$("#btnLogin").onclick = async () => {
+  const msg = $("#loginMsg"); msg.textContent = "Signing in…";
+  try {
+    const body = { deviceId: S.deviceId, create: true };
+    const u = $("#uname").value.trim(); if (u) body.username = u;
+    const j = await call("POST", "/v1/auth/device", body, false);
+    saveSession(j); msg.textContent = ""; await enterApp();
+  } catch (e) { msg.textContent = e.message; msg.className = "row bad"; }
+};
+$("#btnLogout").onclick = async () => {
+  if (G.active) endGame();
+  if (S.refresh) await raw("POST", "/v1/auth/logout", { refreshToken: S.refresh }, false).catch(() => {});
+  RT.close(); clearSession(); location.reload();
+};
+$("#btnSetup").onclick = async () => {
+  const out = $("#setupOut"); out.textContent = "Loading arena-config.json…\n";
+  try {
+    const cfg = await (await fetch("arena-config.json")).json();
+    const now = Date.now(), day = 86400000;
+    const fix = v => typeof v === "string" && v.startsWith("@now") ? new Date(now + (v.includes("+") ? 1 : -1) * parseInt(v.replace(/\D/g, "") || "0", 10) * day).toISOString()
+      : Array.isArray(v) ? v.map(fix) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fix(x)])) : v;
+    for (const [key, value] of Object.entries(cfg.configs)) {
+      const r = await raw("PUT", `/admin/api/config/${key}`, { value: fix(value), public: false }, false, { "X-Admin-Key": $("#adminKey").value.trim() });
+      out.textContent += `${r.ok ? "✔" : "✖"} ${key} ${r.ok ? "" : r.status + " " + (r.json?.message || r.text)}\n`;
+    }
+    out.textContent += "Done. The match modes may need ~3 s to be picked up.";
+  } catch (e) { out.textContent += "Error: " + e.message; }
+};
+
+(async function boot() {
+  if (S.token) {
+    try { await call("GET", "/v1/account"); await enterApp(); return; }
+    catch { clearSession(); }
+  }
+})();
+</script>
+</body>
+</html>

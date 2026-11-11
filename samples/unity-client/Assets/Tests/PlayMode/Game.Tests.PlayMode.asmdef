@@ -1,0 +1,26 @@
+{
+  "name": "Game.Tests.PlayMode",
+  "rootNamespace": "Game.Tests",
+  "references": [
+    "UnityEngine.TestRunner",
+    "GameServer.Client",
+    "Game.Core",
+    "Game.Meta",
+    "Game.Arena",
+    "Game.Testing"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "nunit.framework.dll",
+    "Newtonsoft.Json.dll"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

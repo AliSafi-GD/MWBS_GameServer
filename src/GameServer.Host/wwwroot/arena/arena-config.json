@@ -1,0 +1,61 @@
+{
+  "_comment": "Config for the Tank Arena demo. The web page (Setup panel) and the bots write each key with PUT /admin/api/config/<key>. Strings like @now-1d / @now+30d become real dates.",
+  "configs": {
+    "matches": {
+      "modes": {
+        "arena": { "handler": "arena", "transport": "websocket", "minPlayers": 2, "maxPlayers": 2, "tickRate": 20,
+                   "matchmaking": true, "fillSeconds": 3, "ticketTimeoutSeconds": 120, "joinTimeoutSeconds": 30, "emptyTimeoutSeconds": 20 },
+        "arena_friendly": { "handler": "arena", "transport": "websocket", "minPlayers": 2, "maxPlayers": 2, "tickRate": 20,
+                   "matchmaking": false, "allowClientCreate": true, "joinTimeoutSeconds": 120, "emptyTimeoutSeconds": 30 }
+      }
+    },
+    "leaderboards": {
+      "arena_wins":      { "sort": "desc", "operator": "incr", "reset": "never" },
+      "arena_weekly":    { "sort": "desc", "operator": "incr", "reset": "weekly" },
+      "arena_best_hits": { "sort": "desc", "operator": "best", "reset": "never" }
+    },
+    "tournaments": {
+      "arena_cup": {
+        "name": { "en": "Arena Cup" }, "start": "@now-1d", "end": "@now+30d", "operator": "incr",
+        "entryFee": { "coins": 10 },
+        "rewards": [
+          { "fromRank": 1, "toRank": 1, "wallet": { "coins": 300, "gems": 10 } },
+          { "fromRank": 2, "toRank": 10, "wallet": { "coins": 100 } }
+        ]
+      }
+    },
+    "shop": {
+      "products": {
+        "daily_crate": { "name": "Daily crate (free)", "category": "gifts", "sort": 1, "gives": { "wallet": { "coins": 25 } }, "limit": { "per": "day", "count": 1 } },
+        "skin_red":    { "name": "Red tank",   "category": "skins", "sort": 2, "cost": { "wallet": { "coins": 60 } },  "gives": { "items": { "skin_red": 1 } },  "limit": { "per": "lifetime", "count": 1 } },
+        "skin_camo":   { "name": "Camo tank",  "category": "skins", "sort": 3, "cost": { "wallet": { "coins": 100 } }, "gives": { "items": { "skin_camo": 1 } }, "limit": { "per": "lifetime", "count": 1 } },
+        "skin_gold":   { "name": "Gold tank",  "category": "skins", "sort": 4, "cost": { "wallet": { "coins": 250 } }, "gives": { "items": { "skin_gold": 1 } }, "limit": { "per": "lifetime", "count": 1 } },
+        "skin_neon":   { "name": "Neon tank",  "category": "skins", "sort": 5, "cost": { "wallet": { "gems": 20 } },   "gives": { "items": { "skin_neon": 1 } }, "limit": { "per": "lifetime", "count": 1 } },
+        "coin_pack":   { "name": "100 coins for 5 gems", "category": "gems", "sort": 6, "cost": { "wallet": { "gems": 5 } }, "gives": { "wallet": { "coins": 100 } }, "limit": { "per": "day", "count": 5 } }
+      }
+    },
+    "achievements": {
+      "achievements": {
+        "first_match": { "name": "First match",  "stat": "matches_played", "target": 1,  "reward": { "wallet": { "coins": 25 } },  "category": "pvp", "sort": 1 },
+        "first_win":   { "name": "First victory", "stat": "matches_won",   "target": 1,  "reward": { "wallet": { "coins": 50 } },  "category": "pvp", "sort": 2 },
+        "win_10":      { "name": "Ten victories", "stat": "matches_won",   "target": 10, "reward": { "wallet": { "gems": 20 } },   "category": "pvp", "sort": 3 },
+        "sharpshooter":{ "name": "50 hits",       "stat": "arena_hits",    "target": 50, "reward": { "wallet": { "gems": 10 } },   "category": "skill", "sort": 4 }
+      }
+    },
+    "quests": {
+      "quests": {
+        "play_3": { "name": "Play 3 matches today", "stat": "matches_played", "target": 3,  "period": "day",  "reward": { "wallet": { "coins": 40 } } },
+        "win_1":  { "name": "Win a match today",    "stat": "matches_won",    "target": 1,  "period": "day",  "reward": { "wallet": { "coins": 30 } } },
+        "hit_15": { "name": "Land 15 hits today",   "stat": "arena_hits",     "target": 15, "period": "day",  "reward": { "wallet": { "coins": 25 } } },
+        "win_10w":{ "name": "Win 10 matches this week", "stat": "matches_won", "target": 10, "period": "week", "reward": { "wallet": { "gems": 15 } } }
+      }
+    },
+    "daily_rewards": {
+      "utcOffsetMinutes": 0, "resetOnMiss": true,
+      "rewards": [
+        { "wallet": { "coins": 50 } }, { "wallet": { "coins": 75 } }, { "wallet": { "coins": 100 } },
+        { "wallet": { "gems": 2 } }, { "wallet": { "coins": 150 } }, { "wallet": { "coins": 200 } }, { "wallet": { "gems": 10 } }
+      ]
+    }
+  }
+}

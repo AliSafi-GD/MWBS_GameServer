@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <!-- Change the target framework in one place if your SDK is older/newer. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+</Project>

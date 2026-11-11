@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Compiles the Unity SDK sources as plain .NET and runs them against a RUNNING server.
+    It behaves like Unity does: C# 9, no implicit usings, nullable off. If this builds, the SDK code compiles in Unity
+    (except the two Unity-only files, which are guarded by #if UNITY_2019_4_OR_NEWER).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>9.0</LangVersion>
+    <DefineConstants>$(DefineConstants);GAMESERVER_LITENETLIB</DefineConstants>
+    <RootNamespace>SdkSmokeTest</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="..\com.gameserver.client\Runtime\**\*.cs" LinkBase="Sdk\Runtime" />
+    <Compile Include="..\com.gameserver.client\Runtime.LiteNetLib\**\*.cs" LinkBase="Sdk\Runtime.LiteNetLib" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="LiteNetLib" Version="1.3.5" />
+  </ItemGroup>
+</Project>

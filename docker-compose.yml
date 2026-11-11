@@ -1,0 +1,45 @@
+# One copy of this file per game. Only ./modules and the values in .env change between games.
+# Needs a .env file (copy .env.example) because compose validates the variables below.
+services:
+  server:
+    build: .
+    ports:
+      - "7350:8080"
+      - "7351:7351"   # only used when REALTIME_TRANSPORTS includes "tcp"
+      - "7360:7360/udp" # only used when MATCH_TRANSPORTS includes "udp"
+    volumes:
+      - ./modules:/modules:ro
+    environment:
+      GameServer__Jwt__Secret: "${JWT_SECRET:?set JWT_SECRET in .env (at least 32 characters)}"
+      # Optional: leave ADMIN_KEY empty to disable the admin API and panel.
+      GameServer__Admin__Key: "${ADMIN_KEY:-}"
+      # Google Play Games login (also used for Bazaar/Myket builds). Leave empty to disable it.
+      GameServer__Auth__GooglePlay__ClientId: "${GOOGLE_CLIENT_ID:-}"
+      GameServer__Auth__GooglePlay__ClientSecret: "${GOOGLE_CLIENT_SECRET:-}"
+      # Chat protocols, chosen at build/start time: "websocket", "tcp" or "websocket,tcp".
+      GameServer__Realtime__Transports: "${REALTIME_TRANSPORTS:-websocket}"
+      # Match/matchmaker protocols: "websocket", "udp" or "websocket,udp". Each mode picks one in the "matches" config.
+      GameServer__Match__Transports: "${MATCH_TRANSPORTS:-websocket}"
+      ConnectionStrings__Default: "Host=postgres;Database=game;Username=game;Password=${DB_PASSWORD:?set DB_PASSWORD in .env}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17
+    ports:
+      - "127.0.0.1:5432:5432"   # local access for development (e.g. `dotnet run` on your machine)
+    environment:
+      POSTGRES_DB: game
+      POSTGRES_USER: game
+      POSTGRES_PASSWORD: "${DB_PASSWORD:?set DB_PASSWORD in .env}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U game -d game"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

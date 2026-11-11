@@ -1,0 +1,21 @@
+{
+  "name": "GameServer.Client.LiteNetLib",
+  "rootNamespace": "GameServer.Client.Udp",
+  "references": [
+    "GameServer.Client"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "Newtonsoft.Json.dll",
+    "LiteNetLib.dll"
+  ],
+  "autoReferenced": true,
+  "defineConstraints": [
+    "GAMESERVER_LITENETLIB"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

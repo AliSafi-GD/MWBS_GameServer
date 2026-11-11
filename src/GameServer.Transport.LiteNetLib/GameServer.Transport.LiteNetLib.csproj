@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\GameServer.Core\GameServer.Core.csproj" />
+    <!-- Pinned: the Unity/.NET client must use a compatible 1.x LiteNetLib. -->
+    <PackageReference Include="LiteNetLib" Version="1.3.5" />
+  </ItemGroup>
+</Project>

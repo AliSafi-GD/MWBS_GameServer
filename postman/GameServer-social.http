@@ -1,0 +1,286 @@
+### Requests for friends, groups/clans, parties and chat (VS Code REST Client / JetBrains HTTP Client).
+### First log in and paste the token below.
+
+@host = http://localhost:5000
+@token = PASTE_TOKEN_HERE
+@userId = OTHER_PLAYER_ID
+@groupId = GROUP_ID
+@adminKey = YOUR_ADMIN_KEY
+@partyId = PARTY_ID
+
+### Login (device)
+POST {{host}}/v1/auth/device
+Content-Type: application/json
+
+{ "deviceId": "device-id-0123456789abcdef", "username": "player1" }
+
+### Which realtime protocols are enabled
+GET {{host}}/v1/realtime
+
+### ---------------- friends ----------------
+GET {{host}}/v1/friends?state=friend
+Authorization: Bearer {{token}}
+
+###
+POST {{host}}/v1/friends
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "userId": "{{userId}}" }
+
+###
+DELETE {{host}}/v1/friends/{{userId}}
+Authorization: Bearer {{token}}
+
+###
+POST {{host}}/v1/friends/{{userId}}/block
+Authorization: Bearer {{token}}
+
+###
+DELETE {{host}}/v1/friends/{{userId}}/block
+Authorization: Bearer {{token}}
+
+### ---------------- groups / clans ----------------
+POST {{host}}/v1/groups
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "name": "Lions", "description": "Best clan", "type": "clan", "open": true }
+
+###
+GET {{host}}/v1/groups?q=lio&type=clan
+Authorization: Bearer {{token}}
+
+###
+GET {{host}}/v1/groups/mine
+Authorization: Bearer {{token}}
+
+###
+PUT {{host}}/v1/groups/{{groupId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "description": "New text", "open": false }
+
+###
+POST {{host}}/v1/groups/{{groupId}}/join
+Authorization: Bearer {{token}}
+
+###
+GET {{host}}/v1/groups/{{groupId}}/members?pending=true
+Authorization: Bearer {{token}}
+
+###
+POST {{host}}/v1/groups/{{groupId}}/invite/{{userId}}
+Authorization: Bearer {{token}}
+
+###
+POST {{host}}/v1/groups/{{groupId}}/members/{{userId}}/accept
+Authorization: Bearer {{token}}
+
+###
+POST {{host}}/v1/groups/{{groupId}}/members/{{userId}}/promote
+Authorization: Bearer {{token}}
+
+###
+POST {{host}}/v1/groups/{{groupId}}/members/{{userId}}/kick
+Authorization: Bearer {{token}}
+
+###
+POST {{host}}/v1/groups/{{groupId}}/members/{{userId}}/ban
+Authorization: Bearer {{token}}
+
+###
+POST {{host}}/v1/groups/{{groupId}}/transfer/{{userId}}
+Authorization: Bearer {{token}}
+
+###
+POST {{host}}/v1/groups/{{groupId}}/leave
+Authorization: Bearer {{token}}
+
+###
+DELETE {{host}}/v1/groups/{{groupId}}
+Authorization: Bearer {{token}}
+
+### ---------------- parties (need an open realtime connection) ----------------
+POST {{host}}/v1/parties
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "open": false, "maxSize": 4 }
+
+###
+GET {{host}}/v1/parties/mine
+Authorization: Bearer {{token}}
+
+###
+POST {{host}}/v1/parties/invite/{{userId}}
+Authorization: Bearer {{token}}
+
+###
+POST {{host}}/v1/parties/{{partyId}}/join
+Authorization: Bearer {{token}}
+
+###
+POST {{host}}/v1/parties/promote/{{userId}}
+Authorization: Bearer {{token}}
+
+###
+POST {{host}}/v1/parties/kick/{{userId}}
+Authorization: Bearer {{token}}
+
+###
+POST {{host}}/v1/parties/leave
+Authorization: Bearer {{token}}
+
+###
+DELETE {{host}}/v1/parties/mine
+Authorization: Bearer {{token}}
+
+### ---------------- chat ----------------
+### Live chat is over WebSocket: connect to ws://localhost:5000/ws and send
+###   {"type":"auth","id":"1","data":{"token":"<token>"}}
+###   {"type":"channel.join","id":"2","data":{"channel":"room:global"}}
+###   {"type":"channel.send","id":"3","data":{"channel":"room:global","text":"hello"}}
+### (e.g. with `npx wscat -c ws://localhost:5000/ws`)
+
+GET {{host}}/v1/chat/history?channel=group:{{groupId}}&limit=50
+Authorization: Bearer {{token}}
+
+###
+GET {{host}}/v1/online?ids={{userId}}
+Authorization: Bearer {{token}}
+
+### ---------------- admin API (X-Admin-Key) ----------------
+GET {{host}}/admin/api/groups?q=&type=clan
+X-Admin-Key: {{adminKey}}
+
+###
+GET {{host}}/admin/api/groups/{{groupId}}
+X-Admin-Key: {{adminKey}}
+
+###
+POST {{host}}/admin/api/groups/{{groupId}}/members/{{userId}}/kick
+X-Admin-Key: {{adminKey}}
+
+###
+POST {{host}}/admin/api/groups/{{groupId}}/transfer/{{userId}}
+X-Admin-Key: {{adminKey}}
+
+###
+GET {{host}}/admin/api/users/{{userId}}/friends
+X-Admin-Key: {{adminKey}}
+
+###
+GET {{host}}/admin/api/chat/channels
+X-Admin-Key: {{adminKey}}
+
+###
+GET {{host}}/admin/api/chat/messages?channel=group:{{groupId}}&limit=50
+X-Admin-Key: {{adminKey}}
+
+###
+POST {{host}}/admin/api/chat/send
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "channel": "room:global", "text": "Server restarts in 5 minutes" }
+
+###
+POST {{host}}/admin/api/users/{{userId}}/mute
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "minutes": 60, "reason": "spam" }
+
+###
+DELETE {{host}}/admin/api/users/{{userId}}/mute
+X-Admin-Key: {{adminKey}}
+
+###
+GET {{host}}/admin/api/online
+X-Admin-Key: {{adminKey}}
+
+### ---- Matchmaking and matches ----
+###
+GET {{host}}/v1/match/modes
+
+###
+POST {{host}}/v1/matchmaker/tickets
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "mode": "duel", "properties": { "region": "eu", "skill": 1200 } }
+
+###
+GET {{host}}/v1/matchmaker/tickets
+Authorization: Bearer {{token}}
+
+###
+POST {{host}}/v1/matches
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "mode": "cards", "label": "my table" }
+
+###
+GET {{host}}/v1/matches?mode=cards
+Authorization: Bearer {{token}}
+
+###
+GET {{host}}/admin/api/matches
+X-Admin-Key: {{adminKey}}
+
+###
+PUT {{host}}/admin/api/config/matches
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "value": { "modes": { "cards": { "handler": "relay", "transport": "websocket", "minPlayers": 2, "maxPlayers": 4, "allowClientCreate": true } } } }
+
+### ---- Shop ----
+###
+GET {{host}}/v1/shop
+Authorization: Bearer {{token}}
+
+###
+POST {{host}}/v1/shop/gems_small/buy
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "quantity": 1, "requestId": "tap-0001" }
+
+###
+PUT {{host}}/admin/api/config/shop
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "value": { "products": { "gems_small": { "name": "Small gem pack", "cost": { "wallet": { "coins": 500 } }, "gives": { "wallet": { "gems": 50 } }, "limit": { "per": "day", "count": 3 } } } } }
+
+### ---- Stats, achievements, quests, daily reward ----
+###
+GET {{host}}/v1/achievements
+Authorization: Bearer {{token}}
+
+###
+POST {{host}}/v1/achievements/win_10/claim
+Authorization: Bearer {{token}}
+
+###
+GET {{host}}/v1/quests
+Authorization: Bearer {{token}}
+
+###
+GET {{host}}/v1/daily
+Authorization: Bearer {{token}}
+
+###
+POST {{host}}/v1/daily/claim
+Authorization: Bearer {{token}}
+
+###
+POST {{host}}/admin/api/users/{{userId}}/stats
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "stat": "matches_won", "value": 1, "mode": "add" }
