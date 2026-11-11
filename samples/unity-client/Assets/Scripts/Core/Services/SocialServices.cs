@@ -194,20 +194,24 @@ namespace Game.Core
 
     public sealed class ChatLine
     {
+        public long? Id;
         public string SenderId;
         public string Sender;
         public string Text;
         public bool Mine;
+        public DateTime At = DateTime.UtcNow;
     }
 
-    /// <summary>The lobby chat room: history once, then live messages. Own messages are shown once even if the server echoes them.</summary>
+    /// <summary>The lobby chat room: history once, then live messages. A message that arrives twice (our own send and the server's echo) is shown once.</summary>
     public sealed class ChatService : IDisposable
     {
+        /// <summary>How long a repeated message from the same sender counts as the same one (our send racing the echo).</summary>
+        private static readonly TimeSpan EchoWindow = TimeSpan.FromSeconds(3);
+
         private readonly GameClient _client;
         private readonly BackendService _backend;
         private readonly string _me;
         private readonly string _channel = Channels.Room(GameIds.LobbyRoom);
-        private readonly List<(string Text, DateTime At)> _recentOwn = new List<(string, DateTime)>();
         private bool _joined;
 
         public event Action<ChatLine> MessageAdded;
@@ -242,37 +246,34 @@ namespace Game.Core
         public async Task SendAsync(string text)
         {
             await JoinAsync();
-            var at = DateTime.UtcNow;
-            _recentOwn.Add((text, at));
             var sent = await _client.Realtime.SendMessageAsync(_channel, text);
 
-            // If the server echoed the message while we waited, the echo already added the line and removed the mark.
-            if (_recentOwn.RemoveAll(o => o.Text == text && o.At == at) > 0)
-                Add(sent ?? new ChatMessage { SenderId = _me, SenderName = "You", Text = text });
+            // The server may also push our message back as an event; Add() shows it only once either way.
+            Add(sent ?? new ChatMessage { SenderId = _me, SenderName = "You", Text = text, Channel = _channel });
         }
 
         private void OnMessage(ChatMessage message)
         {
-            if (message.Channel != _channel)
-                return;
-
-            if (message.SenderId == _me)
-            {
-                var index = _recentOwn.FindIndex(o => o.Text == message.Text && (DateTime.UtcNow - o.At).TotalSeconds < 10);
-                if (index >= 0)
-                {
-                    _recentOwn.RemoveAt(index);
-                    Add(message);
-                    return;
-                }
-            }
-
-            Add(message);
+            if (message.Channel == _channel)
+                Add(message);
         }
 
         private void Add(ChatMessage m)
         {
-            var line = new ChatLine { SenderId = m.SenderId, Sender = m.SenderName ?? "System", Text = m.Text, Mine = m.SenderId == _me };
+            var now = DateTime.UtcNow;
+            if (m.Id.HasValue)
+            {
+                // Stored messages carry an id: the same id is the same message.
+                if (Lines.Any(l => l.Id == m.Id))
+                    return;
+            }
+            else if (Lines.Any(l => l.SenderId == m.SenderId && l.Text == m.Text && now - l.At < EchoWindow))
+            {
+                // Not stored (no id): the same sender saying the same thing a moment ago is our send racing the echo.
+                return;
+            }
+
+            var line = new ChatLine { Id = m.Id, SenderId = m.SenderId, Sender = m.SenderName ?? "System", Text = m.Text, Mine = m.SenderId == _me, At = now };
             Lines.Add(line);
             if (Lines.Count > 200)
                 Lines.RemoveAt(0);

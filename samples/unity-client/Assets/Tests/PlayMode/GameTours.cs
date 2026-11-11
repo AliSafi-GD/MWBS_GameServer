@@ -184,6 +184,49 @@ namespace Game.Tests
         }
 
         [UnityTest, Timeout(300000)]
+        public IEnumerator ChatTour()
+        {
+            yield return OpenMenu();
+            var menu = UnityEngine.Object.FindAnyObjectByType<MenuScreen>();
+            var session = GameSession.Instance;
+
+            menu.GoToSocial(2);
+            yield return Wait(2.0f);
+            Debug.Log("[ChatTour] lines after opening chat: " + session.Chat.Lines.Count);
+
+            // another player says something in the lobby
+            ArenaBot bot = null;
+            var botTask = System.Threading.Tasks.Task.Run(async () =>
+            {
+                bot = await ArenaBot.CreateAsync(Url);
+                await bot.Client.Realtime.JoinChannelAsync(GameServer.Client.Channels.Room(GameIds.LobbyRoom));
+                await bot.Client.Realtime.SendMessageAsync(GameServer.Client.Channels.Room(GameIds.LobbyRoom), "hello from the bot");
+            });
+            while (!botTask.IsCompleted)
+                yield return null;
+            if (botTask.IsFaulted)
+                Debug.Log("[ChatTour] bot failed: " + botTask.Exception.GetBaseException().Message);
+
+            yield return Wait(1.5f);
+            Debug.Log("[ChatTour] lines after the bot spoke: " + session.Chat.Lines.Count + " -> " + string.Join(" | ", session.Chat.Lines.Select(l => l.Sender + ": " + l.Text)));
+
+            // the player says something
+            var send = session.Chat.SendAsync("hello from me");
+            while (!send.IsCompleted)
+                yield return null;
+            if (send.IsFaulted)
+                Debug.Log("[ChatTour] send failed: " + send.Exception.GetBaseException().Message);
+
+            yield return Wait(1.5f);
+            Debug.Log("[ChatTour] lines after I spoke: " + session.Chat.Lines.Count + " -> " + string.Join(" | ", session.Chat.Lines.Select(l => l.Sender + ": " + l.Text)));
+            Assert.That(session.Chat.Lines.Count, Is.EqualTo(2), "the bot's message and mine, each once");
+            yield return Shot("50_chat_lobby");
+
+            if (bot != null)
+                bot.CloseAsync().Wait(3000);
+        }
+
+        [UnityTest, Timeout(300000)]
         public IEnumerator InventoryTour()
         {
             yield return OpenMenu();

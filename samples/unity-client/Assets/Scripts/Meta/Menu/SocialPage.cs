@@ -300,32 +300,47 @@ namespace Game.Meta
 
         private void AddBubble(ChatLine line)
         {
+            const float MaxBubble = 760f, Pad = 28f, NameHeight = 40f, MinBubble = 180f;
+
             var row = Ui.NewRect(_list.Content, "Row");
-            var h = row.gameObject.AddComponent<HorizontalLayoutGroup>();
-            h.childAlignment = line.Mine ? TextAnchor.UpperRight : TextAnchor.UpperLeft;
-            h.childControlWidth = false;
-            h.childControlHeight = true;
-            h.childForceExpandWidth = false;
-            h.childForceExpandHeight = false;
-
             var bubble = Ui.Panel(row, line.Mine ? Theme.Blue : Theme.PanelLight, 34f, "Bubble");
-            Parts.Size(bubble, 700, null);
-            var v = bubble.gameObject.AddComponent<VerticalLayoutGroup>();
-            v.padding = new RectOffset(28, 28, 14, 18);
-            v.spacing = 2;
-            v.childControlWidth = true;
-            v.childControlHeight = true;
-            v.childForceExpandHeight = false;
-
-            if (!line.Mine)
-            {
-                var name = Ui.Label(bubble.transform, line.Sender, 30, Theme.Gold, TextAnchor.MiddleLeft, true, false);
-                Parts.Size(name, null, 38);
-            }
 
             var text = Ui.Label(bubble.transform, line.Text, 38, Color.white, TextAnchor.UpperLeft, false, false);
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
             text.verticalOverflow = VerticalWrapMode.Overflow;
+
+            Text name = null;
+            if (!line.Mine)
+                name = Ui.Label(bubble.transform, line.Sender, 30, Theme.Gold, TextAnchor.MiddleLeft, true, false);
+
+            // Measure the text first and size the bubble to it, so the list never depends on nested layout passes.
+            var textWidth = Mathf.Min(Measure(text, line.Text, 0f).x, MaxBubble - Pad * 2f);
+            if (name != null)
+                textWidth = Mathf.Max(textWidth, Mathf.Min(Measure(name, line.Sender, 0f).x, MaxBubble - Pad * 2f));
+            var width = Mathf.Clamp(textWidth + Pad * 2f + 4f, MinBubble, MaxBubble);
+            var textHeight = Measure(text, line.Text, width - Pad * 2f).y;
+            var nameHeight = name != null ? NameHeight : 0f;
+            var height = Mathf.Max(84f, textHeight + nameHeight + 34f);
+
+            Parts.Size(row, null, height);
+            Ui.Pin(bubble, line.Mine ? 1f : 0f, 1f, width, height, line.Mine ? -8f : 8f, 0f);
+
+            if (name != null)
+                Ui.Pin(name, 0f, 1f, width - Pad * 2f, NameHeight - 4f, Pad, -10f);
+            Ui.Pin(text, 0f, 1f, width - Pad * 2f, textHeight + 6f, Pad, -(12f + nameHeight));
+        }
+
+        /// <summary>The size a text needs: wrapped to <paramref name="maxWidth"/>, or on one line when it is 0.</summary>
+        private static Vector2 Measure(Text label, string content, float maxWidth)
+        {
+            var settings = label.GetGenerationSettings(new Vector2(maxWidth, 0f));
+            if (maxWidth <= 0f)
+                settings.horizontalOverflow = HorizontalWrapMode.Overflow;
+
+            var generator = label.cachedTextGeneratorForLayout;
+            var w = generator.GetPreferredWidth(content, settings) / label.pixelsPerUnit;
+            var h = generator.GetPreferredHeight(content, settings) / label.pixelsPerUnit;
+            return new Vector2(w, h);
         }
     }
 }
