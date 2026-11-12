@@ -256,6 +256,8 @@ namespace Game.Meta
             _session.Wallet.Changed += OnWalletChanged;
             _session.Goals.Changed += OnGoalsChanged;
             _session.Social.Changed += OnSocialChanged;
+            _session.Chat.UnreadChanged += OnSocialChanged;
+            _session.Chat.MessageAdded += OnChatMessage;
             _session.Backend.Lost += OnLost;
             _session.Backend.Restored += OnRestored;
             _session.Play.SearchChanged += OnSearchChanged;
@@ -273,6 +275,12 @@ namespace Game.Meta
             if (_session.Wallet != null) _session.Wallet.Changed -= OnWalletChanged;
             if (_session.Goals != null) _session.Goals.Changed -= OnGoalsChanged;
             if (_session.Social != null) _session.Social.Changed -= OnSocialChanged;
+            if (_session.Chat != null)
+            {
+                _session.Chat.UnreadChanged -= OnSocialChanged;
+                _session.Chat.MessageAdded -= OnChatMessage;
+            }
+
             if (_session.Backend != null)
             {
                 _session.Backend.Lost -= OnLost;
@@ -297,7 +305,20 @@ namespace Game.Meta
             _nav[QuestsIndex].Badge.Set(_session.Goals.ClaimableCount);
         }
 
-        private void OnSocialChanged() => _nav[SocialIndex].Badge.Set(_session.Social.PendingCount);
+        private void OnSocialChanged() => _nav[SocialIndex].Badge.Set(_session.Social.PendingCount + _session.Chat.TotalUnread);
+
+        /// <summary>A message for a conversation that is not on screen (never the lobby): say who wrote.</summary>
+        private void OnChatMessage(ChatThread thread, ChatLine line)
+        {
+            if (line.Mine || thread.Kind == ChatKind.Lobby || thread == _session.Chat.Active)
+                return;
+
+            var text = line.Text.Replace('\n', ' ');
+            if (text.Length > 28)
+                text = text.Substring(0, 27) + "...";
+            var from = thread.Kind == ChatKind.Direct ? thread.Title : line.Sender;
+            _context.Toasts.Show(from + ": " + text, Theme.Blue, Icon.People);
+        }
 
         private void OnLost(string reason) => _banner.gameObject.SetActive(true);
 
@@ -361,14 +382,21 @@ namespace Game.Meta
             _coins.Set(_session.Wallet.Coins, animate);
             _gems.Set(_session.Wallet.Gems, animate);
             _nav[QuestsIndex].Badge.Set(_session.Goals.ClaimableCount);
-            _nav[SocialIndex].Badge.Set(_session.Social.PendingCount);
+            _nav[SocialIndex].Badge.Set(_session.Social.PendingCount + _session.Chat.TotalUnread);
 
             _wins.text = Ui.Num(_session.Goals.Wins) + " wins";
         }
 
         // ---- navigation --------------------------------------------------------------------------------------
 
-        /// <summary>Opens the Social page on a given tab (0 friends, 1 party, 2 chat).</summary>
+        /// <summary>Opens the Social page with one conversation on screen.</summary>
+        public void GoToChat(ChatThread thread)
+        {
+            ((SocialPage)_pages[SocialIndex]).OpenChat(thread);
+            Show(SocialIndex);
+        }
+
+        /// <summary>Opens the Social page on a given tab (0 friends, 1 party, 2 chat, 3 clan).</summary>
         public void GoToSocial(int tab)
         {
             ((SocialPage)_pages[SocialIndex]).Open(tab);

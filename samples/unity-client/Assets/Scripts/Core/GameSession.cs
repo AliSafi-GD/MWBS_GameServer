@@ -170,7 +170,7 @@ namespace Game.Core
             Shop = new ShopService(Client, Wallet);
             Goals = new GoalsService(Client, Wallet);
             Social = new SocialService(Client);
-            Chat = new ChatService(Client, Backend, Account.Id);
+            Chat = new ChatService(Client, Backend, Social, Account.Id);
             Ranks = new RankService(Client);
             Play = new PlayService(Client, Backend);
             Backend.SessionEnded += OnSessionEnded;

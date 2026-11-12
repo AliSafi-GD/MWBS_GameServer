@@ -69,8 +69,17 @@ namespace Game.Core
         public Party Party { get; private set; }
         public PartyInvite PendingInvite { get; private set; }
 
-        /// <summary>Friend requests waiting for an answer plus a party invite: shown as a badge.</summary>
-        public int PendingCount => Friends.Count(f => f.State == FriendStates.InviteReceived) + (PendingInvite != null ? 1 : 0);
+        /// <summary>The clan I am a member of, with my role in it ("owner", "admin" or "member"), or null.</summary>
+        public MyGroup Clan { get; private set; }
+        public List<GroupMember> ClanMembers { get; private set; } = new List<GroupMember>();
+
+        /// <summary>Clans that invited me.</summary>
+        public List<Group> ClanInvites { get; private set; } = new List<Group>();
+
+        public bool OwnsClan => Clan != null && Clan.Role == "owner";
+
+        /// <summary>Friend requests waiting for an answer plus party and clan invites: shown as a badge.</summary>
+        public int PendingCount => Friends.Count(f => f.State == FriendStates.InviteReceived) + (PendingInvite != null ? 1 : 0) + ClanInvites.Count;
 
         public SocialService(GameClient client)
         {
@@ -111,12 +120,17 @@ namespace Game.Core
 
         private async void OnEvent(RealtimeMessage message)
         {
-            if (message.Type == null || !message.Type.StartsWith("friend."))
+            var friends = message.Type != null && message.Type.StartsWith("friend.");
+            var groups = message.Type != null && message.Type.StartsWith("group.");
+            if (!friends && !groups)
                 return;
 
             try
             {
-                await RefreshFriendsAsync();
+                if (friends)
+                    await RefreshFriendsAsync();
+                else
+                    await RefreshClanAsync();
             }
             catch (Exception)
             {
@@ -128,11 +142,73 @@ namespace Game.Core
         {
             var friends = _client.Social.Friends.ListAsync();
             var party = _client.Social.Parties.MineAsync();
-            await Task.WhenAll(friends, party);
+            var clan = LoadClanAsync();
+            await Task.WhenAll(friends, party, clan);
             Friends = friends.Result ?? new List<Friend>();
             Party = party.Result;
             Changed?.Invoke();
         }
+
+        // ---- clan ---------------------------------------------------------------------------------------------
+
+        public async Task RefreshClanAsync()
+        {
+            await LoadClanAsync();
+            Changed?.Invoke();
+        }
+
+        private async Task LoadClanAsync()
+        {
+            var mine = await _client.Social.Groups.MineAsync() ?? new List<MyGroup>();
+            var clans = mine.Where(g => g.Group != null && g.Group.Type == GameIds.ClanType).ToList();
+            var clan = clans.FirstOrDefault(g => g.Role == "owner" || g.Role == "admin" || g.Role == "member");
+            var members = clan == null
+                ? new List<GroupMember>()
+                : await _client.Social.Groups.MembersAsync(clan.Group.Id) ?? new List<GroupMember>();
+
+            Clan = clan;
+            ClanMembers = members;
+            ClanInvites = clans.Where(g => g.Role == "invited").Select(g => g.Group).ToList();
+        }
+
+        public async Task CreateClanAsync(string name)
+        {
+            await _client.Social.Groups.CreateAsync(new NewGroup { Name = name, Type = GameIds.ClanType, Open = true });
+            await RefreshClanAsync();
+        }
+
+        public async Task<List<Group>> SearchClansAsync(string query) =>
+            await _client.Social.Groups.SearchAsync(string.IsNullOrWhiteSpace(query) ? null : query.Trim(), GameIds.ClanType) ?? new List<Group>();
+
+        /// <summary>Joins an open clan or accepts an invite; a closed clan gets a request. Returns the resulting role.</summary>
+        public async Task<string> JoinClanAsync(string clanId)
+        {
+            var role = await _client.Social.Groups.JoinAsync(clanId);
+            await RefreshClanAsync();
+            return role;
+        }
+
+        /// <summary>Leaves the clan. The owner can only leave when nobody else is left; otherwise disband it.</summary>
+        public async Task LeaveClanAsync()
+        {
+            if (Clan == null)
+                return;
+
+            await _client.Social.Groups.LeaveAsync(Clan.Group.Id);
+            await RefreshClanAsync();
+        }
+
+        /// <summary>The owner deletes the clan for everyone. This cannot be undone.</summary>
+        public async Task DisbandClanAsync()
+        {
+            if (Clan == null)
+                return;
+
+            await _client.Social.Groups.DeleteAsync(Clan.Group.Id);
+            await RefreshClanAsync();
+        }
+
+        // ---- friends and party --------------------------------------------------------------------------------
 
         public async Task RefreshFriendsAsync()
         {
@@ -189,95 +265,6 @@ namespace Game.Core
             await _client.Social.Parties.KickAsync(userId);
             Party = await _client.Social.Parties.MineAsync();
             Changed?.Invoke();
-        }
-    }
-
-    public sealed class ChatLine
-    {
-        public long? Id;
-        public string SenderId;
-        public string Sender;
-        public string Text;
-        public bool Mine;
-        public DateTime At = DateTime.UtcNow;
-    }
-
-    /// <summary>The lobby chat room: history once, then live messages. A message that arrives twice (our own send and the server's echo) is shown once.</summary>
-    public sealed class ChatService : IDisposable
-    {
-        /// <summary>How long a repeated message from the same sender counts as the same one (our send racing the echo).</summary>
-        private static readonly TimeSpan EchoWindow = TimeSpan.FromSeconds(3);
-
-        private readonly GameClient _client;
-        private readonly BackendService _backend;
-        private readonly string _me;
-        private readonly string _channel = Channels.Room(GameIds.LobbyRoom);
-        private bool _joined;
-
-        public event Action<ChatLine> MessageAdded;
-
-        public List<ChatLine> Lines { get; } = new List<ChatLine>();
-
-        public ChatService(GameClient client, BackendService backend, string myUserId)
-        {
-            _client = client;
-            _backend = backend;
-            _me = myUserId;
-            _client.Realtime.ChatMessageReceived += OnMessage;
-        }
-
-        public void Dispose() => _client.Realtime.ChatMessageReceived -= OnMessage;
-
-        /// <summary>Joins the room and loads the stored history the first time; later calls do nothing.</summary>
-        public async Task JoinAsync()
-        {
-            if (_joined)
-                return;
-
-            await _backend.EnsureConnectedAsync();
-            await _client.Realtime.JoinChannelAsync(_channel);
-            _joined = true;
-
-            var history = await _client.Chat.HistoryAsync(_channel, 40) ?? new List<ChatMessage>();
-            foreach (var m in history.OrderBy(m => m.CreatedUtc))
-                Add(m);
-        }
-
-        public async Task SendAsync(string text)
-        {
-            await JoinAsync();
-            var sent = await _client.Realtime.SendMessageAsync(_channel, text);
-
-            // The server may also push our message back as an event; Add() shows it only once either way.
-            Add(sent ?? new ChatMessage { SenderId = _me, SenderName = "You", Text = text, Channel = _channel });
-        }
-
-        private void OnMessage(ChatMessage message)
-        {
-            if (message.Channel == _channel)
-                Add(message);
-        }
-
-        private void Add(ChatMessage m)
-        {
-            var now = DateTime.UtcNow;
-            if (m.Id.HasValue)
-            {
-                // Stored messages carry an id: the same id is the same message.
-                if (Lines.Any(l => l.Id == m.Id))
-                    return;
-            }
-            else if (Lines.Any(l => l.SenderId == m.SenderId && l.Text == m.Text && now - l.At < EchoWindow))
-            {
-                // Not stored (no id): the same sender saying the same thing a moment ago is our send racing the echo.
-                return;
-            }
-
-            var line = new ChatLine { Id = m.Id, SenderId = m.SenderId, Sender = m.SenderName ?? "System", Text = m.Text, Mine = m.SenderId == _me, At = now };
-            Lines.Add(line);
-            if (Lines.Count > 200)
-                Lines.RemoveAt(0);
-            MessageAdded?.Invoke(line);
         }
     }
 

@@ -22,7 +22,8 @@ namespace Game.Tests
     /// </summary>
     public class GameTours
     {
-        private const string ShotDir = @"D:\GameServer-full\GameServer\logs\shots";
+        /// <summary>logs/shots at the root of the repository (git-ignored).</summary>
+        private static string ShotDir => Path.GetFullPath(Path.Combine(Application.dataPath, "../../../logs/shots"));
 
         private static string Url => Environment.GetEnvironmentVariable("GAME_SERVER_URL") ?? "http://localhost:5001";
 
@@ -190,9 +191,10 @@ namespace Game.Tests
             var menu = UnityEngine.Object.FindAnyObjectByType<MenuScreen>();
             var session = GameSession.Instance;
 
-            menu.GoToSocial(2);
+            var lobby = session.Chat.Lobby;
+            menu.GoToChat(lobby);
             yield return Wait(2.0f);
-            Debug.Log("[ChatTour] lines after opening chat: " + session.Chat.Lines.Count);
+            Debug.Log("[ChatTour] lines after opening chat: " + lobby.Lines.Count);
 
             // another player says something in the lobby
             ArenaBot bot = null;
@@ -208,22 +210,121 @@ namespace Game.Tests
                 Debug.Log("[ChatTour] bot failed: " + botTask.Exception.GetBaseException().Message);
 
             yield return Wait(1.5f);
-            Debug.Log("[ChatTour] lines after the bot spoke: " + session.Chat.Lines.Count + " -> " + string.Join(" | ", session.Chat.Lines.Select(l => l.Sender + ": " + l.Text)));
+            Debug.Log("[ChatTour] lines after the bot spoke: " + lobby.Lines.Count + " -> " + string.Join(" | ", lobby.Lines.Select(l => l.Sender + ": " + l.Text)));
 
             // the player says something
-            var send = session.Chat.SendAsync("hello from me");
+            var send = session.Chat.SendAsync(lobby, "hello from me");
             while (!send.IsCompleted)
                 yield return null;
             if (send.IsFaulted)
                 Debug.Log("[ChatTour] send failed: " + send.Exception.GetBaseException().Message);
 
             yield return Wait(1.5f);
-            Debug.Log("[ChatTour] lines after I spoke: " + session.Chat.Lines.Count + " -> " + string.Join(" | ", session.Chat.Lines.Select(l => l.Sender + ": " + l.Text)));
-            Assert.That(session.Chat.Lines.Count, Is.EqualTo(2), "the bot's message and mine, each once");
+            Debug.Log("[ChatTour] lines after I spoke: " + lobby.Lines.Count + " -> " + string.Join(" | ", lobby.Lines.Select(l => l.Sender + ": " + l.Text)));
+            Assert.That(lobby.Lines.Count(l => l.Text == "hello from the bot"), Is.EqualTo(1), "the bot's message once");
+            Assert.That(lobby.Lines.Count(l => l.Text == "hello from me"), Is.EqualTo(1), "my message once");
             yield return Shot("50_chat_lobby");
 
             if (bot != null)
                 bot.CloseAsync().Wait(3000);
+        }
+
+        private static IEnumerator Run(System.Threading.Tasks.Task task, string what)
+        {
+            while (!task.IsCompleted)
+                yield return null;
+            if (task.IsFaulted)
+                Assert.Fail(what + " failed: " + task.Exception.GetBaseException().Message);
+        }
+
+        /// <summary>Direct, clan and party chat with a second player: unread counts, both directions, each message once.</summary>
+        [UnityTest, Timeout(300000)]
+        public IEnumerator ChatThreadsTour()
+        {
+            yield return OpenMenu();
+            var menu = UnityEngine.Object.FindAnyObjectByType<MenuScreen>();
+            var session = GameSession.Instance;
+            var me = session.Account.Id;
+
+            // leftovers of an earlier run that failed half way
+            if (session.Social.Party != null)
+                yield return Run(session.Social.LeavePartyAsync(), "leaving the old party");
+            if (session.Social.Clan != null)
+                yield return Run(session.Social.OwnsClan ? session.Social.DisbandClanAsync() : session.Social.LeaveClanAsync(), "leaving the old clan");
+
+            ArenaBot bot = null;
+            yield return Run(System.Threading.Tasks.Task.Run(async () =>
+            {
+                bot = await ArenaBot.CreateAsync(Url);
+                await bot.Client.Social.Friends.AddAsync(me);
+            }), "the bot's friend request");
+            var botId = bot.Client.Session.UserId;
+            yield return Run(session.Social.AcceptFriendAsync(botId), "accepting the bot");
+
+            // ---- direct: a message that arrives while the chat is closed is counted, opening the conversation reads it
+            var dm = session.Chat.Direct(botId, null);
+            yield return Run(System.Threading.Tasks.Task.Run(() =>
+                bot.Client.Realtime.SendMessageAsync(GameServer.Client.Channels.Direct(me), "psst, it is the bot")), "the bot's direct message");
+            yield return WaitFor(() => dm.Unread == 1, 10, "the unread direct message");
+            Assert.That(session.Chat.TotalUnread, Is.EqualTo(1));
+            yield return Wait(0.6f);
+            yield return Shot("51_chat_toast_and_badge");
+
+            menu.GoToSocial(SocialPage.ChatTab);
+            yield return Wait(1.2f);
+            yield return Shot("52_chat_list_unread");
+
+            menu.GoToChat(dm);
+            yield return WaitFor(() => dm.Unread == 0, 10, "the direct message to be read");
+            yield return Run(session.Chat.SendAsync(dm, "hello bot"), "my direct message");
+            yield return Wait(1.0f);
+            Assert.That(dm.Lines.Count(l => l.Text == "psst, it is the bot" && !l.Mine), Is.EqualTo(1), "the bot's direct message once");
+            Assert.That(dm.Lines.Count(l => l.Text == "hello bot" && l.Mine), Is.EqualTo(1), "my direct message once");
+            yield return Shot("53_chat_direct");
+
+            // ---- clan
+            var clanName = "Tour " + Guid.NewGuid().ToString("N").Substring(0, 6);
+            yield return Run(session.Social.CreateClanAsync(clanName), "creating a clan");
+            var clan = session.Chat.ClanThread;
+            Assert.That(clan, Is.Not.Null, "a clan conversation after creating a clan");
+            var clanChannel = GameServer.Client.Channels.Group(clan.TargetId);
+            yield return Run(System.Threading.Tasks.Task.Run(async () =>
+            {
+                await bot.Client.Social.Groups.JoinAsync(clan.TargetId);
+                await bot.Client.Realtime.JoinChannelAsync(clanChannel);
+                await bot.Client.Realtime.SendMessageAsync(clanChannel, "clan hello from the bot");
+            }), "the bot's clan message");
+            yield return WaitFor(() => clan.Lines.Any(l => l.Text == "clan hello from the bot"), 10, "the clan message");
+            Assert.That(clan.Unread, Is.EqualTo(1), "the clan message is unread while the direct chat is open");
+
+            menu.GoToSocial(SocialPage.ClanTab);
+            yield return Wait(1.5f);
+            yield return Shot("54_clan");
+            menu.GoToChat(clan);
+            yield return WaitFor(() => clan.Unread == 0, 10, "the clan message to be read");
+            yield return Run(session.Chat.SendAsync(clan, "hello clan"), "my clan message");
+            yield return Wait(1.0f);
+            Assert.That(clan.Lines.Count(l => l.Text == "hello clan"), Is.EqualTo(1), "my clan message once");
+            yield return Shot("55_chat_clan");
+
+            // ---- party (not stored on the server, so no ids: the echo must still not double it)
+            yield return Run(session.Social.CreatePartyAsync(), "creating a party");
+            var party = session.Chat.PartyThread;
+            Assert.That(party, Is.Not.Null, "a party conversation after creating a party");
+            menu.GoToChat(party);
+            yield return Wait(1.0f);
+            yield return Run(session.Chat.SendAsync(party, "hello party"), "my party message");
+            yield return Wait(1.0f);
+            Assert.That(party.Lines.Count(l => l.Text == "hello party"), Is.EqualTo(1), "my party message once");
+            yield return Shot("56_chat_party");
+
+            // ---- clean up
+            yield return Run(session.Social.LeavePartyAsync(), "leaving the party");
+            Assert.That(session.Chat.PartyThread, Is.Null, "no party conversation after leaving");
+            yield return Run(session.Social.DisbandClanAsync(), "disbanding the clan");
+            Assert.That(session.Chat.ClanThread, Is.Null, "no clan conversation after disbanding");
+            yield return Run(session.Social.RemoveFriendAsync(botId), "removing the bot");
+            bot.CloseAsync().Wait(3000);
         }
 
         [UnityTest, Timeout(300000)]

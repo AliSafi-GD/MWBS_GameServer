@@ -10,6 +10,9 @@ namespace Game.Core
         public const string FriendlyMode = "arena_friendly";
         public const string LobbyRoom = "lobby";
 
+        /// <summary>The group type used for clans (a default type of the server's "social" rules: one clan per player).</summary>
+        public const string ClanType = "clan";
+
         public const string Coins = "coins";
         public const string Gems = "gems";
 
