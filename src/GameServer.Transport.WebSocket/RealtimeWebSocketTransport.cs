@@ -74,6 +74,7 @@ public sealed class WebSocketTransport : ITransport
         {
             await _handler.OnDisconnectedAsync(connection);
             await connection.CloseAsync("closed");
+            await WebSocketClosing.FinishAsync(socket);
         }
     }
 
@@ -100,6 +101,9 @@ public sealed class WebSocketTransport : ITransport
 
                 message.Write(buffer, 0, result.Count);
             } while (!result.EndOfMessage);
+
+            if (socket.State != WebSocketState.Open)
+                return; // we are closing: frames the client sent meanwhile are dropped
 
             await _handler.OnMessageAsync(connection, Encoding.UTF8.GetString(message.GetBuffer(), 0, (int)message.Length), ct);
         }
@@ -138,23 +142,6 @@ public sealed class WebSocketTransport : ITransport
             }
         }
 
-        public async Task CloseAsync(string reason)
-        {
-            try
-            {
-                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                if (_socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
-                    await _socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, reason, timeout.Token);
-            }
-            catch
-            {
-                // Already closed or broken: nothing left to do.
-            }
-            finally
-            {
-                // Ends a receive loop that would otherwise wait for a client that does not answer the close.
-                try { _socket.Abort(); } catch { }
-            }
-        }
+        public Task CloseAsync(string reason) => WebSocketClosing.CloseOutputAsync(_socket, _sendLock, reason);
     }
 }

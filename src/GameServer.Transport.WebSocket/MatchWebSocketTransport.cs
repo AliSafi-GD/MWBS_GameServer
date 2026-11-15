@@ -60,6 +60,7 @@ public sealed class WebSocketMatchTransport : IMatchTransport
         if (!await _host.OnConnectedAsync(connection, token))
         {
             await connection.CloseAsync("join_refused");
+            await WebSocketClosing.FinishAsync(socket);
             return;
         }
 
@@ -81,6 +82,7 @@ public sealed class WebSocketMatchTransport : IMatchTransport
         {
             await _host.OnDisconnectedAsync(connection);
             await connection.CloseAsync("closed");
+            await WebSocketClosing.FinishAsync(socket);
         }
     }
 
@@ -107,6 +109,9 @@ public sealed class WebSocketMatchTransport : IMatchTransport
 
                 message.Write(buffer, 0, result.Count);
             } while (!result.EndOfMessage);
+
+            if (socket.State != WebSocketState.Open)
+                return; // we are closing: frames the client sent meanwhile are dropped
 
             await _host.OnMessageAsync(connection, message.GetBuffer().AsMemory(0, (int)message.Length));
         }
@@ -142,21 +147,6 @@ public sealed class WebSocketMatchTransport : IMatchTransport
             }
         }
 
-        public async Task CloseAsync(string reason)
-        {
-            try
-            {
-                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                if (_socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
-                    await _socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, reason, timeout.Token);
-            }
-            catch
-            {
-            }
-            finally
-            {
-                try { _socket.Abort(); } catch { }
-            }
-        }
+        public Task CloseAsync(string reason) => WebSocketClosing.CloseOutputAsync(_socket, _sendLock, reason);
     }
 }

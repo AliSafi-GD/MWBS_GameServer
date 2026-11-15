@@ -69,6 +69,11 @@
 - ثبت: `AddGameServerCore(...)` (سرویس‌ها) + `AddGameServerPostgres(config)` (data source، migrator، storeها). `Program.cs` هر دو را دارد.
 - `WiringTests.cs`: کل گراف DI با `ValidateOnBuild` چک می‌شود. ۱۳۱ unit test.
 
+### ۸. باگ بستن WebSocket (2026-11-15)
+- سرور بعد از فرستادن close فوراً `Abort()` می‌کرد؛ اتصال reset می‌شد و گاهی آخرین پیام (مثلاً خطای `unauthorized`) به کلاینت نمی‌رسید. SmokeTest یک بار به همین دلیل رد شد.
+- حالا [WebSocketClosing.cs](src/GameServer.Transport.WebSocket/WebSocketClosing.cs): close زیر قفل ارسال، صبر برای جواب close کلاینت (حداکثر ۲ ثانیه)، و فقط بعد abort. برای realtime و match هر دو.
+- آزمایش: ۳۰۰ اتصال با توکن غلط. قبل: ۸ پیام خطا گم شد و فقط ۵۲ close عادی. بعد: ۳۰۰/۳۰۰ هر دو.
+
 ### نحوه‌ی کار در این جلسه
 - کار اجرایی را agentهای Sonnet 5.5 انجام دادند؛ نتیجه‌ی هر کدام (build، تست‌ها، مقایسه‌ی routeها، کد کلیدی) را جدا چک کردم.
 - آمار فعلی: `dotnet build GameServer.slnx` بدون warning؛ ۶۴ unit test سبز؛ `npm run build` داکیومنت سبز.
