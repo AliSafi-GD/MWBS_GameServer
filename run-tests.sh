@@ -24,6 +24,10 @@ echo "dotnet build exit code: $BUILD" >> "$R"
 grep -E "error (CS|MSB|NU|NETSDK)[0-9]+" logs/build.log | sort -u >> "$R"
 if [ $BUILD -ne 0 ]; then echo "Build failed, tests were not run." >> "$R"; echo "BUILD FAILED - send $R"; exit 1; fi
 
+dotnet test tests/GameServer.Core.Tests --no-build > logs/unit-tests.log 2>&1
+UNIT=$?
+echo "unit test exit code: $UNIT" >> "$R"
+
 dotnet publish samples/HelloGame.Modules -c Release -o modules/HelloGame.Modules > logs/module.log 2>&1
 
 ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS="$URL" GameServer__Realtime__Transports="$TRANSPORTS" GameServer__Match__Transports="$MATCH_TRANSPORTS" \
@@ -50,6 +54,7 @@ if [ $UP -eq 1 ]; then
   echo "arena bots exit code: $ARENA" >> "$R"
   [ $ARENA -ne 0 ] && TEST=$ARENA
 fi
+[ $UNIT -ne 0 ] && TEST=$UNIT
 pkill -P $SERVER 2>/dev/null; kill $SERVER 2>/dev/null
 
 { echo; echo "==== SMOKE TEST LOG ===="; cat logs/smoke-test.log 2>/dev/null || tail -n 80 logs/smoke-console.log

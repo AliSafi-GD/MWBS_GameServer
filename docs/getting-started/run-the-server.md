@@ -1,4 +1,8 @@
-# Run the server
+# Run the server (for development)
+
+This page runs the server **on your own machine while you build your game**: `dotnet run`, development keys, http on port 5000.
+Do not use it for a server that players connect to. For that, see [Install the server](../install/) (Docker Compose, Linux,
+Windows, or a VPS).
 
 Run these commands from the repository root. Three steps: database, module, host.
 
@@ -60,4 +64,5 @@ Shop, quests and match modes live in the **database**, not in git. For the sampl
 
 ## Next
 
-[Your first request](./first-request)
+- [Your first request](./first-request)
+- Ready for a real server? [Install the server](../install/)

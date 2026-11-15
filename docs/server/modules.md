@@ -54,7 +54,8 @@ public sealed class MyModule : IServerModule
 }
 ```
 
-`IModuleInitializer` offers four things: `RegisterRpc`, `RegisterBefore`, `RegisterAfter`, `RegisterMatchHandler`.
+`IModuleInitializer` offers five things: `RegisterRpc`, `RegisterBefore`, `RegisterAfter`, `RegisterMatchHandler` and
+`RegisterIdentityProvider` (your own login method, see [Authentication](./authentication#writing-your-own-provider)).
 
 ## 3. Build into `modules/`
 

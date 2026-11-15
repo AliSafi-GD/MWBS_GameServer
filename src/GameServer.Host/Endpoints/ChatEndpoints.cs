@@ -17,7 +17,7 @@ public static class ChatEndpoints
 
         // GET /v1/chat/history?channel=dm:<userId>&limit=50&before=<messageId>
         app.MapGet("/v1/chat/history", async (string channel, int? limit, long? before, HttpContext http, ChatService chat, CancellationToken ct) =>
-            Results.Ok(new { items = await chat.HistoryAsync(http.User.FindFirst("sub")!.Value, channel, Math.Clamp(limit ?? 50, 1, 100), before, ct) }))
+            Results.Ok(new { items = await chat.HistoryAsync(http.UserId(), channel, Math.Clamp(limit ?? 50, 1, 100), before, ct) }))
             .RequireAuthorization();
 
         // GET /v1/online?ids=a,b,c : which of these players are connected right now (max 200 ids)

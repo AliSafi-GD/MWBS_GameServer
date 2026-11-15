@@ -5,13 +5,15 @@ using System.Text.RegularExpressions;
 using GameServer.Abstractions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Npgsql;
 
 namespace GameServer.Core.Identity;
 
 public sealed class PhoneOptions
 {
-    /// <summary>Off by default. Turning it on without a real <see cref="ISmsSender"/> makes begin return sms_not_configured.</summary>
+    /// <summary>
+    /// Off by default. Turning it on without a real <see cref="ISmsSender"/> makes begin return sms_not_configured.
+    /// Only used when GameServer:Auth:Providers is not set; once it is, listing "phone" there switches phone on.
+    /// </summary>
     public bool Enabled { get; set; }
     public int CodeTtlSeconds { get; set; } = 300;
     public int CooldownSeconds { get; set; } = 60;
@@ -53,14 +55,14 @@ public sealed partial class PhoneIdentityProvider : IIdentityProvider
 {
     public const string ProviderName = "phone";
 
-    private readonly Npgsql.NpgsqlDataSource _db;
+    private readonly IPhoneCodeStore _codes;
     private readonly PhoneOptions _options;
     private readonly ISmsSender _sms;
     private readonly byte[] _hmacKey;
 
-    public PhoneIdentityProvider(NpgsqlDataSource db, IOptions<PhoneOptions> options, ISmsSender sms, IOptions<JwtOptions> jwt)
+    public PhoneIdentityProvider(IPhoneCodeStore codes, IOptions<PhoneOptions> options, ISmsSender sms, IOptions<JwtOptions> jwt)
     {
-        _db = db;
+        _codes = codes;
         _options = options.Value;
         _sms = sms;
         // Codes are hashed with a key derived from the JWT secret, so a database leak alone doesn't reveal live codes.
@@ -75,23 +77,8 @@ public sealed partial class PhoneIdentityProvider : IIdentityProvider
         var phone = NormalizePhone(JsonHelpers.GetString(request, "phone"));
         var code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
 
-        // Upsert, but refuse (0 rows) if a code was sent too recently for this number.
-        await using var cmd = _db.CreateCommand("""
-            INSERT INTO phone_otps (phone, code_hash, expires_at, attempts, last_sent_at)
-            VALUES (@p, @h, now() + make_interval(secs => @ttl), 0, now())
-            ON CONFLICT (phone) DO UPDATE
-               SET code_hash = EXCLUDED.code_hash,
-                   expires_at = EXCLUDED.expires_at,
-                   attempts = 0,
-                   last_sent_at = now()
-             WHERE phone_otps.last_sent_at < now() - make_interval(secs => @cool)
-            """);
-        cmd.Parameters.AddWithValue("p", phone);
-        cmd.Parameters.AddWithValue("h", Hash(phone, code));
-        cmd.Parameters.AddWithValue("ttl", (double)_options.CodeTtlSeconds);
-        cmd.Parameters.AddWithValue("cool", (double)_options.CooldownSeconds);
-
-        if (await cmd.ExecuteNonQueryAsync(ct) == 0)
+        // Refused (false) if a code was sent too recently for this number.
+        if (!await _codes.TrySaveAsync(phone, Hash(phone, code), _options.CodeTtlSeconds, _options.CooldownSeconds, ct))
             throw new GameException("too_soon", "Please wait before requesting another code.");
 
         await _sms.SendAsync(phone, $"Your login code is {code}", ct);
@@ -105,18 +92,7 @@ public sealed partial class PhoneIdentityProvider : IIdentityProvider
             throw new GameException("invalid_code", "The code is not valid.");
 
         // Count the attempt first (atomically), so brute-forcing is limited even with parallel requests.
-        string? hash;
-        await using (var attempt = _db.CreateCommand("""
-            UPDATE phone_otps SET attempts = attempts + 1
-             WHERE phone = @p AND expires_at > now() AND attempts < @max
-            RETURNING code_hash
-            """))
-        {
-            attempt.Parameters.AddWithValue("p", phone);
-            attempt.Parameters.AddWithValue("max", _options.MaxAttempts);
-            hash = await attempt.ExecuteScalarAsync(ct) as string;
-        }
-
+        var hash = await _codes.CountAttemptAsync(phone, _options.MaxAttempts, ct);
         if (hash is null)
             throw new GameException("invalid_code", "The code is not valid.");
 
@@ -126,11 +102,7 @@ public sealed partial class PhoneIdentityProvider : IIdentityProvider
             throw new GameException("invalid_code", "The code is not valid.");
 
         // One use only.
-        await using (var delete = _db.CreateCommand("DELETE FROM phone_otps WHERE phone = @p"))
-        {
-            delete.Parameters.AddWithValue("p", phone);
-            await delete.ExecuteNonQueryAsync(ct);
-        }
+        await _codes.DeleteAsync(phone, ct);
 
         return new VerifiedIdentity(ProviderName, phone, Mask(phone));
     }

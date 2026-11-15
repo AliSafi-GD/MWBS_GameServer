@@ -1,6 +1,8 @@
 # Deploy to production
 
-A checklist for putting a server on the internet.
+A checklist for putting a server on the internet. If you have not installed the server yet, start with
+[Install the server](../install/): [Docker Compose](../install/docker-compose), [Linux](../install/linux),
+[Windows](../install/windows) or [a VPS with HTTPS](../install/vps).
 
 ## 1. Secrets
 
@@ -14,7 +16,10 @@ A checklist for putting a server on the internet.
 Put a reverse proxy (Caddy, nginx, Traefik) in front and terminate TLS. Clients then use `https://` and `wss://`.
 
 - The proxy must forward the **WebSocket upgrade** for `/ws` and `/match`.
-- Enable forwarded headers so rate limiting counts the real client IP.
+- Turn on the forwarded-headers setting so rate limiting counts the real client IP (`GameServer__ForwardedHeaders__Enabled=true`,
+  `FORWARDED_HEADERS=true` in `.env`). Without it all players behind the proxy share one rate limit. Enable it **only** when the
+  proxy is the only way to reach the server (bind the server port to `127.0.0.1` or firewall it), otherwise clients can fake
+  their IP with an `X-Forwarded-For` header. A step-by-step example with Caddy is in [Put it on a VPS](../install/vps#https).
 - UDP (matches) and TCP (realtime) are not proxied by an HTTP proxy. Open those ports directly if you enable them
   and set `GameServer:Match:Udp:PublicHost` to the public address.
 
@@ -31,7 +36,7 @@ Put a reverse proxy (Caddy, nginx, Traefik) in front and terminate TLS. Clients 
 
 ## 5. Modules
 
-`modules/` is mounted read-only into the container. Publish your module into it and restart the server:
+`modules/` is mounted read-only into the container (binary installs: the folder in `GameServer__ModulesPath`). Publish your module into it and restart the server:
 
 ```bash
 dotnet publish MyGame.Modules -c Release -o modules/MyGame.Modules
@@ -50,3 +55,4 @@ docker compose restart server
 ## 7. Logs and health
 
 `GET /healthz` returns the status and the loaded RPCs. Use it for the container health check and uptime monitoring.
+Logs: `docker compose logs -f server`, `journalctl -u gameserver -f` (Linux) or the Windows Event Log (Windows Service).

@@ -76,6 +76,13 @@ if ($buildExit -ne 0) {
     exit 1
 }
 
+# ---- 2b. Unit tests (no server or database needed) ------------------------------------------------------
+Step "unit tests (tests/GameServer.Core.Tests)"
+dotnet test tests/GameServer.Core.Tests --no-build *> (Join-Path $logs "unit-tests.log")
+$unitExit = $LASTEXITCODE
+$report.Add("unit test exit code: $unitExit")
+Get-Content (Join-Path $logs "unit-tests.log") -ErrorAction SilentlyContinue | Select-Object -Last 3 | ForEach-Object { Write-Host $_ }
+
 # ---- 3. Sample module ----------------------------------------------------------------------------------
 Step "publish sample module"
 dotnet publish samples/HelloGame.Modules -c Release -o modules/HelloGame.Modules *> (Join-Path $logs "module.log")
@@ -133,6 +140,8 @@ if ($up) {
 } else {
     $report.Add("The server did not start - see server.log / server-error.log below.")
 }
+
+if ($unitExit -ne 0) { $testExit = $unitExit }
 
 # ---- 6. Stop server ------------------------------------------------------------------------------------
 Step "stop server"
