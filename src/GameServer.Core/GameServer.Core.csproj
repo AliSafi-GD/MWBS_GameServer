@@ -3,7 +3,6 @@
     <!-- Gives us Microsoft.Extensions.* (DI, logging, options) without extra packages. -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\GameServer.Abstractions\GameServer.Abstractions.csproj" />
-    <!-- Floating 10.* for now; pin exact versions once you are happy with them. -->
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.*" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
   </ItemGroup>
 </Project>

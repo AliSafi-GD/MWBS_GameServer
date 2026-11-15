@@ -79,6 +79,13 @@ service is created on first use:
 
 No service takes `IServiceProvider`.
 
+## NuGet versions
+
+Every package version of the repository is in `Directory.Packages.props` at the root, exact (`10.0.3`, not `10.*`), so every
+build gets the same packages. Projects list packages without a version. To update one, change its number there and run
+`run-tests.ps1`. The Dockerfile copies this file next to `Directory.Build.props`; `LiteNetLib` must stay the same version as
+the `LiteNetLib.dll` Unity clients use.
+
 ## Testing a service
 
 `tests/GameServer.Core.Tests` builds the real services with `AddGameServerCore`, adds in-memory stores

@@ -3,8 +3,7 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\GameServer.Core\GameServer.Core.csproj" />
-    <!-- Floating 10.* for now; pin exact versions once you are happy with them. -->
-    <PackageReference Include="Npgsql" Version="10.*" />
+    <PackageReference Include="Npgsql" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="GameServer.Core" />

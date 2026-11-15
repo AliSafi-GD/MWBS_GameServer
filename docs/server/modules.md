@@ -25,6 +25,13 @@ the only one" (do not ship a second copy):
 
 Easiest start: copy `samples/HelloGame.Modules` and rename it.
 
+::: tip NuGet packages in a module inside this repository
+The repository manages package versions centrally in `Directory.Packages.props`. A project anywhere below the repository root
+writes `<PackageReference Include="Some.Package" />` **without** a `Version` and adds
+`<PackageVersion Include="Some.Package" Version="1.2.3" />` to `Directory.Packages.props`; a `Version` on the reference
+fails with NU1008. A module in its own repository is not affected.
+:::
+
 ## 2. Implement `IServerModule`
 
 The host finds every non-abstract type that implements `IServerModule` in the DLL, creates it with a parameterless constructor

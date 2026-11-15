@@ -73,7 +73,7 @@
 - فقط e2e: [tests/GameServer.SmokeTest](tests/GameServer.SmokeTest) (سرور در حال اجرا لازم دارد) و [tests/GameServer.ArenaBots](tests/GameServer.ArenaBots).
 - **راه‌حل:** `tests/GameServer.Core.Tests` (xUnit) برای منطق خالص (ProfileValidator, ConfigRules, ShopCatalog, GoalCatalog, HookRunner، دوره‌ها با FakeTimeProvider) + Testcontainers برای storeهای Postgres.
 
-### 4.11 نسخه‌های floating
+### 4.11 نسخه‌های floating — **انجام شد** (قدم ۷)
 - **کجا:** [GameServer.Core.csproj](src/GameServer.Core/GameServer.Core.csproj): `Version="10.*"` برای `Npgsql` و `JwtBearer` (بقیه‌ی csprojهای src را هم چک کن؛ [Directory.Build.props](Directory.Build.props) از قبل هست).
 - **راه‌حل:** Central Package Management (`Directory.Packages.props`) با نسخه‌های ثابت؛ build قابل تکرار.
 
@@ -152,7 +152,10 @@
   - به جای کلاس‌های concrete: \`IRealtime\` (از قبل بود) در \`SocialFacade\`, \`AccountCleanup\`, \`Matchmaker\`, \`FriendsService\`, \`GroupService\`, \`PartyService\`, \`ChatService\`؛ \`IChannelSubscriptions\` (Join/Leave) برای \`ChatService\`؛ \`IPartyMembership\` (IsMember, Mine, LeaveAsync) برای \`ChatService\`/\`Matchmaker\`/\`AccountCleanup\`؛ \`IGroupCleanup\` برای \`AccountCleanup\`. \`ConnectionManager\` concrete فقط در \`RealtimeHub\` (صاحب اتصال‌ها)، \`AdminBackground\` (\`Counts()\`) و دو endpoint admin مانده؛ endpointهای گروه/پارتی همچنان خود \`GroupService\`/\`PartyService\` را می‌گیرند (API کامل همان سرویس).
   - تست: \`AccountCleanupTests\` با سه fake (ترتیب: clan، party، disconnect) و چک \`WiringTests\` که یک \`PostgresUserStore\` پشت هر سه interface است. جمعاً ۱۳۴ unit test.
   - داکیومنت سایت: صفحه‌ی جدید [docs/server/architecture.md](docs/server/architecture.md) (پروژه‌ها، wiring، storeها، push، ساعت، دو دایره، تست با fake؛ در sidebar «Server framework») و به‌روز شدن [docs/guides/testing.md](docs/guides/testing.md). قدم‌های ۲ تا ۵ قبلاً در سایت نیامده بودند؛ این صفحه آن‌ها را هم پوشش می‌دهد.
-- [ ] **۷.** Central Package Management و pin کردن نسخه‌ها. *تمام:* هیچ `10.*` در csprojها؛ `Directory.Packages.props` موجود.
+- [x] **۷.** Central Package Management و pin کردن نسخه‌ها. *تمام:* هیچ `10.*` در csprojها؛ `Directory.Packages.props` موجود.
+  - انجام شد (2026-11-15): [Directory.Packages.props](Directory.Packages.props) با `ManagePackageVersionsCentrally`؛ هر ۱۰ پکیج روی **همان نسخه‌ای که قبلاً resolve می‌شد** ثابت شد (JwtBearer/Hosting.* 10.0.15، Npgsql 10.0.3، LiteNetLib 1.3.5، Test.Sdk 17.14.2، xunit 2.9.3، runner 2.8.2، TimeProvider.Testing 10.11.0، Newtonsoft 13.0.3)، پس رفتار عوض نشد (`dotnet list package` قبل و بعد یکی). از ۶ csproj (src، tests، SdkSmokeTest) `Version` حذف شد. `dotnet list package --vulnerable --include-transitive`: هیچ پکیج آسیب‌پذیری نیست.
+  - Dockerfile حالا `Directory.Packages.props` را هم کپی می‌کند (بدون آن `docker build` می‌شکست).
+  - داکیومنت سایت: بخش «NuGet versions» در [architecture.md](docs/server/architecture.md) و یک tip در [modules.md](docs/server/modules.md): ماژولی داخل همین repo باید نسخه را در `Directory.Packages.props` بگذارد (وگرنه NU1008).
 - [ ] **۸.** SDK: interface برای APIها و `IGameClient`، تکه کردن `Models.cs`/`RealtimeClient.cs`/`Transports.cs`، `IDispatcher`، `Tests/` و CHANGELOG. *تمام:* بازی بتواند `IShopApi` را fake کند؛ فایلی بالای ~300 خط نباشد.
 - [ ] **۹.** سرور: endpoint «گفتگوهای من با تعداد unread» (+ مستندات + SDK `ChatApi`). *تمام:* کلاینت دیگر ۳۰ دوست را poll نمی‌کند.
 - [ ] **۱۰.** (اولویت پایین) کلاینت نمونه: تکه کردن `SocialPage`/`ArenaScreen`/`MenuScreen`/`Ui`، حذف `async void`، کم کردن `GameSession.Instance`.
