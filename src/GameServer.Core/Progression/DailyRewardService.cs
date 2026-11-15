@@ -10,6 +10,32 @@ public sealed record DailyView(
 
 public sealed record DailyClaimResult(int Day, int Streak, Bundle Reward, EconomyState State);
 
+/// <summary>The date and streak rules of the daily reward, without the database (so they can be tested).</summary>
+public static class DailyStreak
+{
+    /// <summary>The game's calendar day at <paramref name="nowUtc"/> ("daily_rewards".utcOffsetMinutes moves midnight).</summary>
+    public static DateOnly Today(DateTime nowUtc, int utcOffsetMinutes) =>
+        DateOnly.FromDateTime(nowUtc.AddMinutes(utcOffsetMinutes));
+
+    /// <summary>When the day after <paramref name="today"/> starts, in UTC.</summary>
+    public static DateTime NextDayStartUtc(DateOnly today, int utcOffsetMinutes) =>
+        today.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc).AddMinutes(-utcOffsetMinutes);
+
+    /// <summary>The streak as the player sees it now: a missed day shows 0 when the game resets on a miss.</summary>
+    public static int Current(int streak, DateOnly? last, DateOnly today, bool resetOnMiss) =>
+        last == today || last == today.AddDays(-1) || !resetOnMiss ? streak : 0;
+
+    /// <summary>The streak after claiming today (the caller has already checked that today is not claimed).</summary>
+    public static int AfterClaim(int streak, DateOnly? last, DateOnly today, bool resetOnMiss) =>
+        last is null ? 1
+        : last == today.AddDays(-1) ? streak + 1
+        : resetOnMiss ? 1
+        : streak + 1;
+
+    /// <summary>Which reward (1-based) a streak gets; the list starts again after the last day.</summary>
+    public static int RewardDay(int streak, int rewardCount) => (streak - 1) % rewardCount + 1;
+}
+
 /// <summary>Daily login reward with a streak (config key "daily_rewards").</summary>
 public sealed class DailyRewardService
 {
@@ -17,26 +43,25 @@ public sealed class DailyRewardService
     private readonly IEconomy _economy;
     private readonly IConfigStore _config;
     private readonly HookRunner _hooks;
+    private readonly TimeProvider _time;
 
-    public DailyRewardService(NpgsqlDataSource db, IEconomy economy, IConfigStore config, HookRunner hooks)
+    public DailyRewardService(NpgsqlDataSource db, IEconomy economy, IConfigStore config, HookRunner hooks, TimeProvider time)
     {
         _db = db;
         _economy = economy;
         _config = config;
         _hooks = hooks;
+        _time = time;
     }
 
     public async Task<DailyCatalog> CatalogAsync(CancellationToken ct) =>
         DailyCatalog.From(await _config.GetAsync(ConfigRules.DailyRewards, ct));
 
-    private static DateOnly TodayOf(DailyCatalog catalog, DateTime nowUtc) =>
-        DateOnly.FromDateTime(nowUtc.AddMinutes(catalog.UtcOffsetMinutes));
-
     public async Task<DailyView> GetAsync(string userId, CancellationToken ct)
     {
         var catalog = await CatalogAsync(ct);
-        var now = DateTime.UtcNow;
-        var today = TodayOf(catalog, now);
+        var now = _time.UtcNow();
+        var today = DailyStreak.Today(now, catalog.UtcOffsetMinutes);
 
         int streak = 0;
         DateOnly? last = null;
@@ -52,11 +77,9 @@ public sealed class DailyRewardService
         }
 
         var claimedToday = last == today;
-        var effective = claimedToday || last == today.AddDays(-1) || !catalog.ResetOnMiss ? streak : 0;
-        var n = Math.Max(catalog.Rewards.Count, 1);
-        var nextDay = effective % n + 1;
-        var nextClaim = new DateTime(today.AddDays(1).Year, today.AddDays(1).Month, today.AddDays(1).Day, 0, 0, 0, DateTimeKind.Utc)
-            .AddMinutes(-catalog.UtcOffsetMinutes);
+        var effective = DailyStreak.Current(streak, last, today, catalog.ResetOnMiss);
+        var nextDay = DailyStreak.RewardDay(effective + 1, Math.Max(catalog.Rewards.Count, 1));
+        var nextClaim = DailyStreak.NextDayStartUtc(today, catalog.UtcOffsetMinutes);
 
         return new DailyView(effective, claimedToday, nextDay, catalog.Rewards, claimedToday ? nextClaim : now, catalog.UtcOffsetMinutes);
     }
@@ -70,7 +93,7 @@ public sealed class DailyRewardService
         if (catalog.Rewards.Count == 0)
             throw new GameException("daily_not_configured", "This game has no daily reward.");
 
-        var today = TodayOf(catalog, DateTime.UtcNow);
+        var today = DailyStreak.Today(_time.UtcNow(), catalog.UtcOffsetMinutes);
 
         await using var conn = await _db.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
@@ -103,12 +126,8 @@ public sealed class DailyRewardService
         if (last == today)
             throw new GameException("daily_already_claimed", "Today's reward was already taken.");
 
-        var newStreak = last is null ? 1
-            : last == today.AddDays(-1) ? streak + 1
-            : catalog.ResetOnMiss ? 1
-            : streak + 1;
-
-        var day = (newStreak - 1) % catalog.Rewards.Count + 1;
+        var newStreak = DailyStreak.AfterClaim(streak, last, today, catalog.ResetOnMiss);
+        var day = DailyStreak.RewardDay(newStreak, catalog.Rewards.Count);
         var reward = catalog.Rewards[day - 1];
 
         await using (var upd = new NpgsqlCommand("UPDATE daily_rewards SET streak = @s, last_date = @d WHERE user_id = @u", conn, tx))

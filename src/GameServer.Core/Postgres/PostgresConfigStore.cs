@@ -24,7 +24,13 @@ public sealed class PostgresConfigStore : IConfigStore, IConfig
 
     private sealed record Snapshot(IReadOnlyList<ConfigEntry> Entries, DateTime LoadedUtc);
 
-    public PostgresConfigStore(NpgsqlDataSource db) => _db = db;
+    private readonly TimeProvider _time;
+
+    public PostgresConfigStore(NpgsqlDataSource db, TimeProvider time)
+    {
+        _db = db;
+        _time = time;
+    }
 
     public async Task<IReadOnlyList<ConfigEntry>> ListAsync(CancellationToken ct = default) =>
         (await LoadAsync(ct)).Entries;
@@ -76,14 +82,14 @@ public sealed class PostgresConfigStore : IConfigStore, IConfig
     private async Task<Snapshot> LoadAsync(CancellationToken ct)
     {
         var snap = _snapshot;
-        if (snap is not null && DateTime.UtcNow - snap.LoadedUtc < Ttl)
+        if (snap is not null && _time.UtcNow() - snap.LoadedUtc < Ttl)
             return snap;
 
         await _gate.WaitAsync(ct);
         try
         {
             snap = _snapshot;
-            if (snap is not null && DateTime.UtcNow - snap.LoadedUtc < Ttl)
+            if (snap is not null && _time.UtcNow() - snap.LoadedUtc < Ttl)
                 return snap;
 
             var versionAtStart = Volatile.Read(ref _version);
@@ -98,7 +104,7 @@ public sealed class PostgresConfigStore : IConfigStore, IConfig
                 }
             }
 
-            snap = new Snapshot(entries, DateTime.UtcNow);
+            snap = new Snapshot(entries, _time.UtcNow());
             if (versionAtStart == Volatile.Read(ref _version))
                 _snapshot = snap; // else a write happened while loading: use these entries once, but do not keep them
             return snap;

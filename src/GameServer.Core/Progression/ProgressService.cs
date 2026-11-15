@@ -28,11 +28,12 @@ public sealed class ProgressService : IProgress
     private readonly HookRunner _hooks;
     private readonly IServiceProvider _services;
     private readonly ILogger<ProgressService> _log;
+    private readonly TimeProvider _time;
     private volatile Catalogs? _catalogs;
 
     public ProgressService(
         NpgsqlDataSource db, IEconomy economy, IConfigStore config, HookRunner hooks, IServiceProvider services,
-        ILogger<ProgressService> log)
+        ILogger<ProgressService> log, TimeProvider time)
     {
         _db = db;
         _economy = economy;
@@ -40,18 +41,19 @@ public sealed class ProgressService : IProgress
         _hooks = hooks;
         _services = services;
         _log = log;
+        _time = time;
     }
 
     /// <summary>The definitions, cached for a few seconds because every stat change looks at them.</summary>
     public async Task<(GoalCatalog Achievements, GoalCatalog Quests)> CatalogsAsync(CancellationToken ct, bool fresh = false)
     {
         var cached = _catalogs;
-        if (!fresh && cached is not null && (DateTime.UtcNow - cached.LoadedUtc).TotalSeconds < 5)
+        if (!fresh && cached is not null && (_time.UtcNow() - cached.LoadedUtc).TotalSeconds < 5)
             return (cached.Achievements, cached.Quests);
 
         var achievements = GoalCatalog.From(GoalCatalog.Achievement, await _config.GetAsync(ConfigRules.Achievements, ct));
         var quests = GoalCatalog.From(GoalCatalog.Quest, await _config.GetAsync(ConfigRules.Quests, ct));
-        _catalogs = new Catalogs(achievements, quests, DateTime.UtcNow);
+        _catalogs = new Catalogs(achievements, quests, _time.UtcNow());
         return (achievements, quests);
     }
 
@@ -76,7 +78,7 @@ public sealed class ProgressService : IProgress
         if (!ConfigRules.IsValidName(stat))
             throw new GameException("invalid_stat", "A stat name is 1-64 characters: lowercase letters, digits, '_', '-' or '.'.");
 
-        var now = DateTime.UtcNow;
+        var now = _time.UtcNow();
         var keys = PeriodKeys.All.Select(p => PeriodKeys.Key(p, now)).ToArray();
 
         // The old values are read in the same statement, so two parallel changes cannot both miss a goal being reached.
@@ -170,7 +172,7 @@ public sealed class ProgressService : IProgress
         if (catalog.Goals.Count == 0)
             return Array.Empty<GoalView>();
 
-        var now = DateTime.UtcNow;
+        var now = _time.UtcNow();
         var keys = PeriodKeys.All.Select(p => PeriodKeys.Key(p, now)).ToArray();
 
         var values = new Dictionary<(string Stat, string Key), long>();
@@ -229,7 +231,7 @@ public sealed class ProgressService : IProgress
         if (!catalog.Goals.TryGetValue(goalId ?? "", out var goal))
             throw new GameException("goal_not_found", "No such " + kind + ".");
 
-        var now = DateTime.UtcNow;
+        var now = _time.UtcNow();
         var periodKey = PeriodKeys.Key(goal.Period, now);
 
         long value;

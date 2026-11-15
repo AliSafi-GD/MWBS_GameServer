@@ -31,6 +31,10 @@ public static class ServiceCollectionExtensions
             throw new InvalidOperationException(
                 "ConnectionStrings:Default is required (env var ConnectionStrings__Default).");
 
+        // The clock every service reads "now" from. Tests (or a host) can register their own before this call,
+        // e.g. a FakeTimeProvider, to move time forward without waiting.
+        services.TryAddSingleton(TimeProvider.System);
+
         services.AddSingleton<ModuleRegistry>();
         services.AddSingleton<ModuleLoader>();
         services.AddSingleton<TokenService>();

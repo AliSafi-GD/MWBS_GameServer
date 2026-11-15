@@ -21,11 +21,13 @@ public sealed class MatchService : IMatches, IMatchHost
     private readonly IServiceProvider _services;
     private readonly MatchOptions _options;
     private readonly ILogger<MatchService> _log;
+    private readonly TimeProvider _time;
 
     public MatchService(
         MatchModeProvider modes, ModuleRegistry registry, IUserStore users, IServiceProvider services,
-        IOptions<MatchOptions> options, ILogger<MatchService> log)
+        IOptions<MatchOptions> options, ILogger<MatchService> log, TimeProvider time)
     {
+        _time = time;
         _modes = modes;
         _registry = registry;
         _users = users;
@@ -71,7 +73,7 @@ public sealed class MatchService : IMatches, IMatchHost
 
         var handler = CreateHandler(definition.Handler);
         var id = Guid.NewGuid().ToString("N");
-        var instance = new MatchInstance(id, definition, handler, label, parametersJson, joinable, CreateServices(), _log);
+        var instance = new MatchInstance(id, definition, handler, label, parametersJson, joinable, CreateServices(), _log, _time);
         instance.Ended += OnMatchEnded;
         _matches[id] = instance;
         instance.Start();
@@ -133,7 +135,7 @@ public sealed class MatchService : IMatches, IMatchHost
             _tokens.TryRemove(old.Key, out _);
 
         var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(24)).Replace('+', '-').Replace('/', '_').TrimEnd('=');
-        var expires = DateTime.UtcNow.AddSeconds(Math.Max(_options.TokenSeconds, 5));
+        var expires = _time.UtcNow().AddSeconds(Math.Max(_options.TokenSeconds, 5));
         _tokens[token] = new Token(match.Id, userId, expires);
 
         return new MatchConnectInfo(match.Id, match.Mode, transport.Name, token, expires, transport.Describe());
@@ -176,7 +178,7 @@ public sealed class MatchService : IMatches, IMatchHost
 
     public void Sweep()
     {
-        var now = DateTime.UtcNow;
+        var now = _time.UtcNow();
         foreach (var match in _matches.Values)
             match.CheckTimeouts(now);
         foreach (var pair in _tokens.Where(p => p.Value.ExpiresUtc < now).ToArray())
@@ -186,12 +188,12 @@ public sealed class MatchService : IMatches, IMatchHost
     // ---- IMatchHost -----------------------------------------------------------------------------------------
 
     public bool IsTokenValid(string token) =>
-        !string.IsNullOrEmpty(token) && _tokens.TryGetValue(token, out var t) && t.ExpiresUtc > DateTime.UtcNow
+        !string.IsNullOrEmpty(token) && _tokens.TryGetValue(token, out var t) && t.ExpiresUtc > _time.UtcNow()
         && _matches.ContainsKey(t.MatchId);
 
     public async Task<bool> OnConnectedAsync(IMatchConnection connection, string token)
     {
-        if (string.IsNullOrEmpty(token) || !_tokens.TryRemove(token, out var t) || t.ExpiresUtc <= DateTime.UtcNow)
+        if (string.IsNullOrEmpty(token) || !_tokens.TryRemove(token, out var t) || t.ExpiresUtc <= _time.UtcNow())
             return false;
         if (!_matches.TryGetValue(t.MatchId, out var match) || match.IsEnded)
             return false;

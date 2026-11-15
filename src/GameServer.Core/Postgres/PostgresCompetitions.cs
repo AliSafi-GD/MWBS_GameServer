@@ -12,9 +12,11 @@ public sealed partial class PostgresCompetitions : ICompetitions
     private readonly NpgsqlDataSource _db;
     private readonly IConfigStore _config;
     private readonly IEconomy _economy;
+    private readonly TimeProvider _time;
 
-    public PostgresCompetitions(NpgsqlDataSource db, IConfigStore config, IEconomy economy)
+    public PostgresCompetitions(NpgsqlDataSource db, IConfigStore config, IEconomy economy, TimeProvider time)
     {
+        _time = time;
         _db = db;
         _config = config;
         _economy = economy;
@@ -214,7 +216,7 @@ public sealed partial class PostgresCompetitions : ICompetitions
                 mine[reader.GetString(0)] = reader.GetBoolean(1);
         }
 
-        var now = DateTime.UtcNow;
+        var now = _time.UtcNow();
         return defs.Values
             .Where(d => d.EndUtc > now.AddDays(-30)) // finished long ago: no longer listed
             .OrderBy(d => d.StartUtc)
@@ -249,13 +251,13 @@ public sealed partial class PostgresCompetitions : ICompetitions
             throw new GameException("not_found", "User not found.");
         }
 
-        return ToInfo(def, true, false, DateTime.UtcNow);
+        return ToInfo(def, true, false, _time.UtcNow());
     }
 
     public async Task<TournamentClaim> ClaimTournamentAsync(string tournamentId, string userId, CancellationToken ct = default)
     {
         var def = await TournamentAsync(tournamentId, ct);
-        if (DateTime.UtcNow < def.EndUtc)
+        if (_time.UtcNow() < def.EndUtc)
             throw new GameException("tournament_not_ended", "The tournament has not ended yet.");
 
         bool claimed;
@@ -303,9 +305,9 @@ public sealed partial class PostgresCompetitions : ICompetitions
         now < d.StartUtc ? "upcoming" : now >= d.EndUtc ? "ended" : "active",
         d.Name, d.StartUtc, d.EndUtc, d.Descending ? "desc" : "asc", d.EntryFee, d.Rewards, joined, claimed);
 
-    private static void RequireActive(TournamentDef def)
+    private void RequireActive(TournamentDef def)
     {
-        var now = DateTime.UtcNow;
+        var now = _time.UtcNow();
         if (now < def.StartUtc || now >= def.EndUtc)
             throw new GameException("tournament_not_active", "The tournament is not running right now.");
     }
@@ -332,7 +334,7 @@ public sealed partial class PostgresCompetitions : ICompetitions
         if (!boards.TryGetValue(id, out var def))
             throw new GameException("unknown_leaderboard", $"Leaderboard '{id}' is not defined.");
 
-        var now = DateTime.UtcNow;
+        var now = _time.UtcNow();
         var period = PeriodKey(def.Reset, now);
         DateTime? ends = PeriodEnd(def.Reset, now);
 

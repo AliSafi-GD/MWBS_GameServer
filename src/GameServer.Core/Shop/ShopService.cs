@@ -24,13 +24,15 @@ public sealed class ShopService
     private readonly IEconomy _economy;
     private readonly IConfigStore _config;
     private readonly HookRunner _hooks;
+    private readonly TimeProvider _time;
 
-    public ShopService(NpgsqlDataSource db, IEconomy economy, IConfigStore config, HookRunner hooks)
+    public ShopService(NpgsqlDataSource db, IEconomy economy, IConfigStore config, HookRunner hooks, TimeProvider time)
     {
         _db = db;
         _economy = economy;
         _config = config;
         _hooks = hooks;
+        _time = time;
     }
 
     public async Task<ShopCatalog> CatalogAsync(CancellationToken ct) =>
@@ -64,7 +66,7 @@ public sealed class ShopService
     public async Task<IReadOnlyList<ShopProductView>> ListAsync(string userId, string? category, CancellationToken ct)
     {
         var catalog = await CatalogAsync(ct);
-        var now = DateTime.UtcNow;
+        var now = _time.UtcNow();
         var counts = await CountsAsync(userId, now, ct);
 
         return catalog.Products.Values
@@ -110,7 +112,7 @@ public sealed class ShopService
         if (!catalog.Products.TryGetValue(request.ProductId ?? "", out var product))
             throw new GameException("product_not_found", "No such product.");
 
-        var now = DateTime.UtcNow;
+        var now = _time.UtcNow();
         if (!product.IsActive(now))
             throw new GameException("product_unavailable", "This product is not on sale right now.");
 

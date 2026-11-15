@@ -77,7 +77,13 @@ public sealed class AdminStore
 
     private readonly NpgsqlDataSource _db;
 
-    public AdminStore(NpgsqlDataSource db) => _db = db;
+    private readonly TimeProvider _time;
+
+    public AdminStore(NpgsqlDataSource db, TimeProvider time)
+    {
+        _db = db;
+        _time = time;
+    }
 
     // ---- accounts ----
 
@@ -150,7 +156,7 @@ public sealed class AdminStore
             throw new GameException("name_taken", "An admin with this name already exists.");
         }
 
-        return (new AdminAccount(id, name, role.ToString(), DateTime.UtcNow, createdBy, false, null), key);
+        return (new AdminAccount(id, name, role.ToString(), _time.UtcNow(), createdBy, false, null), key);
     }
 
     public async Task<bool> UpdateAdminAsync(string id, AdminRole? role, bool? disabled, CancellationToken ct)

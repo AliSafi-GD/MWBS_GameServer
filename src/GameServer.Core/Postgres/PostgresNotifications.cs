@@ -23,11 +23,14 @@ public sealed class PostgresNotifications : INotificationStore
     private readonly IConfigStore _config;
     private readonly IServiceProvider _services;
     private readonly ILogger<PostgresNotifications> _log;
+    private readonly TimeProvider _time;
 
     // The realtime layer is looked up on first use: it depends on services that may depend on this store.
     public PostgresNotifications(
-        NpgsqlDataSource db, IEconomy economy, IConfigStore config, IServiceProvider services, ILogger<PostgresNotifications> log)
+        NpgsqlDataSource db, IEconomy economy, IConfigStore config, IServiceProvider services, ILogger<PostgresNotifications> log,
+        TimeProvider time)
     {
+        _time = time;
         _db = db;
         _economy = economy;
         _config = config;
@@ -174,7 +177,7 @@ public sealed class PostgresNotifications : INotificationStore
             throw new GameException("no_reward", "This notification has no reward.");
         if (claimed)
             throw new GameException("already_claimed", "The reward was already claimed.");
-        if (expires is { } e && e <= DateTime.UtcNow)
+        if (expires is { } e && e <= _time.UtcNow())
             throw new GameException("expired", "This notification has expired.");
 
         var reward = JsonSerializer.Deserialize<NotificationReward>(rewardJson, Json)!;

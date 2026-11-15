@@ -20,8 +20,8 @@ public sealed class RealtimeHub : IConnectionHandler
     private sealed class State
     {
         public required IConnection Connection { get; init; }
-        public DateTime ConnectedUtc { get; init; } = DateTime.UtcNow;
-        public DateTime LastSeenUtc { get; set; } = DateTime.UtcNow;
+        public required DateTime ConnectedUtc { get; init; }
+        public required DateTime LastSeenUtc { get; set; }
         public string? UserId { get; set; }
         public string? UserName { get; set; }
         public bool Authenticating { get; set; }
@@ -36,11 +36,14 @@ public sealed class RealtimeHub : IConnectionHandler
     private readonly MatchActions _match;
     private readonly RealtimeOptions _options;
     private readonly ILogger<RealtimeHub> _log;
+    private readonly TimeProvider _time;
 
     public RealtimeHub(
         ConnectionManager manager, ChatService chat, TokenService tokens, IUserStore users,
-        HookRunner hooks, MatchActions match, IOptions<RealtimeOptions> options, ILogger<RealtimeHub> log)
+        HookRunner hooks, MatchActions match, IOptions<RealtimeOptions> options, ILogger<RealtimeHub> log,
+        TimeProvider time)
     {
+        _time = time;
         _manager = manager;
         _chat = chat;
         _tokens = tokens;
@@ -51,9 +54,15 @@ public sealed class RealtimeHub : IConnectionHandler
         _log = log;
     }
 
+    private State NewState(IConnection connection)
+    {
+        var now = _time.UtcNow();
+        return new State { Connection = connection, ConnectedUtc = now, LastSeenUtc = now };
+    }
+
     public Task OnConnectedAsync(IConnection connection)
     {
-        _states[connection.Id] = new State { Connection = connection };
+        _states[connection.Id] = NewState(connection);
         return Task.CompletedTask;
     }
 
@@ -69,7 +78,7 @@ public sealed class RealtimeHub : IConnectionHandler
         if (!_states.TryGetValue(connection.Id, out var state))
             return;
 
-        state.LastSeenUtc = DateTime.UtcNow;
+        state.LastSeenUtc = _time.UtcNow();
 
         string type;
         string? id;
@@ -131,7 +140,7 @@ public sealed class RealtimeHub : IConnectionHandler
     /// <summary>Closes connections that never authenticated or went quiet. Called every few seconds by the hosted service.</summary>
     public async Task SweepAsync()
     {
-        var now = DateTime.UtcNow;
+        var now = _time.UtcNow();
         foreach (var state in _states.Values)
         {
             var authExpired = state.UserId is null && !state.Authenticating

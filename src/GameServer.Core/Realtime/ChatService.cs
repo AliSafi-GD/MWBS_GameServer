@@ -43,6 +43,7 @@ public sealed class ChatService : IChat
     private readonly PartyService _parties;
     private readonly ChatOptions _options;
     private readonly ILogger<ChatService> _log;
+    private readonly TimeProvider _time;
     private readonly ConcurrentDictionary<string, RateWindow> _rates = new(StringComparer.Ordinal);
     private int _storedSinceCleanup;
 
@@ -52,8 +53,10 @@ public sealed class ChatService : IChat
 
     public ChatService(
         ConnectionManager manager, IChatStore store, IUserStore users, IFriendStore friends, IGroupStore groups,
-        PartyService parties, IOptions<ChatOptions> options, ILogger<ChatService> log)
+        PartyService parties, IOptions<ChatOptions> options, ILogger<ChatService> log,
+        TimeProvider time)
     {
+        _time = time;
         _manager = manager;
         _store = store;
         _users = users;
@@ -177,7 +180,7 @@ public sealed class ChatService : IChat
     public async Task MuteAsync(string userId, int? minutes, string? reason, CancellationToken ct)
     {
         var user = await _users.GetAsync(userId, ct) ?? throw new GameException("not_found", "Player not found.");
-        DateTime? until = minutes is > 0 ? DateTime.UtcNow.AddMinutes(Math.Min(minutes.Value, 60 * 24 * 365)) : null;
+        DateTime? until = minutes is > 0 ? _time.UtcNow().AddMinutes(Math.Min(minutes.Value, 60 * 24 * 365)) : null;
         var cleanReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim()[..Math.Min(reason.Trim().Length, 200)];
 
         await _store.SetMuteAsync(user.Id, until, cleanReason, ct);
@@ -204,7 +207,7 @@ public sealed class ChatService : IChat
             _mutes[userId] = state;
         }
 
-        if (state.Mute is { } mute && (mute.UntilUtc is null || mute.UntilUtc > DateTime.UtcNow))
+        if (state.Mute is { } mute && (mute.UntilUtc is null || mute.UntilUtc > _time.UtcNow()))
         {
             var until = mute.UntilUtc is null ? "until an admin lifts it" : $"until {mute.UntilUtc:u}";
             throw new GameException("muted", $"You are muted {until}.");
@@ -232,7 +235,7 @@ public sealed class ChatService : IChat
         ChannelRef target, string? senderId, string? senderName, string text, CancellationToken ct)
     {
         long? id = null;
-        var createdUtc = DateTime.UtcNow;
+        var createdUtc = _time.UtcNow();
 
         if (IsStored(target.Kind))
         {

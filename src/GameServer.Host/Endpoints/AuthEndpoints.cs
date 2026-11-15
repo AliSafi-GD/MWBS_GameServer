@@ -13,7 +13,7 @@ public static class AuthEndpoints
         // POST /v1/auth/device   body: { "deviceId": "...", "username": "optional", "create": true }
         // Creates the account on first call (unless create=false) and returns a JWT.
         // 404 unknown_provider when "device" is not in GameServer:Auth:Providers (same answer as any switched-off login).
-        app.MapPost("/v1/auth/device", async (DeviceAuthRequest req, IdentityProviders providers, IUserStore users, TokenService tokens, IRefreshTokenStore refresh, HookRunner hooks, CancellationToken ct) =>
+        app.MapPost("/v1/auth/device", async (DeviceAuthRequest req, IdentityProviders providers, IUserStore users, TokenService tokens, IRefreshTokenStore refresh, HookRunner hooks, TimeProvider time, CancellationToken ct) =>
         {
             providers.Get(AuthProviderSelection.Device);
 
@@ -28,7 +28,7 @@ public static class AuthEndpoints
             if (user.Disabled)
                 return Results.Json(new { error = "account_disabled" }, statusCode: StatusCodes.Status403Forbidden);
 
-            return Results.Ok(await LoginResultAsync(user, "device", tokens, refresh, hooks, ct));
+            return Results.Ok(await LoginResultAsync(user, "device", tokens, refresh, hooks, time, ct));
         }).RequireRateLimiting("device");
 
         // GET /v1/auth/providers : which login methods are switched on, including "device" when guest login is on
@@ -76,7 +76,7 @@ public static class AuthEndpoints
         // POST /v1/auth/{provider}   body: { "credential": { ... }, "create": true, "username": "optional" }
         // Logs in with a verified identity. If no account owns it yet, one is created (unless create=false, which is
         // how a player restores their account on a new phone).
-        app.MapPost("/v1/auth/{provider}", async (string provider, ProviderAuthRequest req, IdentityProviders providers, IUserStore users, TokenService tokens, IRefreshTokenStore refresh, HookRunner hooks, CancellationToken ct) =>
+        app.MapPost("/v1/auth/{provider}", async (string provider, ProviderAuthRequest req, IdentityProviders providers, IUserStore users, TokenService tokens, IRefreshTokenStore refresh, HookRunner hooks, TimeProvider time, CancellationToken ct) =>
         {
             var identity = await providers.Get(provider).VerifyAsync(req.Credential, ct);
 
@@ -95,14 +95,14 @@ public static class AuthEndpoints
             if (user.Disabled)
                 return Results.Json(new { error = "account_disabled" }, statusCode: StatusCodes.Status403Forbidden);
 
-            return Results.Ok(await LoginResultAsync(user, provider, tokens, refresh, hooks, ct));
+            return Results.Ok(await LoginResultAsync(user, provider, tokens, refresh, hooks, time, ct));
         }).RequireRateLimiting("auth");
 
         return app;
     }
 
     private static async Task<object> LoginResultAsync(
-        User user, string provider, TokenService tokens, IRefreshTokenStore refresh, HookRunner hooks, CancellationToken ct)
+        User user, string provider, TokenService tokens, IRefreshTokenStore refresh, HookRunner hooks, TimeProvider time, CancellationToken ct)
     {
         var (token, expiresUtc) = tokens.Issue(user.Id);
         var refreshToken = await refresh.IssueAsync(user.Id, ct);
@@ -110,7 +110,7 @@ public static class AuthEndpoints
 
         // After-hooks only (a login cannot be blocked this way). "IsNew" is a guess based on the account age, so
         // modules should still use idempotency keys for one-time rewards.
-        var isNew = DateTime.UtcNow - user.CreatedUtc < TimeSpan.FromSeconds(5);
+        var isNew = time.UtcNow() - user.CreatedUtc < TimeSpan.FromSeconds(5);
         await hooks.NotifyAsync("auth.login", user.Id, new LoginEvent(provider, isNew), result, ct);
         return result;
     }

@@ -52,6 +52,13 @@
 - مسیرهای نسبی (`ModulesPath`, `GameConfig:Path`) از content root حساب می‌شوند.
 - داکیومنت: `docs/server/game-config.md`.
 
+### ۵. ساعت قابل تست: `TimeProvider` (قدم ۲ در CLEANUP.md، 2026-11-15)
+- همه‌ی `DateTime.UtcNow` در `src/` (۴۶ مورد، ۱۸ فایل) حالا از `TimeProvider` تزریق‌شده می‌خوانند: `_time.UtcNow()`.
+- `AddGameServerCore` ثبتش می‌کند با `TryAddSingleton(TimeProvider.System)`؛ تست یا host می‌تواند قبلش ساعت خودش را بگذارد.
+- منطق تاریخ جایزه‌ی روزانه در `DailyStreak` (بدون DB، رفتار همان).
+- ۳۳ تست جدید در `tests/GameServer.Core.Tests/TimeTests.cs` با `FakeTimeProvider`. روی Postgres: unit ۹۷، SmokeTest ۲۱۰، SDK ۹۲، ArenaBots ۱۵، همه سبز.
+- مانده: تست خود سرویس‌ها (با SQL) بعد از قدم ۳؛ ماژول بازی هنوز ساعت ندارد (`HelloModule.cs`).
+
 ### نحوه‌ی کار در این جلسه
 - کار اجرایی را agentهای Sonnet 5.5 انجام دادند؛ نتیجه‌ی هر کدام (build، تست‌ها، مقایسه‌ی routeها، کد کلیدی) را جدا چک کردم.
 - آمار فعلی: `dotnet build GameServer.slnx` بدون warning؛ ۶۴ unit test سبز؛ `npm run build` داکیومنت سبز.
@@ -110,7 +117,7 @@ dotnet test tests/GameServer.Core.Tests
 ## قدم بعدی (پیشنهاد، به ترتیب)
 
 1. **تست روی Postgres** (بخش «هنوز تست نشده» بالا). اگر چیزی خراب بود، اول همان را درست کنیم.
-2. **قدم ۲ در CLEANUP.md:** `TimeProvider` به جای `DateTime.UtcNow` + unit test برای shop، daily reward و progress.
+2. ~~**قدم ۲ در CLEANUP.md:** `TimeProvider` به جای `DateTime.UtcNow`.~~ انجام شد (بخش ۵ بالا).
 3. **قدم ۳:** بیرون کشیدن SQL از `ShopService`, `ProgressService`, `DailyRewardService` و تکه کردن `AdminStore`.
 4. **قدم ۴:** پروژه‌ی `GameServer.Infrastructure.Postgres` تا Core دیگر Npgsql نداشته باشد.
 5. **SDK (قدم ۸):** interface برای APIها تا بازی‌ها بتوانند fake کنند؛ تکه کردن `Models.cs`، `RealtimeClient.cs`.

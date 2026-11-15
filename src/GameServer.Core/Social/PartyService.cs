@@ -29,13 +29,13 @@ public sealed class PartyService
 {
     private sealed class Party
     {
-        public Party(string id, string leaderId, bool open, int maxSize)
+        public Party(string id, string leaderId, bool open, int maxSize, DateTime createdUtc)
         {
             Id = id;
             LeaderId = leaderId;
             Open = open;
             MaxSize = maxSize;
-            CreatedUtc = DateTime.UtcNow;
+            CreatedUtc = createdUtc;
         }
 
         public string Id { get; }
@@ -57,9 +57,12 @@ public sealed class PartyService
     private readonly IUserStore _users;
     private readonly PartyOptions _options;
     private readonly ILogger<PartyService> _log;
+    private readonly TimeProvider _time;
 
-    public PartyService(ConnectionManager manager, IUserStore users, IOptions<PartyOptions> options, ILogger<PartyService> log)
+    public PartyService(ConnectionManager manager, IUserStore users, IOptions<PartyOptions> options, ILogger<PartyService> log,
+        TimeProvider time)
     {
+        _time = time;
         _manager = manager;
         _users = users;
         _options = options.Value;
@@ -92,7 +95,7 @@ public sealed class PartyService
 
             var allowed = party.Open
                           || party.Members.Any(m => m.UserId == requesterId)
-                          || (party.Invites.TryGetValue(requesterId, out var expires) && expires > DateTime.UtcNow);
+                          || (party.Invites.TryGetValue(requesterId, out var expires) && expires > _time.UtcNow());
             if (!allowed)
                 throw new GameException("party_not_found", "Party not found.");
 
@@ -111,7 +114,7 @@ public sealed class PartyService
                 throw new GameException("already_in_party", "Leave your current party first.");
 
             var party = new Party(
-                Guid.NewGuid().ToString("N"), userId, open, Math.Clamp(maxSize ?? _options.MaxSize, 2, _options.MaxSize));
+                Guid.NewGuid().ToString("N"), userId, open, Math.Clamp(maxSize ?? _options.MaxSize, 2, _options.MaxSize), _time.UtcNow());
             party.Members.Add(member);
             _parties[party.Id] = party;
             _partyOf[userId] = party.Id;
@@ -132,7 +135,7 @@ public sealed class PartyService
             if (!_parties.TryGetValue(partyId, out var party))
                 throw new GameException("party_not_found", "Party not found.");
 
-            var invited = party.Invites.TryGetValue(userId, out var expires) && expires > DateTime.UtcNow;
+            var invited = party.Invites.TryGetValue(userId, out var expires) && expires > _time.UtcNow();
             if (!party.Open && !invited)
                 throw new GameException("not_invited", "This party is closed. Ask a member to invite you.");
             if (party.Members.Count >= party.MaxSize)
@@ -173,12 +176,12 @@ public sealed class PartyService
                 throw new GameException("party_full", "This party is full.");
 
             // Forget invites that ran out so the list cannot grow without limit.
-            foreach (var expired in party.Invites.Where(i => i.Value <= DateTime.UtcNow).Select(i => i.Key).ToList())
+            foreach (var expired in party.Invites.Where(i => i.Value <= _time.UtcNow()).Select(i => i.Key).ToList())
                 party.Invites.Remove(expired);
             if (party.Invites.Count >= 20)
                 throw new GameException("too_many_invites", "This party has too many open invites.");
 
-            expiresUtc = DateTime.UtcNow.AddMinutes(_options.InviteMinutes);
+            expiresUtc = _time.UtcNow().AddMinutes(_options.InviteMinutes);
             party.Invites[targetId] = expiresUtc;
             view = party.ToView();
         }

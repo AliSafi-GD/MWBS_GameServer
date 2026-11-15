@@ -14,11 +14,13 @@ public sealed class AdminBackground : BackgroundService
     private readonly MatchService _matches;
     private readonly Matchmaker _matchmaker;
     private readonly ILogger<AdminBackground> _log;
+    private readonly TimeProvider _time;
 
     public AdminBackground(
         AdminStore store, INotificationStore notifications, ConnectionManager connections,
-        MatchService matches, Matchmaker matchmaker, ILogger<AdminBackground> log)
+        MatchService matches, Matchmaker matchmaker, ILogger<AdminBackground> log, TimeProvider time)
     {
+        _time = time;
         _store = store;
         _notifications = notifications;
         _connections = connections;
@@ -41,7 +43,7 @@ public sealed class AdminBackground : BackgroundService
             {
                 await SendDueAsync(stoppingToken);
 
-                var now = DateTime.UtcNow;
+                var now = _time.UtcNow();
                 if (now - lastSample >= TimeSpan.FromSeconds(55))
                 {
                     lastSample = now;
@@ -76,7 +78,7 @@ public sealed class AdminBackground : BackgroundService
             string? error = null;
             try
             {
-                DateTime? expires = item.ExpiresInDays is > 0 ? DateTime.UtcNow.AddDays(item.ExpiresInDays.Value) : null;
+                DateTime? expires = item.ExpiresInDays is > 0 ? _time.UtcNow().AddDays(item.ExpiresInDays.Value) : null;
                 if (item.Audience == "online")
                 {
                     foreach (var (userId, _) in _connections.OnlineUsers(100_000))

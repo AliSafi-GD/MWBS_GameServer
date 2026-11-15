@@ -135,15 +135,15 @@ public static class AdminEndpoints
 
         // POST /admin/api/users/{id}/notifications
         //   body: { "subject": "...", "body": "...", "reward": { "wallet": { "coins": 100 }, "items": {} }, "expiresInDays": 30 }
-        admin.MapPost("/users/{id}/notifications", async (string id, AdminNotificationRequest req, INotificationStore notifications, CancellationToken ct) =>
-            Results.Ok(new { id = await notifications.SendAsync(id, req.Subject ?? "", req.Body, req.Reward, ExpiryFrom(req.ExpiresInDays), ct) }));
+        admin.MapPost("/users/{id}/notifications", async (string id, AdminNotificationRequest req, INotificationStore notifications, TimeProvider time, CancellationToken ct) =>
+            Results.Ok(new { id = await notifications.SendAsync(id, req.Subject ?? "", req.Body, req.Reward, ExpiryFrom(req.ExpiresInDays, time.UtcNow()), ct) }));
 
         // POST /admin/api/notifications/broadcast : same body, sent to every active player
-        admin.MapPost("/notifications/broadcast", async (AdminNotificationRequest req, INotificationStore notifications, CancellationToken ct) =>
-            Results.Ok(new { sent = await notifications.BroadcastAsync(req.Subject ?? "", req.Body, req.Reward, ExpiryFrom(req.ExpiresInDays), ct) }));
+        admin.MapPost("/notifications/broadcast", async (AdminNotificationRequest req, INotificationStore notifications, TimeProvider time, CancellationToken ct) =>
+            Results.Ok(new { sent = await notifications.BroadcastAsync(req.Subject ?? "", req.Body, req.Reward, ExpiryFrom(req.ExpiresInDays, time.UtcNow()), ct) }));
     }
 
-    private static DateTime? ExpiryFrom(int? days) => days is > 0 ? DateTime.UtcNow.AddDays(Math.Min(days.Value, 3650)) : null;
+    private static DateTime? ExpiryFrom(int? days, DateTime nowUtc) => days is > 0 ? nowUtc.AddDays(Math.Min(days.Value, 3650)) : null;
 
     // ---- wallet and inventory -------------------------------------------------------------------------------
 

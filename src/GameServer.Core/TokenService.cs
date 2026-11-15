@@ -12,16 +12,18 @@ public sealed class TokenService
     private readonly JwtOptions _options;
     private readonly SymmetricSecurityKey _key;
     private readonly JsonWebTokenHandler _handler = new();
+    private readonly TimeProvider _time;
 
-    public TokenService(IOptions<JwtOptions> options)
+    public TokenService(IOptions<JwtOptions> options, TimeProvider time)
     {
+        _time = time;
         _options = options.Value;
         _key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.Secret));
     }
 
     public (string Token, DateTime ExpiresUtc) Issue(string userId)
     {
-        var expires = DateTime.UtcNow.AddMinutes(_options.ExpiryMinutes);
+        var expires = _time.UtcNow().AddMinutes(_options.ExpiryMinutes);
 
         var descriptor = new SecurityTokenDescriptor
         {

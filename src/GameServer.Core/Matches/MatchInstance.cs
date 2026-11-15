@@ -29,10 +29,14 @@ internal sealed class MatchInstance : IMatch
     private DateTime? _emptySinceUtc;
     private bool _everConnected;
     private volatile string? _label;
+    private readonly TimeProvider _time;
 
     public MatchInstance(
-        string id, MatchMode mode, MatchHandler handler, string? label, string? parameters, bool joinable, MatchServices services, ILogger log)
+        string id, MatchMode mode, MatchHandler handler, string? label, string? parameters, bool joinable, MatchServices services, ILogger log,
+        TimeProvider time)
     {
+        _time = time;
+        CreatedUtc = time.UtcNow();
         Services = services;
         Id = id;
         Definition = mode;
@@ -48,7 +52,7 @@ internal sealed class MatchInstance : IMatch
     public string Mode => Definition.Name;
     public string? Parameters { get; }
     public bool Joinable { get; }
-    public DateTime CreatedUtc { get; } = DateTime.UtcNow;
+    public DateTime CreatedUtc { get; }
     public string? EndReason { get; private set; }
     public object? State { get; set; }
     public MatchServices Services { get; }
@@ -307,7 +311,7 @@ internal sealed class MatchInstance : IMatch
 
                 slot.Connection = null;
                 if (_slots.All(s => s.Connection is null))
-                    _emptySinceUtc = DateTime.UtcNow;
+                    _emptySinceUtc = _time.UtcNow();
             }
 
             await _handler.OnLeaveAsync(this, slot.Player, slot.Kicked ? MatchLeaveReason.Kicked : MatchLeaveReason.Disconnected);

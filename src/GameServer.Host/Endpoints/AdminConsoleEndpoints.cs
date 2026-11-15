@@ -75,7 +75,7 @@ public static class AdminConsoleEndpoints
         // ---- dashboard ----
 
         // GET /admin/api/dashboard : live numbers + 24h totals
-        admin.MapGet("/dashboard", async (ConnectionManager connections, MatchService matches, Matchmaker matchmaker, AdminStore store, CancellationToken ct) =>
+        admin.MapGet("/dashboard", async (ConnectionManager connections, MatchService matches, Matchmaker matchmaker, AdminStore store, TimeProvider time, CancellationToken ct) =>
         {
             var (conns, users) = connections.Counts();
             var queue = matchmaker.CountsByMode();
@@ -85,7 +85,7 @@ public static class AdminConsoleEndpoints
                 matches = matches.Count,
                 queue = new { total = queue.Values.Sum(), byMode = queue },
                 totals = await store.TotalsAsync(ct),
-                serverTimeUtc = DateTime.UtcNow
+                serverTimeUtc = time.UtcNow()
             });
         });
 
@@ -124,10 +124,10 @@ public static class AdminConsoleEndpoints
 
         // POST /admin/api/liveops/broadcasts
         //   { runAtUtc?: "2026-12-01T10:00:00Z" (default now), subject, body, reward, audience: "all"|"online", expiresInDays }
-        admin.MapPost("/liveops/broadcasts", async (ScheduleBroadcastRequest req, HttpContext http, AdminStore store, CancellationToken ct) =>
+        admin.MapPost("/liveops/broadcasts", async (ScheduleBroadcastRequest req, HttpContext http, AdminStore store, TimeProvider time, CancellationToken ct) =>
         {
             ValidateReward(req.Reward);
-            var runAt = req.RunAtUtc ?? DateTime.UtcNow;
+            var runAt = req.RunAtUtc ?? time.UtcNow();
             if (runAt.Kind == DateTimeKind.Local)
                 runAt = runAt.ToUniversalTime();
             var item = await store.ScheduleAsync(runAt, req.Subject ?? "", req.Body, req.Reward,

@@ -25,7 +25,7 @@ public sealed class Matchmaker
         public required string[] UserIds { get; init; }
         public required Dictionary<string, object> Properties { get; init; }
         public string? PartyId { get; init; }
-        public DateTime CreatedUtc { get; } = DateTime.UtcNow;
+        public required DateTime CreatedUtc { get; init; }
         public TicketView View() => new(Id, Mode.Name, UserIds, PartyId, CreatedUtc);
     }
 
@@ -38,11 +38,13 @@ public sealed class Matchmaker
     private readonly IUserStore _users;
     private readonly MatchOptions _options;
     private readonly ILogger<Matchmaker> _log;
+    private readonly TimeProvider _time;
 
     public Matchmaker(
         MatchModeProvider modes, MatchService matches, ConnectionManager realtime, PartyService parties, IUserStore users,
-        IOptions<MatchOptions> options, ILogger<Matchmaker> log)
+        IOptions<MatchOptions> options, ILogger<Matchmaker> log, TimeProvider time)
     {
+        _time = time;
         _modes = modes;
         _matches = matches;
         _realtime = realtime;
@@ -102,7 +104,8 @@ public sealed class Matchmaker
                 OwnerId = userId,
                 UserIds = userIds,
                 Properties = props,
-                PartyId = string.IsNullOrEmpty(partyId) ? null : partyId
+                PartyId = string.IsNullOrEmpty(partyId) ? null : partyId,
+                CreatedUtc = _time.UtcNow()
             };
             _tickets.Add(ticket);
         }
@@ -222,7 +225,7 @@ public sealed class Matchmaker
 
     internal async Task TickAsync(CancellationToken ct)
     {
-        var now = DateTime.UtcNow;
+        var now = _time.UtcNow();
         var expired = new List<Ticket>();
         var formed = new List<(MatchMode Mode, List<Ticket> Group)>();
 
