@@ -35,6 +35,13 @@ namespace GameServer.Client
         Task CloseAsync();
     }
 
+    /// <summary>Optional: a match connection that can tell how long a message takes there and back (UDP does; WebSocket does not).</summary>
+    public interface IMatchLatency
+    {
+        /// <summary>Round-trip time in milliseconds, or -1 while unknown.</summary>
+        int RoundTripMs { get; }
+    }
+
     public interface IMatchTransportClient
     {
         /// <summary>The server's name for it: "websocket", "udp", ...</summary>
@@ -95,6 +102,9 @@ namespace GameServer.Client
         public MatchConnectInfo Info { get; }
         public string Transport => Info.Transport;
         public bool IsOpen => Volatile.Read(ref _open) == 1;
+
+        /// <summary>Round-trip time to the server in milliseconds, or -1 when the protocol cannot measure it (WebSocket) or nothing is known yet.</summary>
+        public int RoundTripMs => (_inner as IMatchLatency)?.RoundTripMs ?? -1;
 
         /// <summary>A message from the server (or relayed from another player).</summary>
         public event Action<byte[]> DataReceived;

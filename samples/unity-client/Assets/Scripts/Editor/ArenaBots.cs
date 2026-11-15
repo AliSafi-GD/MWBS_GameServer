@@ -50,6 +50,12 @@ namespace Game.Editor
             for (var i = 0; i < bots.Length; i++)
                 await bots[i].ConnectAsync(infos[i]);
 
+            // The slot arrives in the server's first message; over UDP the connection is open before that message lands.
+            for (var i = 0; i < 100 && !bots.All(b => b.State.HasInit); i++)
+                await Task.Delay(50);
+            if (!bots.All(b => b.State.HasInit))
+                throw new Exception("the server sent no init message");
+
             // Whoever got slot 0 attacks; the other one stands still.
             await Task.WhenAll(bots.Select(b => Task.Run(() => b.PlayAsync(b.State.You == 0))));
 
@@ -85,6 +91,13 @@ namespace Game.Editor
 
             foreach (var bot in bots)
                 await bot.CloseAsync();
+
+            // Leave no test players behind (this also runs against live servers).
+            foreach (var bot in bots)
+            {
+                try { await bot.Client.Account.DeleteAsync(); }
+                catch (Exception ex) { Debug.LogWarning("[ArenaBots] could not delete a test account: " + ex.Message); }
+            }
 
             return $"winner=slot{a.Winner} reason={a.Reason} winnerCoins=+{win - winBefore} loserCoins=+{lose - loseBefore} " +
                    $"hits={results.First(r => r.Won).Hits}/{results.First(r => r.Won).Shots}";

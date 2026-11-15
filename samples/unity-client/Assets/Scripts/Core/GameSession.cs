@@ -75,12 +75,14 @@ namespace Game.Core
             ServerUrl = url.TrimEnd('/');
             PlayerPrefs.SetString(UrlKey, ServerUrl);
 
-            Client = new GameClient(new GameClientOptions
+            var options = new GameClientOptions
             {
                 BaseUrl = ServerUrl,
                 Storage = new PlayerPrefsStorage(),
                 Log = Debug.Log
-            });
+            };
+            MatchNet.Enable(options);
+            Client = new GameClient(options);
             Account = null;
         }
 

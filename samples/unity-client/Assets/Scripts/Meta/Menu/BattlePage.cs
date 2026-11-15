@@ -23,58 +23,131 @@ namespace Game.Meta
         }
 
         private readonly Slot[] _slots = new Slot[4];
+        private static readonly Color PlainTank = Theme.Hex(0x4AA8FF);
+
         private Text _wins;
         private GButton _battle;
+        private RectTransform _tankHolder;
+        private Image _heroGlow;
+        private string _shownSkin = "?";
 
         protected override void Build()
         {
-            var title = Ui.Label(Root, "TANK ARENA", 118);
-            Ui.Pin(title, 0.5f, 0.93f, 960, 150);
-            var sub = Ui.Label(Root, "TRAINING CAMP", 44, Theme.Muted);
-            Ui.Pin(sub, 0.5f, 0.865f, 700, 60);
+            // The name of the game, in two tones.
+            var tank = Ui.Headline(Root, "TANK", 118, Color.white, Theme.Hex(0x9CCBFF));
+            tank.alignment = TextAnchor.MiddleRight;
+            Ui.Pin(tank, 0f, 0.93f, 430, 160, 24, 0);
+            var arena = Ui.Headline(Root, "ARENA", 118);
+            arena.alignment = TextAnchor.MiddleLeft;
+            Ui.Pin(arena, 1f, 0.93f, 570, 160, -24, 0);
 
-            var plaque = Ui.Panel(Root, new Color(Theme.PanelDark.r, Theme.PanelDark.g, Theme.PanelDark.b, 0.85f), 40f, "Wins");
-            Ui.Pin(plaque, 0.5f, 0.80f, 560, 96);
-            var cup = Ui.IconPic(plaque.transform, Icon.Trophy, Theme.Gold);
-            Ui.Pin(cup, 0f, 0.5f, 78, 78, 30, 0);
-            _wins = Ui.Label(plaque.transform, "0 wins", 48, Color.white);
+            // League and wins in one pill under the title.
+            var league = Ui.Panel(Root, Theme.Outline, 34f, "League", true);
+            Ui.Pin(league, 0.5f, 0.858f, 660, 66);
+            var leagueFill = Ui.Panel(league.transform, Theme.Purple, 30f, "Fill");
+            Ui.Inset(leagueFill, 4, 4, 4, 4);
+            _wins = Ui.Label(leagueFill.transform, "", 36);
             Ui.Stretch(_wins.rectTransform);
-            Ui.Inset(_wins, 110, 0, 20, 0);
+            Ui.Inset(_wins, 64, 0, 64, 0);
+            for (var side = -1; side <= 1; side += 2)
+            {
+                var star = Ui.IconPic(leagueFill.transform, Icon.Star, Theme.Gold);
+                Ui.Pin(star, 0.5f, 0.5f, 40, 40, side * 282, 0);
+            }
 
-            BuildEmblem();
+            BuildHero();
             BuildChests();
             BuildButtons();
 
             S.Goals.Changed += Refresh;
+            S.Loadout.Changed += ShowTank;
         }
 
-        public override void Dispose() => S.Goals.Changed -= Refresh;
+        public override void Dispose()
+        {
+            S.Goals.Changed -= Refresh;
+            S.Loadout.Changed -= ShowTank;
+        }
 
         public override void OnShow()
         {
+            ShowTank();
             Refresh();
             C.Run(async () => await S.Goals.RefreshAsync());
         }
 
-        private void BuildEmblem()
+        /// <summary>The player's own tank on a lit stand: rays turning behind it, sparkles around it, and a way to the garage.</summary>
+        private void BuildHero()
         {
-            var holder = Ui.NewRect(Root, "Emblem");
-            Ui.Pin(holder, 0.5f, 0.62f, 700, 700);
+            var holder = Ui.NewRect(Root, "Hero");
+            Ui.Pin(holder, 0.5f, 0.645f, 900, 600);
 
-            var glow = Ui.Pic(holder, Art.Glow(), new Color(1f, 0.82f, 0.3f, 0.55f), "Glow");
-            Ui.Pin(glow, 0.5f, 0.5f, 820, 820);
-            glow.gameObject.AddComponent<Pulse>().Amount = 0.05f;
+            var rays = Ui.Pic(holder, Art.Rays(), new Color(1f, 0.9f, 0.55f, 0.3f), "Rays");
+            Ui.Pin(rays, 0.5f, 0.5f, 1120, 1120, 0, 10);
+            rays.gameObject.AddComponent<Spin>().DegreesPerSecond = 9f;
 
-            var plate = Ui.Circle(holder, new Color(Theme.Outline.r, Theme.Outline.g, Theme.Outline.b, 0.9f), "Plate");
-            Ui.Pin(plate, 0.5f, 0.5f, 440, 440);
-            var plateInner = Ui.Circle(holder, Theme.PanelLight, "PlateInner");
-            Ui.Pin(plateInner, 0.5f, 0.5f, 408, 408);
-            var core = Ui.Circle(holder, Theme.Panel, "PlateCore");
-            Ui.Pin(core, 0.5f, 0.5f, 340, 340);
+            _heroGlow = Ui.Pic(holder, Art.Glow(), new Color(1f, 0.82f, 0.3f, 0.5f), "Glow");
+            Ui.Pin(_heroGlow, 0.5f, 0.5f, 800, 800, 0, 10);
+            _heroGlow.gameObject.AddComponent<Pulse>().Amount = 0.05f;
 
-            var swords = Ui.IconPic(holder, Icon.Swords, Theme.Gold);
-            Ui.Pin(swords, 0.5f, 0.5f, 280, 280);
-            swords.gameObject.AddComponent<Bob>();
+            // The stand: flat ellipses, wider than tall, so it reads as a round platform seen from the front.
+            Ellipse(holder, new Color(0f, 0.01f, 0.08f, 0.45f), 640, 170, -212, "StandShadow");
+            Ellipse(holder, Theme.Outline, 580, 178, -178, "StandRim");
+            Ellipse(holder, Theme.Hex(0x1B2F78), 560, 160, -180, "StandSide");
+            Ellipse(holder, Theme.Edge, 560, 150, -160, "StandEdge");
+            Ellipse(holder, Theme.PanelLight, 544, 138, -160, "StandTop");
+            Ellipse(holder, Theme.Panel, 430, 100, -160, "StandCore");
+            var standLight = Ellipse(holder, new Color(1f, 0.9f, 0.5f, 0.35f), 360, 70, -160, "StandLight");
+            standLight.sprite = Art.Glow();
+
+            _tankHolder = Ui.NewRect(holder, "TankHolder");
+            Ui.Pin(_tankHolder, 0.5f, 0.5f, 10, 10, 0, 6);
+            _tankHolder.gameObject.AddComponent<Bob>().Height = 12f;
+
+            var spots = new[] { new Vector3(-330, 150, 54), new Vector3(300, 210, 70), new Vector3(360, -40, 44), new Vector3(-380, -70, 60), new Vector3(-160, 250, 40), new Vector3(150, -230, 36) };
+            for (var i = 0; i < spots.Length; i++)
+            {
+                var sparkle = Ui.Pic(holder, Art.Sparkle(), i % 2 == 0 ? Color.white : Theme.Hex(0xFFE9A0), "Sparkle");
+                Ui.Pin(sparkle, 0.5f, 0.5f, spots[i].z, spots[i].z, spots[i].x, spots[i].y);
+                var twinkle = sparkle.gameObject.AddComponent<Twinkle>();
+                twinkle.Phase = i * 1.7f;
+                twinkle.Speed = 1.3f + i * 0.17f;
+            }
+
+            var garage = GButton.Create(holder, "GARAGE", Theme.Blue, Theme.BlueLip, 34, 8);
+            Ui.Pin(garage, 0.5f, 0.5f, 240, 78, 0, -268);
+            garage.Button.onClick.AddListener(() => C.Host.GoToInventory());
+        }
+
+        private static Image Ellipse(Transform parent, Color color, float width, float height, float y, string name)
+        {
+            var img = Ui.Circle(parent, color, name);
+            img.preserveAspect = false;
+            Ui.Pin(img, 0.5f, 0.5f, width, height, 0, y);
+            return img;
+        }
+
+        /// <summary>Draws the tank in the equipped skin (again only when the skin changed).</summary>
+        private void ShowTank()
+        {
+            var skin = S.Loadout.EquippedSkin ?? "";
+            if (skin == _shownSkin || _tankHolder == null)
+                return;
+
+            _shownSkin = skin;
+            for (var i = _tankHolder.childCount - 1; i >= 0; i--)
+                Object.Destroy(_tankHolder.GetChild(i).gameObject);
+
+            var color = Skins.ColorOf(skin) ?? PlainTank;
+            var tank = Parts.TankPreview(_tankHolder, color, 1.7f, new Vector2(0.5f, 0.5f));
+            tank.localRotation = Quaternion.Euler(0, 0, 14f);
+            _heroGlow.color = new Color(Mathf.Lerp(1f, color.r, 0.5f), Mathf.Lerp(0.82f, color.g, 0.5f), Mathf.Lerp(0.3f, color.b, 0.5f), 0.5f);
+
+            Anim.Run(C.Host, 0.3f, t =>
+            {
+                if (tank != null)
+                    tank.localScale = Vector3.one * Mathf.LerpUnclamped(0.6f, 1f, Anim.EaseOutBack(t));
+            });
         }
 
         private void BuildChests()
@@ -82,10 +155,10 @@ namespace Game.Meta
             for (var i = 0; i < _slots.Length; i++)
             {
                 var slot = new Slot();
-                var card = Parts.Card(Root, Theme.PanelDark, 30f);
+                var card = Parts.Card(Root, Theme.Panel, 30f);
                 var rim = card.parent;
                 slot.Root = (RectTransform)rim;
-                Ui.Pin(slot.Root.GetComponent<Image>(), 0f, 0.31f, 240, 330, 30 + i * 260, 0);
+                Ui.Pin(slot.Root.GetComponent<Image>(), 0f, 0.3f, 240, 320, 30 + i * 260, 0);
 
                 slot.Glow = Ui.Pic(card, Art.Glow(), new Color(0.4f, 1f, 0.4f, 0.0f), "Glow");
                 Ui.Pin(slot.Glow, 0.5f, 0.55f, 260, 260);
@@ -125,24 +198,30 @@ namespace Game.Meta
         private void BuildButtons()
         {
             _battle = GButton.Create(Root, "BATTLE", Theme.Gold, Theme.GoldLip, 96, 22);
-            Ui.Pin(_battle, 0.5f, 0.105f, 600, 230);
-            _battle.gameObject.AddComponent<Pulse>().Amount = 0.035f;
+            Ui.Pin(_battle, 0.5f, 0.092f, 600, 220);
+            _battle.gameObject.AddComponent<Pulse>().Amount = 0.03f;
             _battle.Button.onClick.AddListener(StartSearch);
+            Ui.Place(_battle.Label, 0f, 0.26f, 1f, 0.98f);
+            var mode = Ui.Label(_battle.Face.transform, "1 VS 1   RANKED", 30, Theme.Hex(0x7A4300), TextAnchor.MiddleCenter, false);
+            Ui.Place(mode, 0f, 0.06f, 1f, 0.3f);
+            ShineSweep.Create(_battle.Face, 26f);
 
-            var party = GButton.Create(Root, "", Theme.Blue, Theme.BlueLip, 30, 14);
-            Ui.Pin(party, 0f, 0.105f, 190, 190, 40, 0);
-            var partyIcon = Ui.IconPic(party.Face.transform, Icon.People);
-            Ui.Place(partyIcon, 0.18f, 0.18f, 0.82f, 0.82f);
-            party.Button.onClick.AddListener(() => C.Host.GoToSocial(1));
-
-            var friendly = GButton.Create(Root, "", Theme.Purple, Hex(0x6A2FC0), 30, 14);
-            Ui.Pin(friendly, 1f, 0.105f, 190, 190, -40, 0);
-            var crown = Ui.IconPic(friendly.Face.transform, Icon.Crown);
-            Ui.Place(crown, 0.18f, 0.18f, 0.82f, 0.82f);
-            friendly.Button.onClick.AddListener(OpenFriendly);
+            SideButton("PARTY", Icon.People, Theme.Blue, Theme.BlueLip, false, () => C.Host.GoToSocial(1));
+            SideButton("FRIENDLY", Icon.Crown, Theme.Purple, Theme.PurpleLip, true, OpenFriendly);
         }
 
-        private static Color Hex(int rgb) => Theme.Hex(rgb);
+        private void SideButton(string caption, Icon icon, Color face, Color lip, bool right, UnityEngine.Events.UnityAction onTap)
+        {
+            var button = GButton.Create(Root, "", face, lip, 30, 14);
+            button.name = "Button_" + caption;
+            Ui.Pin(button, right ? 1f : 0f, 0.105f, 176, 170, right ? -42 : 42, 0);
+            var picture = Ui.IconPic(button.Face.transform, icon);
+            Ui.Place(picture, 0.2f, 0.2f, 0.8f, 0.8f);
+            button.Button.onClick.AddListener(onTap);
+
+            var label = Ui.Label(Root, caption, 30);
+            Ui.Pin(label, right ? 1f : 0f, 0.105f, 220, 40, right ? -20 : 20, -118);
+        }
 
         private void StartSearch()
         {
@@ -159,7 +238,7 @@ namespace Game.Meta
 
         private void Refresh()
         {
-            _wins.text = Ui.Num(S.Goals.Wins) + (S.Goals.Wins == 1 ? " win" : " wins");
+            _wins.text = "TRAINING CAMP  -  " + Ui.Num(S.Goals.Wins) + (S.Goals.Wins == 1 ? " WIN" : " WINS");
 
             UpdateDailySlot(_slots[0]);
             var quests = S.Goals.Quests;

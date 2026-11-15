@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Game.Meta
 {
-    public enum Icon { Coin, Gem, Swords, Bag, Scroll, People, Trophy, Chest, Gear, Check, Crown, Bolt }
+    public enum Icon { Coin, Gem, Swords, Bag, Scroll, People, Trophy, Chest, Gear, Check, Crown, Bolt, Plus, Star, Heart }
 
     /// <summary>Sprites drawn in code (rounded panels, gradients, icons), so the game needs no imported art to look like a game.</summary>
     public static class Art
@@ -30,6 +30,104 @@ namespace Game.Meta
             }, new Vector4(RoundRadius, RoundRadius, RoundRadius, RoundRadius)));
         }
 
+        /// <summary>
+        /// The same rounded rectangle, lit from above: full brightness at the top edge, darker toward the bottom.
+        /// Tinted by Image.color it gives every panel and button a soft gradient for free.
+        /// </summary>
+        public static Sprite RoundedShaded()
+        {
+            return Get("rounded_shaded", () => Build(RoundSize, RoundSize, (x, y) =>
+            {
+                var b = Mathf.Lerp(0.74f, 1f, Mathf.SmoothStep(0f, 1f, y / (RoundSize - 1f)));
+                return new Color(b, b, b, RoundedAlpha(x, y));
+            }, new Vector4(RoundRadius, RoundRadius, RoundRadius, RoundRadius)));
+        }
+
+        private static float RoundedAlpha(int x, int y)
+        {
+            var px = x + 0.5f - RoundSize / 2f;
+            var py = y + 0.5f - RoundSize / 2f;
+            var q = new Vector2(Mathf.Abs(px) - (RoundSize / 2f - RoundRadius), Mathf.Abs(py) - (RoundSize / 2f - RoundRadius));
+            var d = new Vector2(Mathf.Max(q.x, 0), Mathf.Max(q.y, 0)).magnitude + Mathf.Min(Mathf.Max(q.x, q.y), 0) - RoundRadius;
+            return Mathf.Clamp01(0.5f - d);
+        }
+
+        /// <summary>A blurred rounded rectangle for drop shadows (9-slice, border 28 of 64).</summary>
+        public static Sprite Shadow()
+        {
+            return Get("shadow", () => Build(64, 64, (x, y) =>
+            {
+                var px = Mathf.Abs(x + 0.5f - 32f) - 14f;
+                var py = Mathf.Abs(y + 0.5f - 32f) - 14f;
+                var d = new Vector2(Mathf.Max(px, 0), Mathf.Max(py, 0)).magnitude - 8f;
+                var a = Mathf.Clamp01(1f - d / 10f);
+                return new Color(1, 1, 1, a * a);
+            }, new Vector4(28, 28, 28, 28)));
+        }
+
+        /// <summary>A sunburst: soft wedges of light that fade toward the rim. Spin it slowly behind a hero picture.</summary>
+        public static Sprite Rays(int wedges = 14)
+        {
+            return Get("rays" + wedges, () => Build(384, 384, (x, y) =>
+            {
+                var u = (x + 0.5f) / 192f - 1f;
+                var v = (y + 0.5f) / 192f - 1f;
+                var r = Mathf.Sqrt(u * u + v * v);
+                if (r >= 1f)
+                    return Color.clear;
+
+                var wave = Mathf.Cos(Mathf.Atan2(v, u) * wedges);
+                var wedge = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-0.08f, 0.22f, wave));
+                var fade = Mathf.Pow(1f - r, 1.4f) * Mathf.SmoothStep(0f, 1f, r * 5f);
+                return new Color(1, 1, 1, wedge * fade);
+            }, Vector4.zero));
+        }
+
+        /// <summary>Dark corners for a full-screen backdrop (stretch it; draw it black).</summary>
+        public static Sprite Vignette()
+        {
+            return Get("vignette", () => Build(64, 64, (x, y) =>
+            {
+                var u = (x + 0.5f) / 32f - 1f;
+                var v = (y + 0.5f) / 32f - 1f;
+                var r = Mathf.Sqrt(u * u * 0.8f + v * v * 0.9f);
+                return new Color(1, 1, 1, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.55f, 1.3f, r)));
+            }, Vector4.zero));
+        }
+
+        /// <summary>A four-point twinkle.</summary>
+        public static Sprite Sparkle()
+        {
+            return Get("sparkle", () => Build(64, 64, (x, y) =>
+            {
+                var u = Mathf.Abs((x + 0.5f) / 32f - 1f);
+                var v = Mathf.Abs((y + 0.5f) / 32f - 1f);
+                var star = 1f - (Mathf.Sqrt(u) + Mathf.Sqrt(v));
+                var core = 1f - Mathf.Sqrt(u * u + v * v) * 3.2f;
+                return new Color(1, 1, 1, Mathf.Clamp01(Mathf.Max(star * 2.4f, core)));
+            }, Vector4.zero));
+        }
+
+        /// <summary>A soft vertical band of light, for the shine that sweeps over a big button.</summary>
+        public static Sprite ShineBand()
+        {
+            return Get("shine_band", () => Build(64, 4, (x, y) =>
+            {
+                var u = Mathf.Abs((x + 0.5f) / 32f - 1f);
+                return new Color(1, 1, 1, Mathf.Pow(1f - u, 2.2f));
+            }, Vector4.zero));
+        }
+
+        /// <summary>White at the top fading to nothing at the bottom (or the reverse): a cheap light or shade overlay.</summary>
+        public static Sprite Fade(bool fromTop = true)
+        {
+            return Get("fade" + fromTop, () => Build(4, 64, (x, y) =>
+            {
+                var t = y / 63f;
+                return new Color(1, 1, 1, Mathf.SmoothStep(0f, 1f, fromTop ? t : 1f - t));
+            }, Vector4.zero));
+        }
+
         public static Sprite Circle()
         {
             return Get("circle", () => Build(256, 256, (x, y) =>
@@ -50,6 +148,25 @@ namespace Game.Meta
                 var d = new Vector2(x + 0.5f - 32, y + 0.5f - 32).magnitude - 31f;
                 return new Color(1, 1, 1, Mathf.Clamp01(0.5f - d));
             }, Vector4.zero, 64f));
+
+        /// <summary>A thin ring exactly 1 unit across (shock waves, the marker under your own tank, arena markings).</summary>
+        public static Sprite RingUnit() =>
+            Get("ring_unit", () => Build(128, 128, (x, y) =>
+            {
+                var d = Mathf.Abs(new Vector2(x + 0.5f - 64, y + 0.5f - 64).magnitude - 57f) - 5f;
+                return new Color(1, 1, 1, Mathf.Clamp01(0.5f - d));
+            }, Vector4.zero, 128f));
+
+        /// <summary>
+        /// A rounded rectangle for world-space SpriteRenderers in Sliced draw mode: set SpriteRenderer.size to the size in
+        /// units and the corners keep <paramref name="radius"/> (in units) whatever the shape.
+        /// </summary>
+        public static Sprite RoundedWorld(float radius)
+        {
+            var r = Mathf.Clamp(Mathf.Round(radius * 100f), 1f, 50f);
+            return Get("rounded_world" + r, () => Build(RoundSize, RoundSize, (x, y) => new Color(1, 1, 1, RoundedAlpha(x, y)),
+                new Vector4(RoundRadius, RoundRadius, RoundRadius, RoundRadius), RoundRadius * 100f / r));
+        }
 
         /// <summary>A soft round glow exactly 1 unit across.</summary>
         public static Sprite GlowUnit() =>
@@ -168,6 +285,15 @@ namespace Game.Meta
                     d = Mathf.Min(baseBox, peaks);
                     break;
                 }
+                case Icon.Plus:
+                    d = Mathf.Min(Box(x, y, 0f, 0f, 0.66f, 0.2f, 0.1f), Box(x, y, 0f, 0f, 0.2f, 0.66f, 0.1f));
+                    break;
+                case Icon.Star:
+                    d = Star(x, y, 0.92f, 0.46f) - 0.04f;
+                    break;
+                case Icon.Heart:
+                    d = Mathf.Min(Mathf.Min(Cir(x, y, -0.4f, 0.3f, 0.44f), Cir(x, y, 0.4f, 0.3f, 0.44f)), Rhomb(x, y - 0.08f, 0.84f, 0.84f));
+                    break;
                 case Icon.Bolt:
                     d = Mathf.Min(Seg(x, y, 0.25f, 0.8f, -0.35f, -0.05f), Mathf.Min(Seg(x, y, -0.35f, -0.05f, 0.3f, -0.05f), Seg(x, y, 0.3f, -0.05f, -0.25f, -0.85f))) - 0.14f;
                     break;
@@ -241,6 +367,28 @@ namespace Game.Meta
             var dx = pax - bax * h;
             var dy = pay - bay * h;
             return Mathf.Sqrt(dx * dx + dy * dy);
+        }
+
+        /// <summary>Five-point star: outer radius <paramref name="r"/>, inner radius as a fraction <paramref name="rf"/>.</summary>
+        private static float Star(float x, float y, float r, float rf)
+        {
+            const float k1x = 0.809016994f, k1y = -0.587785252f;
+            const float k2x = -k1x, k2y = k1y;
+            x = Mathf.Abs(x);
+            var m = 2f * Mathf.Max(k1x * x + k1y * y, 0f);
+            x -= m * k1x;
+            y -= m * k1y;
+            m = 2f * Mathf.Max(k2x * x + k2y * y, 0f);
+            x -= m * k2x;
+            y -= m * k2y;
+            x = Mathf.Abs(x);
+            y -= r;
+            var bax = rf * -k1y;
+            var bay = rf * k1x - 1f;
+            var h = Mathf.Clamp((x * bax + y * bay) / (bax * bax + bay * bay), 0f, r);
+            var dx = x - bax * h;
+            var dy = y - bay * h;
+            return Mathf.Sqrt(dx * dx + dy * dy) * Mathf.Sign(y * bax - x * bay);
         }
 
         private static float Rhomb(float x, float y, float hx, float hy) => (Mathf.Abs(x) / hx + Mathf.Abs(y) / hy - 1f) * Mathf.Min(hx, hy) * 0.7f;

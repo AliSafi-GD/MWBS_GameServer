@@ -3,6 +3,7 @@
   "rootNamespace": "Game.Testing",
   "references": [
     "GameServer.Client",
+    "GameServer.Client.LiteNetLib",
     "Game.Arena"
   ],
   "includePlatforms": [],
@@ -10,7 +11,8 @@
   "allowUnsafeCode": false,
   "overrideReferences": true,
   "precompiledReferences": [
-    "Newtonsoft.Json.dll"
+    "Newtonsoft.Json.dll",
+    "LiteNetLib.dll"
   ],
   "autoReferenced": false,
   "defineConstraints": [],

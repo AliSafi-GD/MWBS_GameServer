@@ -623,7 +623,10 @@ PlayerSettings:
   webWasm2023: 0
   webEnableSubmoduleStrippingCompatibility: 0
   webProgressiveAssetLoading: 0
-  scriptingDefineSymbols: {}
+  scriptingDefineSymbols:
+    Android: GAMESERVER_LITENETLIB
+    Standalone: GAMESERVER_LITENETLIB
+    iPhone: GAMESERVER_LITENETLIB
   additionalCompilerArguments: {}
   platformArchitecture: {}
   scriptingBackend:

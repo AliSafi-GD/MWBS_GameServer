@@ -2,6 +2,9 @@ using System;
 using System.Threading.Tasks;
 using Game.Arena;
 using GameServer.Client;
+#if GAMESERVER_LITENETLIB
+using GameServer.Client.Udp;
+#endif
 
 namespace Game.Testing
 {
@@ -19,16 +22,17 @@ namespace Game.Testing
 
         public static async Task<ArenaBot> CreateAsync(string url, Action<string> log = null)
         {
-            var bot = new ArenaBot
+            var options = new GameClientOptions
             {
-                Client = new GameClient(new GameClientOptions
-                {
-                    BaseUrl = url,
-                    Http = new HttpClientHttp(15),
-                    Storage = new MemoryStorage(),
-                    Log = log
-                })
+                BaseUrl = url,
+                Http = new HttpClientHttp(15),
+                Storage = new MemoryStorage(),
+                Log = log
             };
+#if GAMESERVER_LITENETLIB
+            options.UseLiteNetLib();
+#endif
+            var bot = new ArenaBot { Client = new GameClient(options) };
             await bot.Client.Auth.LoginDeviceAsync();
             await bot.Client.Realtime.ConnectAsync();
             return bot;
@@ -84,7 +88,7 @@ namespace Game.Testing
                     return;
 
                 if (State.HasInit)
-                    await Connection.SendJsonAsync(new { t = "in", dx, dy, aim = Math.Round(aim, 3), fire, seq = ++_seq });
+                    await Connection.SendJsonAsync(new { t = "in", dx, dy, aim = Math.Round(aim, 3), fire, seq = ++_seq }, MatchDelivery.Sequenced);
 
                 await Task.Delay(50);
             }

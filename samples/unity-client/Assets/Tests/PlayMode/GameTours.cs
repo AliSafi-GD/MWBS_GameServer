@@ -394,6 +394,18 @@ namespace Game.Tests
         }
 
         [UnityTest, Timeout(300000)]
+        public IEnumerator SettingsTour()
+        {
+            yield return OpenMenu();
+            var menu = UnityEngine.Object.FindAnyObjectByType<MenuScreen>();
+            typeof(MenuScreen).GetMethod("OpenSettings", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).Invoke(menu, null);
+            yield return Wait(0.8f);
+            yield return Shot("05_settings");
+            Assert.That(GameObject.Find("Row_AUTO AIM"), Is.Not.Null, "auto aim switch");
+            Assert.That(GameObject.Find("Row_SHOW PING"), Is.Not.Null, "ping switch");
+        }
+
+        [UnityTest, Timeout(300000)]
         public IEnumerator PlayOneMatch()
         {
             yield return OpenMenu();
@@ -432,6 +444,12 @@ namespace Game.Tests
             yield return WaitFor(() => UnityEngine.Object.FindAnyObjectByType<ArenaScreen>() != null, 5, "the arena screen");
             yield return Wait(4.2f);
             yield return Shot("12_arena_fight");
+
+            // Manual aim shows a ring around the fire button; put the player's setting back afterwards.
+            GameSettings.AutoAim = false;
+            yield return Wait(0.3f);
+            yield return Shot("12b_arena_manual_aim");
+            GameSettings.AutoAim = true;
             Attach(1920, 1080);
             yield return Wait(0.5f);
             yield return Shot("13_arena_landscape");

@@ -19,7 +19,7 @@ services:
       # Chat protocols, chosen at build/start time: "websocket", "tcp" or "websocket,tcp".
       GameServer__Realtime__Transports: "${REALTIME_TRANSPORTS:-websocket}"
       # Match/matchmaker protocols: "websocket", "udp" or "websocket,udp". Each mode picks one in the "matches" config.
-      GameServer__Match__Transports: "${MATCH_TRANSPORTS:-websocket}"
+      GameServer__Match__Transports: "${MATCH_TRANSPORTS:-websocket,udp}"
       ConnectionStrings__Default: "Host=postgres;Database=game;Username=game;Password=${DB_PASSWORD:?set DB_PASSWORD in .env}"
     depends_on:
       postgres:

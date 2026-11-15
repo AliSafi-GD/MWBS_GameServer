@@ -55,10 +55,13 @@ namespace Game.Meta
             var canvas = Ui.CreateCanvas("BootCanvas");
             canvas.transform.SetParent(transform, false);
 
-            var backdrop = Ui.Gradient(canvas.transform, Theme.Hex(0x4A7BE0), Theme.Hex(0x101A52), "Backdrop");
-            backdrop.raycastTarget = false;
+            Backdrop.Create(canvas.transform);
 
             _column = Ui.Column(canvas.transform);
+
+            var rays = Ui.Pic(_column, Art.Rays(), new Color(1f, 0.9f, 0.55f, 0.3f), "Rays");
+            Ui.Pin(rays, 0.5f, 0.6f, 1500, 1500);
+            rays.gameObject.AddComponent<Spin>().DegreesPerSecond = 9f;
 
             var glow = Ui.Pic(_column, Art.Glow(), new Color(1f, 0.85f, 0.4f, 0.55f), "Glow");
             Ui.Pin(glow, 0.5f, 0.6f, 1300, 1300);
@@ -74,9 +77,9 @@ namespace Game.Meta
             Ui.Pin(swords, 0.5f, 0.6f, 360, 360);
             swords.gameObject.AddComponent<Bob>();
 
-            var title = Ui.Label(_column, "TANK", 170);
+            var title = Ui.Headline(_column, "TANK", 170, Color.white, Theme.Hex(0x9CCBFF));
             Ui.Pin(title, 0.5f, 0.885f, 900, 190);
-            var title2 = Ui.Label(_column, "ARENA", 170, Theme.Gold);
+            var title2 = Ui.Headline(_column, "ARENA", 170);
             Ui.Pin(title2, 0.5f, 0.805f, 900, 190);
 
             _bar = ProgressBar.Create(_column, Theme.Gold);

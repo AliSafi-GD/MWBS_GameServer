@@ -2,14 +2,16 @@
   "name": "Game.Core",
   "rootNamespace": "Game.Core",
   "references": [
-    "GameServer.Client"
+    "GameServer.Client",
+    "GameServer.Client.LiteNetLib"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
   "overrideReferences": true,
   "precompiledReferences": [
-    "Newtonsoft.Json.dll"
+    "Newtonsoft.Json.dll",
+    "LiteNetLib.dll"
   ],
   "autoReferenced": true,
   "defineConstraints": [],

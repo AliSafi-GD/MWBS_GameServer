@@ -73,7 +73,7 @@ namespace GameServer.Client.Udp
             return completion.Task;
         }
 
-        private sealed class Connection : IMatchTransportConnection
+        private sealed class Connection : IMatchTransportConnection, IMatchLatency
         {
             private readonly NetManager _manager;
             private int _closed;
@@ -87,6 +87,19 @@ namespace GameServer.Client.Udp
 
             public event Action<byte[]> DataReceived;
             public event Action<string> Closed;
+
+            public int RoundTripMs
+            {
+                get
+                {
+                    var peer = Peer;
+                    if (peer == null || peer.ConnectionState != ConnectionState.Connected)
+                        return -1;
+
+                    // LiteNetLib measures it with its own pings (every second). On the same machine it is 0 ms.
+                    return peer.RoundTripTime;
+                }
+            }
 
             public void Start()
             {

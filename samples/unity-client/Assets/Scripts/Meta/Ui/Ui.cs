@@ -9,25 +9,28 @@ namespace Game.Meta
     /// <summary>The look of the game: one place for every color.</summary>
     public static class Theme
     {
-        public static readonly Color BgTop = Hex(0x3566C9);
-        public static readonly Color BgBottom = Hex(0x14215C);
-        public static readonly Color Panel = Hex(0x203878);
-        public static readonly Color PanelLight = Hex(0x2D4C9A);
-        public static readonly Color PanelDark = Hex(0x0E1A47);
-        public static readonly Color Outline = Hex(0x0B1236);
+        public static readonly Color BgTop = Hex(0x2F6FE4);
+        public static readonly Color BgBottom = Hex(0x0C1340);
+        public static readonly Color Panel = Hex(0x243F8C);
+        public static readonly Color PanelLight = Hex(0x3559B8);
+        public static readonly Color PanelDark = Hex(0x0F1B4D);
+        public static readonly Color Outline = Hex(0x0A1136);
+        public static readonly Color Edge = Hex(0x5C8BF2);
 
-        public static readonly Color Gold = Hex(0xFFC21A);
-        public static readonly Color GoldLip = Hex(0xC98600);
-        public static readonly Color Green = Hex(0x5CD94B);
-        public static readonly Color GreenLip = Hex(0x2C9524);
-        public static readonly Color Blue = Hex(0x3C9BFF);
-        public static readonly Color BlueLip = Hex(0x1B58B5);
-        public static readonly Color Red = Hex(0xF0494B);
-        public static readonly Color RedLip = Hex(0xA52628);
-        public static readonly Color Purple = Hex(0xA45BFF);
+        public static readonly Color Gold = Hex(0xFFC926);
+        public static readonly Color GoldLip = Hex(0xC27A00);
+        public static readonly Color GoldDeep = Hex(0xFF9A1F);
+        public static readonly Color Green = Hex(0x62E04E);
+        public static readonly Color GreenLip = Hex(0x279021);
+        public static readonly Color Blue = Hex(0x3EA2FF);
+        public static readonly Color BlueLip = Hex(0x1A55B4);
+        public static readonly Color Red = Hex(0xF4504F);
+        public static readonly Color RedLip = Hex(0xA32427);
+        public static readonly Color Purple = Hex(0xA862FF);
+        public static readonly Color PurpleLip = Hex(0x6A2FC0);
         public static readonly Color Grey = Hex(0x8C93AD);
         public static readonly Color GreyLip = Hex(0x575D75);
-        public static readonly Color Muted = Hex(0xA9B6E0);
+        public static readonly Color Muted = Hex(0xAEBBE6);
 
         public static Color Hex(int rgb) => new Color(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f, 1f);
     }
@@ -40,7 +43,27 @@ namespace Game.Meta
 
         private static Font _font;
 
-        public static Font Font => _font != null ? _font : _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        private static bool _ownFont;
+
+        /// <summary>
+        /// The game's display font (Assets/Fonts/Resources/GameFont.ttf: Lilita One, SIL Open Font License), or Unity's
+        /// built-in font when that file is missing. Letters the font lacks fall back to the device's own fonts.
+        /// </summary>
+        public static Font Font
+        {
+            get
+            {
+                if (_font != null)
+                    return _font;
+
+                _font = Resources.Load<Font>("GameFont");
+                _ownFont = _font != null;
+                return _font != null ? _font : _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            }
+        }
+
+        /// <summary>The display font is heavy already; only the built-in fallback needs faked bold.</summary>
+        public static FontStyle Weight => Font != null && _ownFont ? FontStyle.Normal : FontStyle.Bold;
 
         public static void EnsureEventSystem()
         {
@@ -142,11 +165,12 @@ namespace Game.Meta
 
         // ---- pictures ----------------------------------------------------------------------------------------
 
-        public static Image Panel(Transform parent, Color color, float radius = 28f, string name = "Panel")
+        /// <summary>A rounded panel, lit from above (a soft top-to-bottom gradient of <paramref name="color"/>) unless <paramref name="flat"/>.</summary>
+        public static Image Panel(Transform parent, Color color, float radius = 28f, string name = "Panel", bool flat = false)
         {
             var rt = NewRect(parent, name);
             var img = rt.gameObject.AddComponent<Image>();
-            img.sprite = Art.Rounded();
+            img.sprite = flat ? Art.Rounded() : Art.RoundedShaded();
             img.type = Image.Type.Sliced;
             img.pixelsPerUnitMultiplier = 24f / Mathf.Max(radius, 4f);
             img.color = color;
@@ -174,6 +198,18 @@ namespace Game.Meta
             return img;
         }
 
+        /// <summary>A soft dark blur behind a panel. Add it before the panel so it draws underneath.</summary>
+        public static Image Shadow(Transform parent, float alpha = 0.4f, float spread = 18f, float drop = 12f)
+        {
+            var img = Pic(parent, Art.Shadow(), new Color(0f, 0.01f, 0.08f, alpha), "Shadow");
+            img.preserveAspect = false;
+            img.type = Image.Type.Sliced;
+            img.pixelsPerUnitMultiplier = 0.55f;
+            Stretch(img.rectTransform);
+            Inset(img, -spread, -spread - drop, -spread, -spread + drop);
+            return img;
+        }
+
         public static Image Circle(Transform parent, Color color, string name = "Circle")
         {
             var img = Pic(parent, Art.Circle(), color, name);
@@ -187,7 +223,7 @@ namespace Game.Meta
             var rt = NewRect(parent, "Label");
             var t = rt.gameObject.AddComponent<Text>();
             t.font = Font;
-            t.fontStyle = FontStyle.Bold;
+            t.fontStyle = Weight;
             t.fontSize = size;
             t.alignment = anchor;
             t.color = color ?? Color.white;
@@ -201,12 +237,20 @@ namespace Game.Meta
 
             if (outline)
             {
-                var o = rt.gameObject.AddComponent<Outline>();
-                o.effectColor = new Color(Theme.Outline.r, Theme.Outline.g, Theme.Outline.b, 0.95f);
-                var d = Mathf.Clamp(size * 0.07f, 1.5f, 5f);
-                o.effectDistance = new Vector2(d, -d);
+                // Big text gets an even eight-way stroke; small text (lists, chat) the cheaper four-way one.
+                var fx = rt.gameObject.AddComponent<TextFx>();
+                var width = Mathf.Clamp(size * 0.055f, 1.5f, 6f);
+                fx.SetStroke(new Color(Theme.Outline.r, Theme.Outline.g, Theme.Outline.b, 0.96f), width, width * 0.9f, size >= 40);
             }
 
+            return t;
+        }
+
+        /// <summary>A headline: stroked text with a vertical gradient over the letters (gold by default).</summary>
+        public static Text Headline(Transform parent, string text, int size, Color? top = null, Color? bottom = null)
+        {
+            var t = Label(parent, text, size);
+            t.GetComponent<TextFx>().SetGradient(top ?? Theme.Hex(0xFFF3A6), bottom ?? Theme.GoldDeep);
             return t;
         }
 
@@ -242,13 +286,16 @@ namespace Game.Meta
         {
             var preset = AvatarIndex(avatarId);
             var rim = Circle(parent, Theme.Outline, "Avatar");
+            var ring = Circle(rim.transform, Theme.Gold, "Ring");
+            Stretch(ring.rectTransform);
+            Inset(ring, 4, 4, 4, 4);
 
             if (preset >= 0)
             {
                 var p = AvatarPresets[preset];
                 var back = Circle(rim.transform, p.Color, "Fill");
                 Stretch(back.rectTransform);
-                Inset(back, 5, 5, 5, 5);
+                Inset(back, 10, 10, 10, 10);
                 var icon = IconPic(back.transform, p.Icon, Color.white);
                 Place(icon, 0.2f, 0.2f, 0.8f, 0.8f);
                 return rim.rectTransform;
@@ -261,7 +308,7 @@ namespace Game.Meta
 
             var fill = Circle(rim.transform, Color.HSVToRGB(hue, 0.55f, 0.95f), "Fill");
             Stretch(fill.rectTransform);
-            Inset(fill, 5, 5, 5, 5);
+            Inset(fill, 10, 10, 10, 10);
             var letter = Label(fill.transform, string.IsNullOrEmpty(name) ? "?" : name.Substring(0, 1).ToUpperInvariant(), (int)(size * 0.55f));
             Stretch(letter.rectTransform);
             return rim.rectTransform;
@@ -285,13 +332,18 @@ namespace Game.Meta
         }
     }
 
-    /// <summary>The chunky game button: a dark lip under a bright face that sinks when pressed.</summary>
+    /// <summary>
+    /// The chunky game button: a soft shadow, a dark lip and a bright glossy face that sinks when pressed and pops
+    /// back when released.
+    /// </summary>
     public sealed class GButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerExitHandler
     {
         private float _lip;
         private bool _pressed;
         private bool _interactable = true;
         private Color _face, _lipColor;
+        private RectTransform _visual;
+        private Coroutine _pop;
 
         public Button Button { get; private set; }
         public Image Face { get; private set; }
@@ -322,12 +374,18 @@ namespace Game.Meta
             b._face = face;
             b._lipColor = lip;
 
-            b.LipImage = Ui.Panel(root.transform, lip, 26f, "Lip");
-            b.Face = Ui.Panel(root.transform, face, 26f, "Face");
+            // Everything that moves on a press lives under Visual, so the tap area itself never changes size.
+            b._visual = Ui.NewRect(root.transform, "Visual");
+            Ui.Shadow(b._visual, 0.42f, 16f, 4f + lipHeight * 0.5f);
+
+            var rim = Ui.Panel(b._visual, Theme.Outline, 30f, "Rim", true);
+            Ui.Inset(rim, -4, -4, -4, -4);
+            b.LipImage = Ui.Panel(b._visual, lip, 26f, "Lip");
+            b.Face = Ui.Panel(b._visual, face, 26f, "Face");
             b.Face.raycastTarget = true;
 
-            var gloss = Ui.Panel(b.Face.transform, new Color(1, 1, 1, 0.22f), 22f, "Gloss");
-            Ui.Place(gloss, 0.04f, 0.5f, 0.96f, 0.94f);
+            var gloss = Ui.Panel(b.Face.transform, new Color(1, 1, 1, 0.24f), 20f, "Gloss", true);
+            Ui.Place(gloss, 0.03f, 0.52f, 0.97f, 0.93f);
             gloss.raycastTarget = false;
 
             b.Label = Ui.Label(b.Face.transform, text, fontSize);
@@ -363,62 +421,112 @@ namespace Game.Meta
             Ui.Stretch(lip);
             var face = Face.rectTransform;
             Ui.Stretch(face);
-            face.offsetMin = new Vector2(0, _pressed ? _lip * 0.35f : _lip);
-            face.offsetMax = new Vector2(0, _pressed ? -_lip * 0.65f : 0);
+            face.offsetMin = new Vector2(0, _pressed ? _lip * 0.3f : _lip);
+            face.offsetMax = new Vector2(0, _pressed ? -_lip * 0.7f : 0);
+        }
+
+        private void Press(bool down)
+        {
+            if (_pressed == down)
+                return;
+
+            _pressed = down;
+            Layout();
+
+            if (_pop != null)
+                StopCoroutine(_pop);
+            _pop = null;
+
+            if (down)
+                _visual.localScale = new Vector3(0.96f, 0.96f, 1f);
+            else if (isActiveAndEnabled)
+                _pop = StartCoroutine(Pop());
+            else
+                _visual.localScale = Vector3.one;
+        }
+
+        private System.Collections.IEnumerator Pop()
+        {
+            const float seconds = 0.22f;
+            var t = 0f;
+            while (t < seconds)
+            {
+                t += Time.unscaledDeltaTime;
+                var s = Mathf.LerpUnclamped(0.96f, 1f, Anim.EaseOutBack(Mathf.Clamp01(t / seconds)));
+                _visual.localScale = new Vector3(s, s, 1f);
+                yield return null;
+            }
+
+            _visual.localScale = Vector3.one;
+            _pop = null;
+        }
+
+        private void OnDisable()
+        {
+            _pressed = false;
+            _pop = null;
+            if (_visual != null)
+                _visual.localScale = Vector3.one;
         }
 
         public void OnPointerDown(PointerEventData e)
         {
-            if (!_interactable)
-                return;
-
-            _pressed = true;
-            Layout();
+            if (_interactable)
+                Press(true);
         }
 
-        public void OnPointerUp(PointerEventData e)
-        {
-            _pressed = false;
-            Layout();
-        }
+        public void OnPointerUp(PointerEventData e) => Press(false);
 
-        public void OnPointerExit(PointerEventData e)
-        {
-            _pressed = false;
-            Layout();
-        }
+        public void OnPointerExit(PointerEventData e) => Press(false);
     }
 
-    /// <summary>A dark pill with an icon and a number that counts up and down.</summary>
+    /// <summary>A dark pill with an icon and a number that counts up and down, and an optional "+" that opens the shop.</summary>
     public sealed class Chip : MonoBehaviour
     {
         private Text _value;
+        private RectTransform _icon;
         private float _shown;
         private long _target;
+        private float _bump;
 
-        public static Chip Create(Transform parent, Icon icon, Color? accent = null)
+        public static Chip Create(Transform parent, Icon icon, Color? accent = null, Action onPlus = null)
         {
-            var pill = Ui.Panel(parent, new Color(Theme.PanelDark.r, Theme.PanelDark.g, Theme.PanelDark.b, 0.85f), 40f, "Chip_" + icon);
-            var chip = pill.gameObject.AddComponent<Chip>();
+            var rim = Ui.Panel(parent, new Color(Theme.Edge.r, Theme.Edge.g, Theme.Edge.b, 0.55f), 40f, "Chip_" + icon, true);
+            var chip = rim.gameObject.AddComponent<Chip>();
+            var pill = Ui.Panel(rim.transform, Theme.Hex(0x091238), 38f, "Pill", true);
+            Ui.Inset(pill, 3, 3, 3, 3);
 
-            var icn = Ui.IconPic(pill.transform, icon);
-            Ui.Place(icn, 0f, 0f, 0f, 1f);
+            var icn = Ui.IconPic(rim.transform, icon);
             var irt = icn.rectTransform;
             irt.anchorMin = new Vector2(0, 0.5f);
             irt.anchorMax = new Vector2(0, 0.5f);
             irt.pivot = new Vector2(0.5f, 0.5f);
-            irt.sizeDelta = new Vector2(84, 84);
-            irt.anchoredPosition = new Vector2(8, 0);
+            irt.sizeDelta = new Vector2(88, 88);
+            irt.anchoredPosition = new Vector2(14, 0);
+            chip._icon = irt;
 
-            chip._value = Ui.Label(pill.transform, "0", 40, accent ?? Color.white, TextAnchor.MiddleCenter);
+            chip._value = Ui.Label(rim.transform, "0", 40, accent ?? Color.white, TextAnchor.MiddleCenter);
             Ui.Stretch(chip._value.rectTransform);
-            chip._value.rectTransform.offsetMin = new Vector2(50, 0);
-            chip._value.rectTransform.offsetMax = new Vector2(-14, 0);
+            chip._value.rectTransform.offsetMin = new Vector2(56, 0);
+            chip._value.rectTransform.offsetMax = new Vector2(onPlus != null ? -62 : -16, 0);
+
+            if (onPlus != null)
+            {
+                var plus = GButton.Create(rim.transform, "", Theme.Green, Theme.GreenLip, 30, 6);
+                Ui.Pin(plus, 1f, 0.5f, 58, 58, -8, 0);
+                var cross = Ui.IconPic(plus.Face.transform, Icon.Plus);
+                Ui.Place(cross, 0.2f, 0.2f, 0.8f, 0.8f);
+                plus.Button.onClick.AddListener(() => onPlus());
+            }
+
             return chip;
         }
 
         public void Set(long value, bool animate = true)
         {
+            if (animate && value != _target)
+                _bump = 1f;
+
             _target = value;
             if (!animate)
             {
@@ -429,6 +537,13 @@ namespace Game.Meta
 
         private void Update()
         {
+            if (_bump > 0f)
+            {
+                _bump = Mathf.Max(0f, _bump - Time.unscaledDeltaTime * 3f);
+                var s = 1f + Mathf.Sin(_bump * Mathf.PI) * 0.3f;
+                _icon.localScale = new Vector3(s, s, 1f);
+            }
+
             if (Mathf.Approximately(_shown, _target))
                 return;
 
@@ -437,30 +552,56 @@ namespace Game.Meta
         }
     }
 
+    /// <summary>A framed bar whose glossy fill glides to its new value.</summary>
     public sealed class ProgressBar : MonoBehaviour
     {
         private Image _fill;
         private Text _label;
+        private float _shown = -1f;
+        private float _target;
 
         public static ProgressBar Create(Transform parent, Color fill)
         {
-            var back = Ui.Panel(parent, Theme.PanelDark, 22f, "Bar");
-            var bar = back.gameObject.AddComponent<ProgressBar>();
-            bar._fill = Ui.Panel(back.transform, fill, 22f, "Fill");
+            var rim = Ui.Panel(parent, Theme.Outline, 22f, "Bar", true);
+            var bar = rim.gameObject.AddComponent<ProgressBar>();
+            var back = Ui.Panel(rim.transform, Theme.Hex(0x0A1440), 20f, "Back", true);
+            Ui.Inset(back, 3, 3, 3, 3);
+
+            bar._fill = Ui.Panel(back.transform, fill, 20f, "Fill");
             bar._fill.rectTransform.anchorMin = Vector2.zero;
             bar._fill.rectTransform.anchorMax = new Vector2(0.02f, 1f);
-            Ui.Inset(bar._fill, 4, 4, 0, 4);
-            bar._label = Ui.Label(back.transform, "", 28);
+            Ui.Inset(bar._fill, 3, 3, 0, 3);
+            var gloss = Ui.Panel(bar._fill.transform, new Color(1, 1, 1, 0.3f), 14f, "Gloss", true);
+            Ui.Place(gloss, 0f, 0.55f, 1f, 0.9f);
+            Ui.Inset(gloss, 6, 0, 6, 0);
+            gloss.raycastTarget = false;
+
+            bar._label = Ui.Label(rim.transform, "", 28);
             Ui.Stretch(bar._label.rectTransform);
             return bar;
         }
 
         public void Set(float t, string text)
         {
-            t = Mathf.Clamp01(t);
+            _target = Mathf.Clamp01(t);
+            _label.text = text;
+
+            // The first value (and any value set while hidden) is shown at once; later ones glide.
+            if (_shown < 0f || !isActiveAndEnabled)
+                Show(_target);
+        }
+
+        private void Update()
+        {
+            if (_shown >= 0f && !Mathf.Approximately(_shown, _target))
+                Show(Mathf.MoveTowards(_shown, _target, Mathf.Max(0.02f, Mathf.Abs(_target - _shown) * 6f) * Time.unscaledDeltaTime));
+        }
+
+        private void Show(float t)
+        {
+            _shown = t;
             _fill.gameObject.SetActive(t > 0.001f);
             _fill.rectTransform.anchorMax = new Vector2(Mathf.Max(t, 0.1f), 1f);
-            _label.text = text;
         }
     }
 
@@ -505,7 +646,7 @@ namespace Game.Meta
             for (var i = 0; i < names.Length; i++)
             {
                 var index = i;
-                var b = GButton.Create(rt, names[i], Theme.PanelLight, Theme.Panel, 34, 10);
+                var b = GButton.Create(rt, names[i], Theme.Panel, Theme.PanelDark, 34, 10);
                 Ui.Place(b, i / (float)names.Length + 0.006f, 0f, (i + 1) / (float)names.Length - 0.006f, 1f);
                 b.Button.onClick.AddListener(() => seg.Select(index, true));
                 seg._buttons[i] = b;
@@ -522,7 +663,7 @@ namespace Game.Meta
                 if (i == index)
                     _buttons[i].SetColors(Theme.Blue, Theme.BlueLip);
                 else
-                    _buttons[i].SetColors(Theme.PanelLight, Theme.Panel);
+                    _buttons[i].SetColors(Theme.Panel, Theme.PanelDark);
             }
 
             if (notify)
@@ -736,32 +877,52 @@ namespace Game.Meta
             var root = Ui.NewRect(parent, "Modal");
             var modal = root.gameObject.AddComponent<Modal>();
 
-            var dim = Ui.Panel(root, new Color(0, 0, 0, 0.7f), 4f, "Dim");
+            var dim = Ui.Panel(root, new Color(0.01f, 0.02f, 0.1f, 0.78f), 4f, "Dim", true);
             Ui.Stretch(dim.rectTransform);
+            Ui.Inset(dim, -2000, -2000, -2000, -2000);
             dim.raycastTarget = true;
 
-            var rim = Ui.Panel(root, Theme.Outline, 54f, "Rim");
+            var shadow = Ui.Shadow(root, 0.6f);
+            Ui.Pin(shadow, 0.5f, 0.5f, width + 110, height + 110, 0, -30);
+            var rim = Ui.Panel(root, Theme.Outline, 54f, "Rim", true);
             Ui.Pin(rim, 0.5f, 0.5f, width + 14, height + 14);
-            var card = Ui.Panel(rim.transform, Theme.Panel, 48f, "Card");
-            Ui.Inset(card, 7, 7, 7, 7);
+            var edge = Ui.Panel(rim.transform, Theme.Edge, 50f, "Edge");
+            Ui.Inset(edge, 5, 5, 5, 5);
+            var card = Ui.Panel(rim.transform, Theme.Panel, 46f, "Card");
+            Ui.Inset(card, 10, 10, 10, 10);
+            var head = Ui.Pic(card.transform, Art.Fade(), new Color(1, 1, 1, 0.1f), "Light");
+            head.preserveAspect = false;
+            Ui.Place(head, 0.03f, 0.72f, 0.97f, 0.99f);
 
-            var ribbon = Ui.Panel(rim.transform, Theme.Blue, 36f, "Ribbon");
-            Ui.Pin(ribbon, 0.5f, 1f, width * 0.7f, 120, 0, 40);
+            var ribbonRim = Ui.Panel(rim.transform, Theme.Outline, 40f, "RibbonRim", true);
+            Ui.Pin(ribbonRim, 0.5f, 1f, width * 0.7f + 10, 142, 0, 45);
             var ribbonLip = Ui.Panel(rim.transform, Theme.BlueLip, 36f, "RibbonLip");
             Ui.Pin(ribbonLip, 0.5f, 1f, width * 0.7f, 120, 0, 28);
-            ribbonLip.transform.SetSiblingIndex(ribbon.transform.GetSiblingIndex());
+            var ribbon = Ui.Panel(rim.transform, Theme.Blue, 36f, "Ribbon");
+            Ui.Pin(ribbon, 0.5f, 1f, width * 0.7f, 120, 0, 40);
+            var ribbonGloss = Ui.Panel(ribbon.transform, new Color(1, 1, 1, 0.2f), 26f, "Gloss", true);
+            Ui.Place(ribbonGloss, 0.03f, 0.52f, 0.97f, 0.92f);
             var titleLabel = Ui.Label(ribbon.transform, title, 54);
             Ui.Stretch(titleLabel.rectTransform);
 
             var close = GButton.Create(rim.transform, "X", Theme.Red, Theme.RedLip, 44, 10);
+            close.SetText("");
             Ui.Pin(close, 1f, 1f, 100, 100, -10, 10);
+            var cross = Ui.IconPic(close.Face.transform, Icon.Plus);
+            Ui.Place(cross, 0.2f, 0.2f, 0.8f, 0.8f);
+            cross.rectTransform.localRotation = Quaternion.Euler(0, 0, 45f);
             close.Button.onClick.AddListener(modal.Close);
             close.gameObject.SetActive(closable);
 
             modal.Body = Ui.NewRect(card.transform, "Body");
             Ui.Inset(modal.Body, 30, 30, 30, 100);
 
-            Anim.Run(modal, 0.22f, t => rim.rectTransform.localScale = Vector3.one * Mathf.LerpUnclamped(0.7f, 1f, Anim.EaseOutBack(t)));
+            var dimColor = dim.color;
+            Anim.Run(modal, 0.22f, t =>
+            {
+                rim.rectTransform.localScale = Vector3.one * Mathf.LerpUnclamped(0.7f, 1f, Anim.EaseOutBack(t));
+                dim.color = new Color(dimColor.r, dimColor.g, dimColor.b, dimColor.a * Mathf.Clamp01(t * 2f));
+            });
             return modal;
         }
 

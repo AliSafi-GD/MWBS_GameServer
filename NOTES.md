@@ -28,6 +28,24 @@ current state and what is left.
   with Equip for tank skins), Quests (+ daily reward, achievements), Battle, Social (friends, party, chat, clan),
   Ranking. Profile (avatar, name, username, delete account) opens from the top-left avatar.
 - Arena: matchmaker, private rooms, 2D match, skins, touch sticks, reconnect (written, not tested).
+- Matches run on UDP (LiteNetLib 1.3.5), not WebSocket: `GameServer:Match:Transports` is `websocket,udp`, both arena modes say
+  `"transport": "udp"` in `arena-config.json`, the client has `Assets/Plugins/LiteNetLib.dll` + the define
+  `GAMESERVER_LITENETLIB` and calls `UseLiteNetLib()` in `Core/MatchNet.cs`. Input goes out `Sequenced`, snapshots come in
+  `Sequenced`. Chat / matchmaker / notifications stay on the realtime WebSocket (they need reliable, ordered delivery).
+  Aim: Settings (and a button above the fire button) switch AUTO AIM (`GameSettings.AutoAim`, default on: the gun follows the
+  enemy, the button only shoots) and manual (drag on the fire button while shooting to turn the gun; `FirePad`). SHOW PING puts
+  "UDP 32 ms" under the timer (`MatchConnection.RoundTripMs`, UDP only; WebSocket shows "-- ms").
+  A join token works on any enabled transport, so the web page (`/arena/`) and the console bots still play the same
+  modes over WebSocket, even against a UDP player. After pulling this: restart the server and press "Write game config"
+  on `/arena/` again (the modes live in the DB).
+- Arena look (`Arena/ArenaScreen.cs`): world parts are `Box` (9-sliced `Art.RoundedWorld`, keeps round corners at any size)
+  and `Block`; effects (muzzle flash, hit, explosion) are short-lived `Fx` pieces made by `AddFx`. A bullet that was not on
+  the list last frame counts as "just fired" (flash + gun recoil), since the server sends no fire event. The HUD canvas has
+  sorting order 100 so it stays above the world sprites (orders up to the 30s).
+- UI kit (`Meta/Ui`): panels are lit from above (`Art.RoundedShaded`), text uses `TextFx` (even stroke, drop shadow, gradient
+  for `Ui.Headline`), `GButton` has a shadow and a press pop, `Backdrop` is the animated background, `ShineSweep` the shine on
+  the BATTLE button. The font is Lilita One (`Assets/Fonts/Resources/GameFont.ttf`, SIL Open Font License, text in
+  `Assets/Fonts/OFL.txt`); it is Latin only, so other scripts (Persian names, chat) fall back to the device's fonts.
 - Chat (`Core/Services/ChatService.cs`, one `ChatThread` per conversation): lobby, direct messages with friends, party chat,
   clan chat. Unread counts on the conversation list, the chat buttons and the Social tab, plus a toast for a message that is
   not on screen. No server change was needed. What was read is kept in PlayerPrefs on the device (the server stores messages,
@@ -43,7 +61,7 @@ current state and what is left.
 - Clan management (see above). Chat: blocking a player, loading older messages than the last 40.
 - Lobby messages are not kept: the server only stores rooms with `GameServer:Chat:PersistRooms` = true (default false), which
   is why `Chat.HistoryAsync` returns 0 for the lobby. Direct and clan messages are always stored, party chat never.
-- Own-tank movement prediction; UDP match transport; real-device test of the APK.
+- Own-tank movement prediction; real-device test of the APK (now also over UDP: the phone needs UDP port 7360 open too).
 - Only skins exist as items on the server. A non-skin item card exists but has never been shown.
 
 ## Gotchas

@@ -27,6 +27,9 @@ namespace Game.Meta
         {
             public RectTransform Root;
             public Image Tile;
+            public Image Rim;
+            public Image Glow;
+            public Image Gloss;
             public Image Icon;
             public Text Label;
             public Badge Badge;
@@ -97,12 +100,9 @@ namespace Game.Meta
             var canvas = Ui.CreateCanvas("MenuCanvas");
             canvas.transform.SetParent(transform, false);
 
-            var backdrop = Ui.Gradient(canvas.transform, Theme.BgTop, Theme.BgBottom, "Backdrop");
-            backdrop.raycastTarget = false;
+            Backdrop.Create(canvas.transform);
 
             _column = Ui.Column(canvas.transform);
-            var shine = Ui.Pic(_column, Art.Glow(), new Color(0.6f, 0.8f, 1f, 0.28f), "Shine");
-            Ui.Pin(shine, 0.5f, 0.78f, 1500, 1500);
 
             _pageHost = Ui.NewRect(_column, "Pages");
             Ui.Place(_pageHost, 0f, 0.12f, 1f, 0.925f);
@@ -110,8 +110,10 @@ namespace Game.Meta
             BuildTopBar();
             BuildNavBar();
 
-            _banner = Ui.Panel(_column, Theme.Hex(0xE57A12), 24f, "Offline");
-            Ui.Pin(_banner, 0.5f, 0.925f, 760, 64, 0, -12);
+            _banner = Ui.Panel(_column, Theme.Outline, 28f, "Offline", true);
+            Ui.Pin(_banner, 0.5f, 0.925f, 768, 72, 0, -14);
+            var bannerFill = Ui.Panel(_banner.transform, Theme.Hex(0xF08A1C), 24f, "Fill");
+            Ui.Inset(bannerFill, 4, 4, 4, 4);
             var bannerText = Ui.Label(_banner.transform, "Reconnecting...", 34);
             Ui.Stretch(bannerText.rectTransform);
             _banner.gameObject.SetActive(!_session.Backend.IsOnline);
@@ -132,69 +134,117 @@ namespace Game.Meta
 
         private void BuildTopBar()
         {
-            var bar = Ui.Panel(_column, new Color(Theme.PanelDark.r, Theme.PanelDark.g, Theme.PanelDark.b, 0.9f), 6f, "TopBar");
+            // A shadow under the bar, so the pages seem to slide beneath it.
+            var under = Ui.Pic(_column, Art.Fade(), new Color(0f, 0.01f, 0.08f, 0.5f), "TopShade");
+            under.preserveAspect = false;
+            Ui.Place(under, 0f, 0.9f, 1f, 0.925f);
+
+            var bar = Ui.Panel(_column, Theme.Hex(0x16286B), 6f, "TopBar");
             Ui.Place(bar, 0f, 0.925f, 1f, 1f);
+            // Reaches past the top of the column, for phones taller than 16:9.
+            Ui.Inset(bar, 0, 0, 0, -400);
+            var edge = Ui.Panel(bar.transform, Theme.Edge, 4f, "Edge", true);
+            edge.rectTransform.anchorMin = new Vector2(0f, 0f);
+            edge.rectTransform.anchorMax = new Vector2(1f, 0f);
+            edge.rectTransform.pivot = new Vector2(0.5f, 0f);
+            edge.rectTransform.sizeDelta = new Vector2(0f, 6f);
+            edge.rectTransform.anchoredPosition = Vector2.zero;
+
+            var content = Ui.NewRect(bar.transform, "Content");
+            Ui.Inset(content, 0, 0, 0, 400);
 
             // The whole left side (avatar and name) opens the profile; its pictures and texts do not catch taps themselves.
-            var profileHit = Ui.Panel(bar.transform, new Color(0, 0, 0, 0), 4f, "ProfileButton");
-            Ui.Place(profileHit, 0f, 0f, 0.45f, 1f);
+            var profileHit = Ui.Panel(content, new Color(0, 0, 0, 0), 4f, "ProfileButton");
+            Ui.Place(profileHit, 0f, 0f, 0.42f, 1f);
             profileHit.raycastTarget = true;
             profileHit.gameObject.AddComponent<Button>().onClick.AddListener(OpenProfile);
 
-            _identity = Ui.NewRect(bar.transform, "Identity");
+            _identity = Ui.NewRect(content, "Identity");
             _identity.gameObject.AddComponent<CanvasGroup>().blocksRaycasts = false;
-            _name = Ui.Label(_identity, "", 44, Color.white, TextAnchor.MiddleLeft);
-            Ui.Pin(_name, 0f, 0.5f, 290, 60, 160, 28);
+            var plate = Ui.Panel(_identity, new Color(0.03f, 0.06f, 0.2f, 0.75f), 40f, "NamePlate", true);
+            Ui.Pin(plate, 0f, 0.5f, 280, 96, 142, 0);
+            _name = Ui.Label(_identity, "", 40, Color.white, TextAnchor.MiddleLeft);
+            Ui.Pin(_name, 0f, 0.5f, 240, 54, 160, 22);
             var cup = Ui.IconPic(_identity, Icon.Trophy, Theme.Gold);
-            Ui.Pin(cup, 0f, 0.5f, 46, 46, 160, -26);
-            _wins = Ui.Label(_identity, "", 34, Theme.Muted, TextAnchor.MiddleLeft);
-            Ui.Pin(_wins, 0f, 0.5f, 270, 44, 214, -26);
+            Ui.Pin(cup, 0f, 0.5f, 40, 40, 160, -24);
+            _wins = Ui.Label(_identity, "", 30, Theme.Gold, TextAnchor.MiddleLeft);
+            Ui.Pin(_wins, 0f, 0.5f, 220, 40, 208, -24);
             RefreshIdentity();
 
-            var gear = GButton.Create(bar.transform, "", Theme.Blue, Theme.BlueLip, 30, 10);
-            Ui.Pin(gear, 1f, 0.5f, 88, 88, -22, 0);
+            var gear = GButton.Create(content, "", Theme.Blue, Theme.BlueLip, 30, 8);
+            Ui.Pin(gear, 1f, 0.5f, 84, 84, -20, 2);
             var gearIcon = Ui.IconPic(gear.Face.transform, Icon.Gear);
-            Ui.Place(gearIcon, 0.15f, 0.15f, 0.85f, 0.85f);
+            Ui.Place(gearIcon, 0.16f, 0.16f, 0.84f, 0.84f);
             gear.Button.onClick.AddListener(OpenSettings);
 
-            _gems = Chip.Create(bar.transform, Icon.Gem);
-            Ui.Pin(_gems, 1f, 0.5f, 214, 76, -126, 0);
-            _coins = Chip.Create(bar.transform, Icon.Coin, Theme.Gold);
-            Ui.Pin(_coins, 1f, 0.5f, 250, 76, -352, 0);
+            _gems = Chip.Create(content, Icon.Gem, null, () => Show(ShopIndex));
+            Ui.Pin(_gems, 1f, 0.5f, 228, 76, -122, 0);
+            _coins = Chip.Create(content, Icon.Coin, Theme.Gold, () => Show(ShopIndex));
+            Ui.Pin(_coins, 1f, 0.5f, 262, 76, -372, 0);
         }
 
         private void BuildNavBar()
         {
-            var bar = Ui.Panel(_column, Theme.PanelDark, 6f, "NavBar");
+            var over = Ui.Pic(_column, Art.Fade(false), new Color(0f, 0.01f, 0.08f, 0.55f), "NavShade");
+            over.preserveAspect = false;
+            Ui.Place(over, 0f, 0.12f, 1f, 0.15f);
+
+            var bar = Ui.Panel(_column, Theme.Hex(0x16286B), 6f, "NavBar");
             Ui.Place(bar, 0f, 0f, 1f, 0.12f);
-            var edge = Ui.Panel(bar.transform, Theme.Hex(0x4C7BE0), 4f, "Edge");
-            Ui.Place(edge, 0f, 0.96f, 1f, 1f);
+            Ui.Inset(bar, 0, -400, 0, 0);
+            var edge = Ui.Panel(bar.transform, Theme.Edge, 4f, "Edge", true);
+            edge.rectTransform.anchorMin = new Vector2(0f, 1f);
+            edge.rectTransform.anchorMax = new Vector2(1f, 1f);
+            edge.rectTransform.pivot = new Vector2(0.5f, 1f);
+            edge.rectTransform.sizeDelta = new Vector2(0f, 6f);
+            edge.rectTransform.anchoredPosition = Vector2.zero;
+
+            var content = Ui.NewRect(bar.transform, "Content");
+            Ui.Inset(content, 0, 400, 0, 0);
+
+            for (var i = 1; i < _nav.Length; i++)
+            {
+                var line = Ui.Panel(content, new Color(1, 1, 1, 0.07f), 2f, "Divider", true);
+                Ui.Pin(line, i / 5f, 0.5f, 3, 130);
+            }
 
             for (var i = 0; i < _nav.Length; i++)
             {
                 var index = i;
+                var accent = i == BattleIndex ? Theme.Gold : Theme.Blue;
                 var item = new NavItem();
-                var slot = Ui.NewRect(bar.transform, "Nav_" + PageNames[i]);
+                var slot = Ui.NewRect(content, "Nav_" + PageNames[i]);
                 Ui.Place(slot, i / 5f, 0f, (i + 1) / 5f, 1f);
                 item.Root = slot;
 
-                item.Tile = Ui.Panel(slot, Color.clear, 30f, "Tile");
-                Ui.Place(item.Tile, 0.06f, 0.04f, 0.94f, 1.02f);
+                item.Glow = Ui.Pic(slot, Art.Glow(), new Color(accent.r, accent.g, accent.b, 0.55f), "Glow");
+                Ui.Pin(item.Glow, 0.5f, 0.6f, 420, 420);
+
+                item.Rim = Ui.Panel(slot, Theme.Outline, 34f, "TileRim", true);
+                Ui.Place(item.Rim, 0.04f, 0.03f, 0.96f, 1.05f);
+
+                item.Tile = Ui.Panel(slot, accent, 30f, "Tile");
+                Ui.Place(item.Tile, 0.04f, 0.03f, 0.96f, 1.05f);
+                Ui.Inset(item.Tile, 5, 5, 5, 5);
                 item.Tile.raycastTarget = true;
                 var button = item.Tile.gameObject.AddComponent<Button>();
                 button.transition = Selectable.Transition.None;
                 button.onClick.AddListener(() => Show(index));
 
+                item.Gloss = Ui.Panel(item.Tile.transform, new Color(1, 1, 1, 0.25f), 24f, "Gloss", true);
+                Ui.Place(item.Gloss, 0.05f, 0.6f, 0.95f, 0.95f);
+                item.Gloss.raycastTarget = false;
+
                 item.Icon = Ui.IconPic(slot, PageIcons[i], Theme.Muted);
-                Ui.Pin(item.Icon, 0.5f, 0.62f, 104, 104);
+                Ui.Pin(item.Icon, 0.5f, 0.6f, 100, 100);
 
                 item.Label = Ui.Label(slot, PageNames[i], 30, Color.white);
-                Ui.Pin(item.Label, 0.5f, 0.0f, 200, 40, 0, 12);
+                Ui.Pin(item.Label, 0.5f, 0.0f, 200, 40, 0, 14);
                 item.Label.rectTransform.pivot = new Vector2(0.5f, 0f);
                 item.Label.gameObject.SetActive(false);
 
                 item.Badge = Badge.Create(slot);
-                Ui.Pin(item.Badge, 0.5f, 0.78f, 52, 52, 48, 0);
+                Ui.Pin(item.Badge, 0.5f, 0.8f, 52, 52, 50, 0);
 
                 _nav[i] = item;
             }
@@ -207,22 +257,35 @@ namespace Game.Meta
             rt.SetParent(_column, false);
             Ui.Stretch(rt);
 
-            var dim = Ui.Panel(rt, new Color(0, 0, 0, 0.75f), 4f, "Dim");
+            var dim = Ui.Panel(rt, new Color(0.01f, 0.02f, 0.1f, 0.82f), 4f, "Dim", true);
             Ui.Stretch(dim.rectTransform);
+            Ui.Inset(dim, -2000, -2000, -2000, -2000);
             dim.raycastTarget = true;
 
-            var rim = Ui.Panel(rt, Theme.Outline, 60f, "Rim");
+            var shadow = Ui.Shadow(rt, 0.6f);
+            Ui.Pin(shadow, 0.5f, 0.5f, 900, 860, 0, -30);
+            var rim = Ui.Panel(rt, Theme.Outline, 60f, "Rim", true);
             Ui.Pin(rim, 0.5f, 0.5f, 800, 760);
-            var card = Ui.Panel(rim.transform, Theme.Panel, 54f, "Card");
-            Ui.Inset(card, 7, 7, 7, 7);
+            var edge = Ui.Panel(rim.transform, Theme.Edge, 56f, "Edge");
+            Ui.Inset(edge, 5, 5, 5, 5);
+            var card = Ui.Panel(rim.transform, Theme.Panel, 52f, "Card");
+            Ui.Inset(card, 10, 10, 10, 10);
 
-            var title = Ui.Label(card.transform, "FINDING OPPONENT", 60);
+            var title = Ui.Headline(card.transform, "FINDING OPPONENT", 60, Color.white, Theme.Hex(0xBFD9FF));
             Ui.Pin(title, 0.5f, 1f, 700, 100, 0, -50);
 
-            var ring = Ui.Circle(card.transform, Theme.PanelDark, "Ring");
+            var rays = Ui.Pic(card.transform, Art.Rays(), new Color(1f, 0.82f, 0.3f, 0.35f), "Rays");
+            Ui.Pin(rays, 0.5f, 0.55f, 620, 620);
+            rays.gameObject.AddComponent<Spin>().DegreesPerSecond = 30f;
+            var ringRim = Ui.Circle(card.transform, Theme.Outline, "RingRim");
+            Ui.Pin(ringRim, 0.5f, 0.55f, 346, 346);
+            var ring = Ui.Circle(card.transform, Theme.PanelLight, "Ring");
             Ui.Pin(ring, 0.5f, 0.55f, 330, 330);
+            var ringCore = Ui.Circle(ring.transform, Theme.PanelDark, "Core");
+            Ui.Stretch(ringCore.rectTransform);
+            Ui.Inset(ringCore, 18, 18, 18, 18);
             var spinner = Ui.IconPic(ring.transform, Icon.Swords, Theme.Gold);
-            Ui.Place(spinner, 0.12f, 0.12f, 0.88f, 0.88f);
+            Ui.Place(spinner, 0.16f, 0.16f, 0.84f, 0.84f);
             spinner.gameObject.AddComponent<Spin>().DegreesPerSecond = -120f;
 
             _searchTime = Ui.Label(card.transform, "0:00", 72, Color.white);
@@ -447,20 +510,24 @@ namespace Game.Meta
         {
             var item = _nav[i];
             var accent = i == BattleIndex ? Theme.Gold : Theme.Blue;
-            item.Tile.color = active ? new Color(accent.r, accent.g, accent.b, 0.95f) : Color.clear;
+            item.Tile.color = active ? accent : Color.clear;
+            item.Rim.color = active ? Theme.Outline : Color.clear;
+            item.Gloss.color = new Color(1, 1, 1, active ? 0.25f : 0f);
+            item.Glow.color = new Color(accent.r, accent.g, accent.b, active ? 0.5f : 0f);
             item.Icon.color = active ? Color.white : Theme.Muted;
             item.Label.gameObject.SetActive(active);
 
-            var target = active ? 1.28f : (i == BattleIndex ? 1.12f : 1f);
+            var target = active ? 1.26f : (i == BattleIndex ? 1.12f : 1f);
             var rt = item.Icon.rectTransform;
             var from = rt.localScale.x;
             var fromY = rt.anchoredPosition.y;
-            var toY = active ? 18f : 0f;
-            Anim.Run(this, 0.18f, t =>
+            var toY = active ? 22f : 0f;
+            Anim.Run(this, active ? 0.3f : 0.16f, t =>
             {
-                var s = Mathf.Lerp(from, target, Anim.EaseOut(t));
+                var e = active ? Anim.EaseOutBack(t) : Anim.EaseOut(t);
+                var s = Mathf.LerpUnclamped(from, target, e);
                 rt.localScale = new Vector3(s, s, 1f);
-                rt.anchoredPosition = new Vector2(rt.anchoredPosition.x, Mathf.Lerp(fromY, toY, Anim.EaseOut(t)));
+                rt.anchoredPosition = new Vector2(rt.anchoredPosition.x, Mathf.LerpUnclamped(fromY, toY, e));
             });
         }
 
@@ -468,16 +535,21 @@ namespace Game.Meta
 
         private void OpenSettings()
         {
-            var modal = Modal.Create(_overlay, "SETTINGS", 880, 760);
+            var modal = Modal.Create(_overlay, "SETTINGS", 900, 1080);
 
-            var who = Ui.Label(modal.Body, "Signed in as\n" + _session.Account.Username, 46, Color.white);
-            Ui.Place(who, 0f, 0.62f, 1f, 1f);
+            var who = Ui.Label(modal.Body, "Signed in as\n" + _session.Account.Username, 42, Color.white);
+            Ui.Place(who, 0f, 0.84f, 1f, 1f);
 
-            var server = Ui.Label(modal.Body, _session.ServerUrl, 34, Theme.Muted);
-            Ui.Place(server, 0f, 0.46f, 1f, 0.62f);
+            var aim = Parts.SwitchRow(modal.Body, "AUTO AIM", "The gun turns to the enemy by itself", GameSettings.AutoAim, v => GameSettings.AutoAim = v);
+            Ui.Place(aim, 0f, 0.67f, 1f, 0.82f);
+            var ping = Parts.SwitchRow(modal.Body, "SHOW PING", "Connection delay during a match", GameSettings.ShowPing, v => GameSettings.ShowPing = v);
+            Ui.Place(ping, 0f, 0.5f, 1f, 0.65f);
 
-            var version = Ui.Label(modal.Body, "Version " + Application.version, 32, Theme.Muted);
-            Ui.Place(version, 0f, 0.34f, 1f, 0.46f);
+            var server = Ui.Label(modal.Body, _session.ServerUrl, 32, Theme.Muted);
+            Ui.Place(server, 0f, 0.37f, 1f, 0.46f);
+
+            var version = Ui.Label(modal.Body, "Version " + Application.version + (MatchNet.HasUdp ? "   -   UDP" : ""), 30, Theme.Muted);
+            Ui.Place(version, 0f, 0.29f, 1f, 0.37f);
 
             var signOut = GButton.Create(modal.Body, "SIGN OUT", Theme.Red, Theme.RedLip, 54, 14);
             Ui.Place(signOut, 0.1f, 0.04f, 0.9f, 0.26f);
