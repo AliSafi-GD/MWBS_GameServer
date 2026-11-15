@@ -50,12 +50,12 @@
 - **چرا مهم:** وابستگی‌ها پنهان است؛ دایره‌ها دیده نمی‌شوند.
 - **راه‌حل:** دایره را صریح بشکن: `IModuleContextFactory`/`Lazy<T>` برای HookRunner؛ برای push یک `IPresence`/`IRealtimePusher` کوچک به‌جای `ConnectionManager`.
 
-### 4.5 وابستگی به کلاس‌های concrete
+### 4.5 وابستگی به کلاس‌های concrete — **انجام شد** (قدم ۶)
 - **کجا:** [ChatService.cs](src/GameServer.Core/Realtime/ChatService.cs) (`ConnectionManager`, `PartyService`)، [SocialFacade.cs](src/GameServer.Core/Social/SocialFacade.cs) (`ConnectionManager`) و `AccountCleanup` (همان فایل؛ `GroupService`, `PartyService`, `ConnectionManager`).
 - **راه‌حل:** interfaceهای کوچک (مثلاً `IPresence`: آنلاین بودن/ارسال به کاربر؛ `IPartyMembership`).
 
-### 4.6 `IUserStore` چاق است (ISP)
-- **کجا:** [IUserStore.cs](src/GameServer.Core/IUserStore.cs): ورود device، هویت‌ها، پروفایل، لیست ادمین، export — در یک interface (13 متد).
+### 4.6 `IUserStore` چاق است (ISP) — **انجام شد** (قدم ۶)
+- **کجا:** `IUserStore.cs` (حالا [UserStores.cs](src/GameServer.Core/UserStores.cs)): ورود device، هویت‌ها، پروفایل، لیست ادمین، export — در یک interface (13 متد).
 - **راه‌حل:** `IAccountStore`, `IIdentityStore`, `IUserAdminStore` (Search/Export/SetDisabled). `PostgresUserStore` (422 خط) می‌تواند هر سه را پیاده کند و بعداً تکه شود.
 
 ### 4.7 زمان تست‌پذیر نیست — **انجام شد** (قدم ۲)
@@ -147,7 +147,11 @@
   - typed: `MatchCreated`, `MatchModeView`, `MatchModesView` ([MatchActions.cs](src/GameServer.Core/Matches/MatchActions.cs))، `LoginResult` (AuthEndpoints)، `AccountView` (AccountEndpoints)؛ `PurchasesOfAsync` در قدم ۳ شد. JSON همان است (Web defaults، camelCase). تنها `object` باقی‌مانده `Transports` در `MatchModesView` است چون هر transport شکل خودش را دارد (`Describe()`).
   - تست‌ها: `ReachingAGoal_TellsThePlayer_Once` (push با `IPlayerPush` جعلی)، `MatchRecords_KeepTheirJsonNames`، و resolve شدن `Lazy<HookServices>` در `WiringTests`. جمعاً ۱۳۳ unit test.
   - مانده: anonymous objectهای خیلی از endpointها (مثلاً `new { items = ... }`)؛ می‌شود با OpenAPI بعداً record شوند.
-- [ ] **۶.** تکه کردن `IUserStore` (و interfaceهای کوچک `IPresence` برای `ChatService`/`SocialFacade`/`AccountCleanup`). *تمام:* هر مصرف‌کننده فقط interface لازمش را می‌گیرد.
+- [x] **۶.** تکه کردن `IUserStore` (و interfaceهای کوچک `IPresence` برای `ChatService`/`SocialFacade`/`AccountCleanup`). *تمام:* هر مصرف‌کننده فقط interface لازمش را می‌گیرد.
+  - انجام شد (2026-11-15): \`IUserStore\` حذف شد و سه interface جایش آمد ([UserStores.cs](src/GameServer.Core/UserStores.cs)): \`IAccountStore\` (Get, GetPublic, UpdateProfile, Delete)، \`IIdentityStore\` (ورود device، هویت‌ها، link/unlink، لیست هویت‌ها)، \`IUserAdminStore\` (Search, SetDisabled, Export). \`PostgresUserStore\` هر سه را پیاده می‌کند و یک instance پشت هر سه ثبت شده. سرویس‌های Core فقط \`IAccountStore\` می‌گیرند؛ هر endpoint فقط interface (یا دو interface) ای که واقعاً صدا می‌زند.
+  - به جای کلاس‌های concrete: \`IRealtime\` (از قبل بود) در \`SocialFacade\`, \`AccountCleanup\`, \`Matchmaker\`, \`FriendsService\`, \`GroupService\`, \`PartyService\`, \`ChatService\`؛ \`IChannelSubscriptions\` (Join/Leave) برای \`ChatService\`؛ \`IPartyMembership\` (IsMember, Mine, LeaveAsync) برای \`ChatService\`/\`Matchmaker\`/\`AccountCleanup\`؛ \`IGroupCleanup\` برای \`AccountCleanup\`. \`ConnectionManager\` concrete فقط در \`RealtimeHub\` (صاحب اتصال‌ها)، \`AdminBackground\` (\`Counts()\`) و دو endpoint admin مانده؛ endpointهای گروه/پارتی همچنان خود \`GroupService\`/\`PartyService\` را می‌گیرند (API کامل همان سرویس).
+  - تست: \`AccountCleanupTests\` با سه fake (ترتیب: clan، party، disconnect) و چک \`WiringTests\` که یک \`PostgresUserStore\` پشت هر سه interface است. جمعاً ۱۳۴ unit test.
+  - داکیومنت سایت: صفحه‌ی جدید [docs/server/architecture.md](docs/server/architecture.md) (پروژه‌ها، wiring، storeها، push، ساعت، دو دایره، تست با fake؛ در sidebar «Server framework») و به‌روز شدن [docs/guides/testing.md](docs/guides/testing.md). قدم‌های ۲ تا ۵ قبلاً در سایت نیامده بودند؛ این صفحه آن‌ها را هم پوشش می‌دهد.
 - [ ] **۷.** Central Package Management و pin کردن نسخه‌ها. *تمام:* هیچ `10.*` در csprojها؛ `Directory.Packages.props` موجود.
 - [ ] **۸.** SDK: interface برای APIها و `IGameClient`، تکه کردن `Models.cs`/`RealtimeClient.cs`/`Transports.cs`، `IDispatcher`، `Tests/` و CHANGELOG. *تمام:* بازی بتواند `IShopApi` را fake کند؛ فایلی بالای ~300 خط نباشد.
 - [ ] **۹.** سرور: endpoint «گفتگوهای من با تعداد unread» (+ مستندات + SDK `ChatApi`). *تمام:* کلاینت دیگر ۳۰ دوست را poll نمی‌کند.

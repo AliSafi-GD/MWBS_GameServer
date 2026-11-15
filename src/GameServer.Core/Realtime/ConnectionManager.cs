@@ -41,7 +41,16 @@ public interface IPlayerPush
     Task SendToAllAsync(string frame, CancellationToken ct = default);
 }
 
-public sealed class ConnectionManager : IRealtime, IPlayerPush
+/// <summary>Which channels a connection listens to (joining and leaving chat channels).</summary>
+public interface IChannelSubscriptions
+{
+    /// <summary>False when the connection already listens to <see cref="ConnectionManager.MaxChannelsPerConnection"/> channels.</summary>
+    bool Join(IConnection connection, string channel);
+
+    void Leave(IConnection connection, string channel);
+}
+
+public sealed class ConnectionManager : IRealtime, IPlayerPush, IChannelSubscriptions
 {
     public const int MaxChannelsPerConnection = 20;
 

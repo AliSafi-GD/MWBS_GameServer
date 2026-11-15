@@ -25,7 +25,18 @@ public sealed class PartyOptions
 /// when the server restarts, and a player must be connected to a party's instance to be in it.
 /// Every change is pushed to all members as a <c>party.update</c> event; party chat is the channel <c>party:&lt;id&gt;</c>.
 /// </summary>
-public sealed class PartyService
+/// <summary>What other services ask about parties: is someone in one, which one, and leaving it.</summary>
+public interface IPartyMembership
+{
+    bool IsMember(string partyId, string userId);
+
+    /// <summary>The player's party, or null.</summary>
+    PartyView? Mine(string userId);
+
+    Task<bool> LeaveAsync(string userId, CancellationToken ct);
+}
+
+public sealed class PartyService : IPartyMembership
 {
     private sealed class Party
     {
@@ -53,13 +64,13 @@ public sealed class PartyService
     private readonly Dictionary<string, Party> _parties = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _partyOf = new(StringComparer.Ordinal); // user id -> party id
 
-    private readonly ConnectionManager _manager;
-    private readonly IUserStore _users;
+    private readonly IRealtime _manager;
+    private readonly IAccountStore _users;
     private readonly PartyOptions _options;
     private readonly ILogger<PartyService> _log;
     private readonly TimeProvider _time;
 
-    public PartyService(ConnectionManager manager, IUserStore users, IOptions<PartyOptions> options, ILogger<PartyService> log,
+    public PartyService(IRealtime manager, IAccountStore users, IOptions<PartyOptions> options, ILogger<PartyService> log,
         TimeProvider time)
     {
         _time = time;

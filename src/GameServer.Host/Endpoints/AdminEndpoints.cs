@@ -60,7 +60,7 @@ public static class AdminEndpoints
         admin.MapAdminProgress();
         admin.MapAdminConsole();
 
-        admin.MapDelete("/users/{id}", async (string id, IUserStore users, AccountCleanup cleanup, CancellationToken ct) =>
+        admin.MapDelete("/users/{id}", async (string id, IAccountStore users, AccountCleanup cleanup, CancellationToken ct) =>
         {
             await cleanup.BeforeDeleteAsync(id, ct);
             return await users.DeleteAsync(id, ct) ? Results.NoContent() : Results.NotFound(new { error = "not_found" });
@@ -74,18 +74,18 @@ public static class AdminEndpoints
     private static void MapUsers(RouteGroupBuilder admin)
     {
         // GET /admin/api/users?q=&limit=&offset=
-        admin.MapGet("/users", async (string? q, int? limit, int? offset, IUserStore users, CancellationToken ct) =>
+        admin.MapGet("/users", async (string? q, int? limit, int? offset, IUserAdminStore users, CancellationToken ct) =>
             Results.Ok(await users.SearchAsync(q, Math.Clamp(limit ?? 25, 1, 100), Math.Max(offset ?? 0, 0), ct)));
 
         // GET /admin/api/users/{id} : profile + logins (masked) + storage
-        admin.MapGet("/users/{id}", async (string id, IUserStore users, CancellationToken ct) =>
+        admin.MapGet("/users/{id}", async (string id, IUserAdminStore users, CancellationToken ct) =>
         {
             var export = await users.ExportAsync(id, ct);
             return export is null ? Results.NotFound(new { error = "not_found" }) : Results.Ok(export);
         });
 
         // GET /admin/api/users/{id}/export : same data as a downloadable file (for privacy requests)
-        admin.MapGet("/users/{id}/export", async (string id, HttpContext http, IUserStore users, IEconomyStore economy, CancellationToken ct) =>
+        admin.MapGet("/users/{id}/export", async (string id, HttpContext http, IUserAdminStore users, IEconomyStore economy, CancellationToken ct) =>
         {
             var export = await users.ExportAsync(id, ct);
             if (export is null)
@@ -96,13 +96,13 @@ public static class AdminEndpoints
         });
 
         // PUT /admin/api/users/{id} : edit profile fields
-        admin.MapPut("/users/{id}", async (string id, ProfileUpdate update, IUserStore users, CancellationToken ct) =>
+        admin.MapPut("/users/{id}", async (string id, ProfileUpdate update, IAccountStore users, CancellationToken ct) =>
         {
             var user = await users.UpdateProfileAsync(id, ProfileValidator.Normalize(update), ct);
             return user is null ? Results.NotFound(new { error = "not_found" }) : Results.Ok(user);
         });
 
-        admin.MapPost("/users/{id}/ban", async (string id, IUserStore users, IRealtime realtime, CancellationToken ct) =>
+        admin.MapPost("/users/{id}/ban", async (string id, IUserAdminStore users, IRealtime realtime, CancellationToken ct) =>
         {
             if (!await users.SetDisabledAsync(id, true, ct))
                 return Results.NotFound(new { error = "not_found" });
@@ -110,7 +110,7 @@ public static class AdminEndpoints
             return Results.NoContent();
         });
 
-        admin.MapPost("/users/{id}/unban", async (string id, IUserStore users, CancellationToken ct) =>
+        admin.MapPost("/users/{id}/unban", async (string id, IUserAdminStore users, CancellationToken ct) =>
             await users.SetDisabledAsync(id, false, ct) ? Results.NoContent() : Results.NotFound(new { error = "not_found" }));
     }
 

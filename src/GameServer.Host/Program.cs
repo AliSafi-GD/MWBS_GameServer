@@ -133,7 +133,7 @@ builder.Services
             OnTokenValidated = async context =>
             {
                 var userId = context.Principal?.FindFirst("sub")?.Value;
-                var users = context.HttpContext.RequestServices.GetRequiredService<IUserStore>();
+                var users = context.HttpContext.RequestServices.GetRequiredService<IAccountStore>();
                 var user = userId is null ? null : await users.GetAsync(userId, context.HttpContext.RequestAborted);
                 if (user is null || user.Disabled)
                     context.Fail("account_unavailable");

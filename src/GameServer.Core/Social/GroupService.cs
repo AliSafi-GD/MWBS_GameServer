@@ -9,14 +9,20 @@ namespace GameServer.Core.Social;
 /// Roles: owner &gt; admin &gt; member. An admin can accept requests, invite, kick and ban players of lower rank;
 /// only the owner can promote, demote, hand over or delete.
 /// </summary>
-public sealed class GroupService
+/// <summary>What account deletion needs from clans: hand over or close the clans the player leads.</summary>
+public interface IGroupCleanup
+{
+    Task OnUserDeletingAsync(string userId, CancellationToken ct);
+}
+
+public sealed class GroupService : IGroupCleanup
 {
     private readonly IGroupStore _store;
     private readonly IConfigStore _config;
-    private readonly IUserStore _users;
-    private readonly ConnectionManager _manager;
+    private readonly IAccountStore _users;
+    private readonly IRealtime _manager;
 
-    public GroupService(IGroupStore store, IConfigStore config, IUserStore users, ConnectionManager manager)
+    public GroupService(IGroupStore store, IConfigStore config, IAccountStore users, IRealtime manager)
     {
         _store = store;
         _config = config;

@@ -69,6 +69,11 @@
 - ثبت: `AddGameServerCore(...)` (سرویس‌ها) + `AddGameServerPostgres(config)` (data source، migrator، storeها). `Program.cs` هر دو را دارد.
 - `WiringTests.cs`: کل گراف DI با `ValidateOnBuild` چک می‌شود. ۱۳۱ unit test.
 
+### ۱۰. interfaceهای کوچک (قدم ۶ در CLEANUP.md، 2026-11-15)
+- `IUserStore` → `IAccountStore` + `IIdentityStore` + `IUserAdminStore`؛ هر مصرف‌کننده فقط همان که لازم دارد.
+- `IRealtime`, `IChannelSubscriptions`, `IPartyMembership`, `IGroupCleanup` به جای `ConnectionManager`/`PartyService`/`GroupService` در سرویس‌ها.
+- داکیومنت سایت: صفحه‌ی جدید `docs/server/architecture.md` (کل تمیزکاری قدم ۲ تا ۶) + `guides/testing.md`. ۱۳۴ unit test.
+
 ### ۹. بدون service locator + پاسخ‌های typed (قدم ۵ در CLEANUP.md، 2026-11-15)
 - `ProgressService` و `PostgresNotifications`: `IPlayerPush` به جای `IServiceProvider`.
 - `HookRunner`: `Lazy<HookServices>`؛ `MatchService`: `Lazy<IEnumerable<IMatchTransport>>` + سرویس‌ها مستقیم. دایره‌ها حالا در نوع دیده می‌شوند.
@@ -140,7 +145,7 @@ dotnet test tests/GameServer.Core.Tests
 2. ~~**قدم ۲ در CLEANUP.md:** `TimeProvider` به جای `DateTime.UtcNow`.~~ انجام شد (بخش ۵ بالا).
 3. ~~**قدم ۳:** بیرون کشیدن SQL از سرویس‌ها و تکه کردن `AdminStore`.~~ انجام شد (بخش ۶ بالا).
 4. ~~**قدم ۴:** پروژه‌ی `GameServer.Infrastructure.Postgres`.~~ انجام شد (بخش ۷ بالا).
-5. **قدم ۶:** تکه کردن `IUserStore` + `IPresence` برای `ChatService`/`SocialFacade`/`AccountCleanup`. (قدم ۵ انجام شد، بخش ۹.)
+5. ~~**قدم ۵ و ۶**~~ انجام شد (بخش ۹ و ۱۰). بعدی: **قدم ۷** Central Package Management و pin کردن نسخه‌ها.
 6. **SDK (قدم ۸):** interface برای APIها تا بازی‌ها بتوانند fake کنند؛ تکه کردن `Models.cs`، `RealtimeClient.cs`.
 7. **کوچک ولی مفید:** پیش‌فرض امن پورت compose، JSON Schema برای فایل‌های کانفیگ (قدم ۱.۵)، cache کاتالوگ parse‌شده.
 

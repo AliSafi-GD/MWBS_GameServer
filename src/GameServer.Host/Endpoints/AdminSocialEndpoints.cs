@@ -95,7 +95,7 @@ public static class AdminSocialEndpoints
         });
 
         // GET /admin/api/chat/mutes
-        admin.MapGet("/chat/mutes", async (int? limit, ChatService chat, IUserStore users, CancellationToken ct) =>
+        admin.MapGet("/chat/mutes", async (int? limit, ChatService chat, IAccountStore users, CancellationToken ct) =>
         {
             var mutes = await chat.MutesAsync(limit ?? 100, ct);
             var names = mutes.Count == 0
@@ -123,7 +123,7 @@ public static class AdminSocialEndpoints
         // ---- online players ----
 
         // GET /admin/api/online?limit=100 : open connections and who is connected
-        admin.MapGet("/online", async (int? limit, ConnectionManager manager, IUserStore users, CancellationToken ct) =>
+        admin.MapGet("/online", async (int? limit, ConnectionManager manager, IAccountStore users, CancellationToken ct) =>
         {
             var (connections, onlineUsers) = manager.Counts();
             var list = manager.OnlineUsers(Math.Clamp(limit ?? 100, 1, 500));

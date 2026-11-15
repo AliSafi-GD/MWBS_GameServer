@@ -12,7 +12,7 @@ namespace GameServer.Core;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the core services. They store their data through interfaces (IUserStore, IEconomy, IConfigStore, ...);
+    /// Registers the core services. They store their data through interfaces (IAccountStore, IEconomy, IConfigStore, ...);
     /// add an implementation too, e.g. <c>AddGameServerPostgres(config)</c> from GameServer.Infrastructure.Postgres.
     /// <paramref name="realtime"/> chooses the chat/realtime transports in code, e.g. <c>rt =&gt; rt.Use("websocket", "tcp")</c>;
     /// without it the config value GameServer:Realtime:Transports (default "websocket") decides.
@@ -47,7 +47,9 @@ public static class ServiceCollectionExtensions
         services.Configure<PartyOptions>(config.GetSection("GameServer:Parties"));
         services.AddSingleton<FriendsService>();
         services.AddSingleton<GroupService>();
+        services.AddSingleton<IGroupCleanup>(sp => sp.GetRequiredService<GroupService>());
         services.AddSingleton<PartyService>();
+        services.AddSingleton<IPartyMembership>(sp => sp.GetRequiredService<PartyService>());
         services.AddSingleton<ChatService>();
         services.AddSingleton<IChat>(sp => sp.GetRequiredService<ChatService>());
         services.AddSingleton<ISocial, SocialFacade>();

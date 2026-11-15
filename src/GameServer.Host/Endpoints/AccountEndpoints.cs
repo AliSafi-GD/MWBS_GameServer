@@ -12,29 +12,29 @@ public static class AccountEndpoints
     public static IEndpointRouteBuilder MapAccount(this IEndpointRouteBuilder app)
     {
         // GET /v1/account : my profile
-        app.MapGet("/v1/account", async (HttpContext http, IUserStore users, CancellationToken ct) =>
+        app.MapGet("/v1/account", async (HttpContext http, IAccountStore users, IIdentityStore identities, CancellationToken ct) =>
         {
             var user = await users.GetAsync(http.UserId(), ct);
             if (user is null)
                 return Results.NotFound(new { error = "not_found" });
-            return Results.Ok(ViewOf(user, await users.ListIdentitiesAsync(user.Id, ct)));
+            return Results.Ok(ViewOf(user, await identities.ListIdentitiesAsync(user.Id, ct)));
         }).RequireAuthorization();
 
         // PUT /v1/account : change username / displayName / avatar / lang / timezone (send only what changes)
-        app.MapPut("/v1/account", async (ProfileUpdate update, HttpContext http, IUserStore users, HookRunner hooks, CancellationToken ct) =>
+        app.MapPut("/v1/account", async (ProfileUpdate update, HttpContext http, IAccountStore users, IIdentityStore identities, HookRunner hooks, CancellationToken ct) =>
         {
             var userId = http.UserId();
             var view = await hooks.RunAsync<ProfileUpdate, AccountView>(HookOps.AccountUpdate, userId, update, async u =>
             {
                 var user = await users.UpdateProfileAsync(userId, ProfileValidator.Normalize(u), ct)
                            ?? throw new GameException("not_found", "Account not found.");
-                return ViewOf(user, await users.ListIdentitiesAsync(user.Id, ct));
+                return ViewOf(user, await identities.ListIdentitiesAsync(user.Id, ct));
             }, ct);
             return Results.Ok(view);
         }).RequireAuthorization();
 
         // DELETE /v1/account : delete my account and everything stored for it (required by app stores)
-        app.MapDelete("/v1/account", async (HttpContext http, IUserStore users, AccountCleanup cleanup, HookRunner hooks, CancellationToken ct) =>
+        app.MapDelete("/v1/account", async (HttpContext http, IAccountStore users, AccountCleanup cleanup, HookRunner hooks, CancellationToken ct) =>
         {
             var userId = http.UserId();
             await hooks.RunVoidAsync(HookOps.AccountDelete, userId, new EmptyRequest(), async _ =>
@@ -56,7 +56,7 @@ public static class AccountEndpoints
         // Attaches a login (e.g. Google Play) to the signed-in account so progress survives a lost device.
         // 409 identity_in_use: that login already belongs to another account. 409 provider_already_linked: this account
         // already has a login of that type.
-        app.MapPost("/v1/account/link/{provider}", async (string provider, ProviderLinkRequest req, HttpContext http, IdentityProviders providers, IUserStore users, CancellationToken ct) =>
+        app.MapPost("/v1/account/link/{provider}", async (string provider, ProviderLinkRequest req, HttpContext http, IdentityProviders providers, IIdentityStore users, CancellationToken ct) =>
         {
             var identity = await providers.Get(provider).VerifyAsync(req.Credential, ct);
             var result = await users.LinkIdentityAsync(http.UserId(), identity.Provider, identity.Subject, identity.Label, ct);
@@ -70,7 +70,7 @@ public static class AccountEndpoints
         }).RequireAuthorization().RequireRateLimiting("auth");
 
         // DELETE /v1/account/link/{provider} : remove a login (the last remaining login method cannot be removed)
-        app.MapDelete("/v1/account/link/{provider}", async (string provider, HttpContext http, IUserStore users, CancellationToken ct) =>
+        app.MapDelete("/v1/account/link/{provider}", async (string provider, HttpContext http, IIdentityStore users, CancellationToken ct) =>
         {
             var result = await users.UnlinkIdentityAsync(http.UserId(), provider, ct);
             return result switch
@@ -82,7 +82,7 @@ public static class AccountEndpoints
         }).RequireAuthorization();
 
         // GET /v1/users?ids=a,b,c : public profiles of other players (max 100 ids)
-        app.MapGet("/v1/users", async (string ids, IUserStore users, CancellationToken ct) =>
+        app.MapGet("/v1/users", async (string ids, IAccountStore users, CancellationToken ct) =>
         {
             var list = ids
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)

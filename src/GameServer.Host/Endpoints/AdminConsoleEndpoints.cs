@@ -110,7 +110,7 @@ public static class AdminConsoleEndpoints
 
         // ---- player 360: one merged timeline (wallet changes, inbox, chat, admin actions) ----
 
-        admin.MapGet("/users/{id}/timeline", async (string id, int? limit, IUserStore users, IPlayerAdminData store, CancellationToken ct) =>
+        admin.MapGet("/users/{id}/timeline", async (string id, int? limit, IAccountStore users, IPlayerAdminData store, CancellationToken ct) =>
         {
             if (await users.GetAsync(id, ct) is null)
                 return Results.NotFound(new { error = "not_found" });
@@ -175,7 +175,7 @@ public static class AdminConsoleEndpoints
 
         // POST /admin/api/rpc-test   body: { userId, id, payload }  runs a module RPC as that player (hooks included)
         admin.MapPost("/rpc-test", async (
-            RpcTestRequest req, HttpContext http, IUserStore users, ModuleRegistry registry, HookRunner hooks, IStorage storage,
+            RpcTestRequest req, HttpContext http, IAccountStore users, ModuleRegistry registry, HookRunner hooks, IStorage storage,
             IConfig config, IEconomy economy, ILeaderboards leaderboards, INotifications notifications, ISocial social,
             IChat chat, IMatches matches, IProgress progress, CancellationToken ct) =>
         {

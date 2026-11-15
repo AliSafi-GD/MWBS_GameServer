@@ -75,6 +75,7 @@ export default defineConfig({
         {
           text: 'Server framework',
           items: [
+            { text: 'Architecture', link: '/server/architecture' },
             { text: 'Writing a module', link: '/server/modules' },
             { text: 'RPC functions', link: '/server/rpc' },
             { text: 'Hooks', link: '/server/hooks' },

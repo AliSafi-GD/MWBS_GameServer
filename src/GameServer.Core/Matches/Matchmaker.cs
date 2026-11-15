@@ -33,15 +33,15 @@ public sealed class Matchmaker
     private readonly List<Ticket> _tickets = new();
     private readonly MatchModeProvider _modes;
     private readonly MatchService _matches;
-    private readonly ConnectionManager _realtime;
-    private readonly PartyService _parties;
-    private readonly IUserStore _users;
+    private readonly IRealtime _realtime;
+    private readonly IPartyMembership _parties;
+    private readonly IAccountStore _users;
     private readonly MatchOptions _options;
     private readonly ILogger<Matchmaker> _log;
     private readonly TimeProvider _time;
 
     public Matchmaker(
-        MatchModeProvider modes, MatchService matches, ConnectionManager realtime, PartyService parties, IUserStore users,
+        MatchModeProvider modes, MatchService matches, IRealtime realtime, IPartyMembership parties, IAccountStore users,
         IOptions<MatchOptions> options, ILogger<Matchmaker> log, TimeProvider time)
     {
         _time = time;

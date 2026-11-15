@@ -13,7 +13,7 @@ public static class AuthEndpoints
         // POST /v1/auth/device   body: { "deviceId": "...", "username": "optional", "create": true }
         // Creates the account on first call (unless create=false) and returns a JWT.
         // 404 unknown_provider when "device" is not in GameServer:Auth:Providers (same answer as any switched-off login).
-        app.MapPost("/v1/auth/device", async (DeviceAuthRequest req, IdentityProviders providers, IUserStore users, TokenService tokens, IRefreshTokenStore refresh, HookRunner hooks, TimeProvider time, CancellationToken ct) =>
+        app.MapPost("/v1/auth/device", async (DeviceAuthRequest req, IdentityProviders providers, IIdentityStore users, TokenService tokens, IRefreshTokenStore refresh, HookRunner hooks, TimeProvider time, CancellationToken ct) =>
         {
             providers.Get(AuthProviderSelection.Device);
 
@@ -45,7 +45,7 @@ public static class AuthEndpoints
         // POST /v1/auth/refresh   body: { "refreshToken": "..." }
         // Trades a refresh token for a new access token AND a new refresh token (the old one stops working).
         // 401 invalid_refresh_token => the session is over (expired, logged out, or the token was reused): log in again.
-        app.MapPost("/v1/auth/refresh", async (RefreshRequest req, IRefreshTokenStore refresh, IUserStore users, TokenService tokens, CancellationToken ct) =>
+        app.MapPost("/v1/auth/refresh", async (RefreshRequest req, IRefreshTokenStore refresh, IAccountStore users, TokenService tokens, CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(req.RefreshToken) || req.RefreshToken.Length > 256)
                 throw new GameException("invalid_refresh_token", "The refresh token is not valid. Log in again.");
@@ -76,7 +76,7 @@ public static class AuthEndpoints
         // POST /v1/auth/{provider}   body: { "credential": { ... }, "create": true, "username": "optional" }
         // Logs in with a verified identity. If no account owns it yet, one is created (unless create=false, which is
         // how a player restores their account on a new phone).
-        app.MapPost("/v1/auth/{provider}", async (string provider, ProviderAuthRequest req, IdentityProviders providers, IUserStore users, TokenService tokens, IRefreshTokenStore refresh, HookRunner hooks, TimeProvider time, CancellationToken ct) =>
+        app.MapPost("/v1/auth/{provider}", async (string provider, ProviderAuthRequest req, IdentityProviders providers, IIdentityStore users, TokenService tokens, IRefreshTokenStore refresh, HookRunner hooks, TimeProvider time, CancellationToken ct) =>
         {
             var identity = await providers.Get(provider).VerifyAsync(req.Credential, ct);
 

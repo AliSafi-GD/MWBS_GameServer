@@ -52,18 +52,29 @@ public enum UnlinkResult
     LastLoginMethod
 }
 
-public interface IUserStore
+/// <summary>Accounts: read them, change the profile, delete them. What most services need.</summary>
+public interface IAccountStore
 {
-    // ---- device (guest) login -------------------------------------------------------------------------------
+    Task<User?> GetAsync(string userId, CancellationToken ct = default);
 
+    Task<IReadOnlyList<PublicProfile>> GetPublicAsync(IReadOnlyCollection<string> userIds, CancellationToken ct = default);
+
+    /// <summary>Applies an already-validated update. Returns null if the user does not exist.</summary>
+    Task<User?> UpdateProfileAsync(string userId, ProfileUpdate update, CancellationToken ct = default);
+
+    /// <summary>Deletes the account and (via cascade) everything stored for it.</summary>
+    Task<bool> DeleteAsync(string userId, CancellationToken ct = default);
+}
+
+/// <summary>How players sign in: device (guest) logins and linked external identities (Google Play, phone, ...).</summary>
+public interface IIdentityStore
+{
     /// <summary>
     /// Logs in with a device id. Creates the account on first use when <paramref name="create"/> is true
     /// (using <paramref name="username"/> if given, otherwise a generated one). Returns null if the device
     /// is unknown and create is false. Throws GameException("username_taken") if the requested name is in use.
     /// </summary>
     Task<User?> LoginDeviceAsync(string deviceId, bool create, string? username, CancellationToken ct = default);
-
-    // ---- external logins (Google Play, phone, ...) ----------------------------------------------------------
 
     /// <summary>Returns the account that owns this login (and records the login time), or null.</summary>
     Task<User?> LoginWithIdentityAsync(string provider, string subject, CancellationToken ct = default);
@@ -78,22 +89,14 @@ public interface IUserStore
     Task<UnlinkResult> UnlinkIdentityAsync(string userId, string provider, CancellationToken ct = default);
 
     Task<IReadOnlyList<IdentityInfo>> ListIdentitiesAsync(string userId, CancellationToken ct = default);
+}
 
-    // ---- accounts -------------------------------------------------------------------------------------------
-
-    Task<User?> GetAsync(string userId, CancellationToken ct = default);
-
-    Task<IReadOnlyList<PublicProfile>> GetPublicAsync(IReadOnlyCollection<string> userIds, CancellationToken ct = default);
-
-    /// <summary>Applies an already-validated update. Returns null if the user does not exist.</summary>
-    Task<User?> UpdateProfileAsync(string userId, ProfileUpdate update, CancellationToken ct = default);
+/// <summary>What only the admin panel does with accounts: search, ban, export.</summary>
+public interface IUserAdminStore
+{
+    Task<UserPage> SearchAsync(string? query, int limit, int offset, CancellationToken ct = default);
 
     Task<bool> SetDisabledAsync(string userId, bool disabled, CancellationToken ct = default);
-
-    /// <summary>Deletes the account and (via cascade) everything stored for it.</summary>
-    Task<bool> DeleteAsync(string userId, CancellationToken ct = default);
-
-    Task<UserPage> SearchAsync(string? query, int limit, int offset, CancellationToken ct = default);
 
     Task<UserExport?> ExportAsync(string userId, CancellationToken ct = default);
 }

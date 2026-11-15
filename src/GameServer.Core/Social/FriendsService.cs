@@ -7,11 +7,11 @@ namespace GameServer.Core.Social;
 public sealed class FriendsService
 {
     private readonly IFriendStore _store;
-    private readonly IUserStore _users;
+    private readonly IAccountStore _users;
     private readonly IConfigStore _config;
-    private readonly ConnectionManager _manager;
+    private readonly IRealtime _manager;
 
-    public FriendsService(IFriendStore store, IUserStore users, IConfigStore config, ConnectionManager manager)
+    public FriendsService(IFriendStore store, IAccountStore users, IConfigStore config, IRealtime manager)
     {
         _store = store;
         _users = users;

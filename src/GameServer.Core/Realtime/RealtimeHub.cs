@@ -31,7 +31,7 @@ public sealed class RealtimeHub : IConnectionHandler
     private readonly ConnectionManager _manager;
     private readonly ChatService _chat;
     private readonly TokenService _tokens;
-    private readonly IUserStore _users;
+    private readonly IAccountStore _users;
     private readonly HookRunner _hooks;
     private readonly MatchActions _match;
     private readonly RealtimeOptions _options;
@@ -39,7 +39,7 @@ public sealed class RealtimeHub : IConnectionHandler
     private readonly TimeProvider _time;
 
     public RealtimeHub(
-        ConnectionManager manager, ChatService chat, TokenService tokens, IUserStore users,
+        ConnectionManager manager, ChatService chat, TokenService tokens, IAccountStore users,
         HookRunner hooks, MatchActions match, IOptions<RealtimeOptions> options, ILogger<RealtimeHub> log,
         TimeProvider time)
     {

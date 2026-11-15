@@ -53,7 +53,11 @@ public class WiringTests
         // ValidateOnBuild checks that every registered service has all its constructor dependencies.
         using var sp = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
 
-        Assert.IsType<PostgresUserStore>(sp.GetRequiredService<IUserStore>());
+        // One Postgres class behind the three small user interfaces.
+        var users = sp.GetRequiredService<PostgresUserStore>();
+        Assert.Same(users, sp.GetRequiredService<IAccountStore>());
+        Assert.Same(users, sp.GetRequiredService<IIdentityStore>());
+        Assert.Same(users, sp.GetRequiredService<IUserAdminStore>());
         Assert.IsType<PostgresEconomy>(sp.GetRequiredService<IEconomy>());
         Assert.IsType<PostgresConfigStore>(sp.GetRequiredService<IConfigStore>());
         Assert.IsType<PostgresShopPurchases>(sp.GetRequiredService<IShopPurchaseStore>());

@@ -424,3 +424,47 @@ public class AdminRulesTests
         Assert.Equal(@"%50\% off\_now%", AdminRules.ContainsPattern("50% off_now"));
     }
 }
+
+public class AccountCleanupTests
+{
+    private sealed class Log
+    {
+        public List<string> Steps { get; } = new();
+    }
+
+    private sealed class Groups(Log log) : GameServer.Core.Social.IGroupCleanup
+    {
+        public Task OnUserDeletingAsync(string userId, CancellationToken ct) { log.Steps.Add("groups " + userId); return Task.CompletedTask; }
+    }
+
+    private sealed class Parties(Log log) : GameServer.Core.Social.IPartyMembership
+    {
+        public bool IsMember(string partyId, string userId) => false;
+        public GameServer.Core.Social.PartyView? Mine(string userId) => null;
+        public Task<bool> LeaveAsync(string userId, CancellationToken ct) { log.Steps.Add("party " + userId); return Task.FromResult(true); }
+    }
+
+    private sealed class Realtime(Log log) : GameServer.Core.Realtime.IRealtime
+    {
+        public bool IsOnline(string userId) => true;
+        public IReadOnlyCollection<string> OnlineAmong(IEnumerable<string> userIds) => userIds.ToArray();
+        public Task SendToUserAsync(string userId, string frame, CancellationToken ct = default) => Task.CompletedTask;
+        public Task SendToUsersAsync(IEnumerable<string> userIds, string frame, CancellationToken ct = default) => Task.CompletedTask;
+        public Task SendToChannelAsync(string channel, string frame, CancellationToken ct = default) => Task.CompletedTask;
+        public bool IsInChannel(string userId, string channel) => false;
+        public void RemoveUserFromChannel(string userId, string channel) { }
+        public Task DisconnectUserAsync(string userId, string reason) { log.Steps.Add($"disconnect {userId} {reason}"); return Task.CompletedTask; }
+        public event Action<string>? UserWentOffline { add { } remove { } }
+    }
+
+    [Fact]
+    public async Task BeforeDelete_HandsOverClans_LeavesTheParty_ThenDisconnects()
+    {
+        var log = new Log();
+        var cleanup = new GameServer.Core.Social.AccountCleanup(new Groups(log), new Parties(log), new Realtime(log));
+
+        await cleanup.BeforeDeleteAsync("u1", default);
+
+        Assert.Equal(new[] { "groups u1", "party u1", "disconnect u1 account_deleted" }, log.Steps);
+    }
+}

@@ -26,7 +26,14 @@ powershell -ExecutionPolicy Bypass -File .\run-tests.ps1     # Windows
 dotnet test tests/GameServer.Core.Tests
 ```
 
-They need nothing running. Today they cover the choice of login methods (`GameServer:Auth:Providers`).
+They need nothing running (no server, no database). They cover:
+
+- the real services with in-memory stores and a fake clock: shop limits and their reset at midnight, sale windows, the daily
+  reward streak (with a UTC offset and missed days), stats, achievements and daily quests, account deletion steps
+- the pure rules: period keys and resets, login method choice (`GameServer:Auth:Providers`), game config files, admin rules
+- the wiring: the whole Core + Postgres container is built with `ValidateOnBuild`, and Core must not reference Npgsql
+
+How the fakes work: [Server architecture](/server/architecture#testing-a-service).
 
 ## Against a running server
 
@@ -52,4 +59,5 @@ The tests use the guest account saved in the editor's PlayerPrefs.
 
 ## Not covered
 
-UDP matches (use a LiteNetLib client) and a real phone.
+A real phone (the SDK smoke test covers matches over UDP), and the Postgres stores on their own: they are tested only through
+the smoke test against a running database.

@@ -8,9 +8,9 @@ public sealed class SocialFacade : ISocial
 {
     private readonly IFriendStore _friends;
     private readonly IGroupStore _groups;
-    private readonly ConnectionManager _manager;
+    private readonly IRealtime _manager;
 
-    public SocialFacade(IFriendStore friends, IGroupStore groups, ConnectionManager manager)
+    public SocialFacade(IFriendStore friends, IGroupStore groups, IRealtime manager)
     {
         _friends = friends;
         _groups = groups;
@@ -32,11 +32,11 @@ public sealed class SocialFacade : ISocial
 /// <summary>Everything that has to happen before an account disappears (groups to hand over, parties, live connections).</summary>
 public sealed class AccountCleanup
 {
-    private readonly GroupService _groups;
-    private readonly PartyService _parties;
-    private readonly ConnectionManager _manager;
+    private readonly IGroupCleanup _groups;
+    private readonly IPartyMembership _parties;
+    private readonly IRealtime _manager;
 
-    public AccountCleanup(GroupService groups, PartyService parties, ConnectionManager manager)
+    public AccountCleanup(IGroupCleanup groups, IPartyMembership parties, IRealtime manager)
     {
         _groups = groups;
         _parties = parties;

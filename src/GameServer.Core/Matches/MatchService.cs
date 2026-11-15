@@ -16,7 +16,7 @@ public sealed class MatchService : IMatches, IMatchHost
     private readonly ConcurrentDictionary<string, MatchInstance> _byConnection = new(StringComparer.Ordinal);
     private readonly MatchModeProvider _modes;
     private readonly ModuleRegistry _registry;
-    private readonly IUserStore _users;
+    private readonly IAccountStore _users;
     private readonly Lazy<IEnumerable<IMatchTransport>> _transports;
     private readonly MatchServices _matchServices;
     private readonly MatchOptions _options;
@@ -24,7 +24,7 @@ public sealed class MatchService : IMatches, IMatchHost
     private readonly TimeProvider _time;
 
     public MatchService(
-        MatchModeProvider modes, ModuleRegistry registry, IUserStore users, Lazy<IEnumerable<IMatchTransport>> transports,
+        MatchModeProvider modes, ModuleRegistry registry, IAccountStore users, Lazy<IEnumerable<IMatchTransport>> transports,
         IEconomy economy, IProgress progress, ILeaderboards leaderboards, INotifications notifications, IConfig config,
         IOptions<MatchOptions> options, ILogger<MatchService> log, TimeProvider time)
     {

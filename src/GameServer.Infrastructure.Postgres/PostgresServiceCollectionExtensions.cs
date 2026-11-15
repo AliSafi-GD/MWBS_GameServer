@@ -31,7 +31,10 @@ public static class PostgresServiceCollectionExtensions
 
         // ---- accounts, sessions, player data ----
         services.AddSingleton<IStorage, PostgresStorage>();
-        services.AddSingleton<IUserStore, PostgresUserStore>();
+        services.AddSingleton<PostgresUserStore>();
+        services.AddSingleton<IAccountStore>(sp => sp.GetRequiredService<PostgresUserStore>());
+        services.AddSingleton<IIdentityStore>(sp => sp.GetRequiredService<PostgresUserStore>());
+        services.AddSingleton<IUserAdminStore>(sp => sp.GetRequiredService<PostgresUserStore>());
         services.AddSingleton<IRefreshTokenStore, PostgresRefreshTokenStore>();
         services.AddSingleton<IPhoneCodeStore, PostgresPhoneCodes>();
 

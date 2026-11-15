@@ -35,12 +35,13 @@ public sealed class ChatService : IChat
         public int Count;
     }
 
-    private readonly ConnectionManager _manager;
+    private readonly IRealtime _manager;
+    private readonly IChannelSubscriptions _channels;
     private readonly IChatStore _store;
-    private readonly IUserStore _users;
+    private readonly IAccountStore _users;
     private readonly IFriendStore _friends;
     private readonly IGroupStore _groups;
-    private readonly PartyService _parties;
+    private readonly IPartyMembership _parties;
     private readonly ChatOptions _options;
     private readonly ILogger<ChatService> _log;
     private readonly TimeProvider _time;
@@ -52,12 +53,13 @@ public sealed class ChatService : IChat
     private const long MuteCacheMs = 30_000;
 
     public ChatService(
-        ConnectionManager manager, IChatStore store, IUserStore users, IFriendStore friends, IGroupStore groups,
-        PartyService parties, IOptions<ChatOptions> options, ILogger<ChatService> log,
+        IRealtime manager, IChannelSubscriptions channels, IChatStore store, IAccountStore users, IFriendStore friends, IGroupStore groups,
+        IPartyMembership parties, IOptions<ChatOptions> options, ILogger<ChatService> log,
         TimeProvider time)
     {
         _time = time;
         _manager = manager;
+        _channels = channels;
         _store = store;
         _users = users;
         _friends = friends;
@@ -78,7 +80,7 @@ public sealed class ChatService : IChat
         await AuthorizeAsync(target, userId, ct);
 
         // Direct messages need no join: they go to every connection of both players.
-        if (target.Kind != ChannelKind.Direct && !_manager.Join(connection, target.Name))
+        if (target.Kind != ChannelKind.Direct && !_channels.Join(connection, target.Name))
             throw new GameException("too_many_channels", $"A connection can listen to at most {ConnectionManager.MaxChannelsPerConnection} channels.");
 
         return target.Name;
@@ -87,7 +89,7 @@ public sealed class ChatService : IChat
     public string Leave(IConnection connection, string userId, string? channel)
     {
         var target = ParseChannel(userId, channel);
-        _manager.Leave(connection, target.Name);
+        _channels.Leave(connection, target.Name);
         return target.Name;
     }
 

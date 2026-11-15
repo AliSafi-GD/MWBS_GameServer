@@ -5,7 +5,7 @@ using NpgsqlTypes;
 
 namespace GameServer.Infrastructure.Postgres;
 
-public sealed class PostgresUserStore : IUserStore
+public sealed class PostgresUserStore : IAccountStore, IIdentityStore, IUserAdminStore
 {
     private const string Cols =
         "id, username, display_name, avatar, lang, timezone, created_at, updated_at, last_login_at, disabled";
