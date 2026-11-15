@@ -7,13 +7,13 @@ using Newtonsoft.Json.Linq;
 namespace GameServer.Client
 {
     /// <summary>Friends, clans/groups and parties. Their live events (invites, joins) arrive on <see cref="RealtimeClient"/>.</summary>
-    public sealed class SocialApi
+    public sealed class SocialApi : ISocialApi
     {
         private readonly ApiClient _api;
 
-        public FriendsApi Friends { get; }
-        public GroupsApi Groups { get; }
-        public PartiesApi Parties { get; }
+        public IFriendsApi Friends { get; }
+        public IGroupsApi Groups { get; }
+        public IPartiesApi Parties { get; }
 
         internal SocialApi(ApiClient api)
         {
@@ -31,7 +31,7 @@ namespace GameServer.Client
         }
     }
 
-    public sealed class FriendsApi
+    public sealed class FriendsApi : IFriendsApi
     {
         private readonly ApiClient _api;
 
@@ -65,7 +65,7 @@ namespace GameServer.Client
             _api.SendAsync("DELETE", "/v1/friends/" + ApiClient.Seg(userId) + "/block", null, true, ct);
     }
 
-    public sealed class GroupsApi
+    public sealed class GroupsApi : IGroupsApi
     {
         private readonly ApiClient _api;
 
@@ -157,7 +157,7 @@ namespace GameServer.Client
     }
 
     /// <summary>Short-lived groups for playing together. Creating or joining one needs an open realtime connection.</summary>
-    public sealed class PartiesApi
+    public sealed class PartiesApi : IPartiesApi
     {
         private readonly ApiClient _api;
 
@@ -210,7 +210,7 @@ namespace GameServer.Client
     }
 
     /// <summary>Stored chat history over HTTP. Live chat is on <see cref="RealtimeClient"/>.</summary>
-    public sealed class ChatApi
+    public sealed class ChatApi : IChatApi
     {
         private readonly ApiClient _api;
 

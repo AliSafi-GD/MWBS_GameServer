@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Runs the Unity package tests (com.gameserver.client/Tests/Editor) as plain .NET, without Unity and without a server.
+    Same settings as Unity: C# 9, no implicit usings, nullable off. The SDK sources are compiled into this assembly.
+    dotnet test sdk/unity/SdkUnitTests
+  -->
+  <PropertyGroup>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>9.0</LangVersion>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <RootNamespace>GameServer.Client.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\com.gameserver.client\Runtime\**\*.cs" LinkBase="Sdk\Runtime" />
+    <Compile Include="..\com.gameserver.client\Tests\Editor\**\*.cs" LinkBase="Sdk\Tests" />
+    <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" />
+  </ItemGroup>
+</Project>

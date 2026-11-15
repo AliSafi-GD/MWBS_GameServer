@@ -7,7 +7,7 @@ using Newtonsoft.Json.Linq;
 namespace GameServer.Client
 {
     /// <summary>Wallet and inventory (read only: the server changes balances).</summary>
-    public sealed class EconomyApi
+    public sealed class EconomyApi : IEconomyApi
     {
         private readonly ApiClient _api;
 
@@ -30,7 +30,7 @@ namespace GameServer.Client
     }
 
     /// <summary>Shop products paid with in-game currency. Prices always come from the server.</summary>
-    public sealed class ShopApi
+    public sealed class ShopApi : IShopApi
     {
         private readonly ApiClient _api;
 
@@ -60,7 +60,7 @@ namespace GameServer.Client
     }
 
     /// <summary>Stats, achievements, quests and the daily reward.</summary>
-    public sealed class ProgressApi
+    public sealed class ProgressApi : IProgressApi
     {
         private readonly ApiClient _api;
 
@@ -115,7 +115,7 @@ namespace GameServer.Client
     }
 
     /// <summary>Leaderboards and tournaments (read only: the server submits scores).</summary>
-    public sealed class CompetitionsApi
+    public sealed class CompetitionsApi : ICompetitionsApi
     {
         private readonly ApiClient _api;
 
@@ -153,7 +153,7 @@ namespace GameServer.Client
     }
 
     /// <summary>The player's inbox. New messages also arrive live as the realtime event "notification.new".</summary>
-    public sealed class NotificationsApi
+    public sealed class NotificationsApi : INotificationsApi
     {
         private readonly ApiClient _api;
 
@@ -180,7 +180,7 @@ namespace GameServer.Client
     }
 
     /// <summary>Calls server module functions ("RPC"). The payload is any string, usually JSON.</summary>
-    public sealed class RpcApi
+    public sealed class RpcApi : IRpcApi
     {
         private readonly ApiClient _api;
 

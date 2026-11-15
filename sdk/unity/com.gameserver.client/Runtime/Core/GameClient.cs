@@ -11,27 +11,27 @@ namespace GameServer.Client
     /// await client.Realtime.ConnectAsync();
     /// </code>
     /// </summary>
-    public sealed class GameClient
+    public sealed class GameClient : IGameClient
     {
         private readonly ApiClient _api;
 
         public GameClientOptions Options { get; }
 
-        public AuthApi Auth { get; }
-        public AccountApi Account { get; }
-        public ConfigApi Config { get; }
-        public EconomyApi Economy { get; }
-        public ShopApi Shop { get; }
-        public ProgressApi Progress { get; }
-        public CompetitionsApi Competitions { get; }
-        public NotificationsApi Notifications { get; }
-        public SocialApi Social { get; }
-        public ChatApi Chat { get; }
-        public MatchesApi Matches { get; }
-        public RpcApi Rpc { get; }
+        public IAuthApi Auth { get; }
+        public IAccountApi Account { get; }
+        public IConfigApi Config { get; }
+        public IEconomyApi Economy { get; }
+        public IShopApi Shop { get; }
+        public IProgressApi Progress { get; }
+        public ICompetitionsApi Competitions { get; }
+        public INotificationsApi Notifications { get; }
+        public ISocialApi Social { get; }
+        public IChatApi Chat { get; }
+        public IMatchesApi Matches { get; }
+        public IRpcApi Rpc { get; }
 
         /// <summary>The live connection (chat, matchmaker, pushed events).</summary>
-        public RealtimeClient Realtime { get; }
+        public IRealtimeClient Realtime { get; }
 
         public Session Session => _api.Session;
 
@@ -41,7 +41,7 @@ namespace GameServer.Client
 
             var http = Options.Http ?? DefaultHttp(Options);
             var storage = Options.Storage ?? DefaultStorage();
-            var dispatcher = new Dispatcher(Options.Log);
+            var dispatcher = new Dispatcher(Options.Dispatcher ?? new SynchronizationContextDispatcher(), Options.Log);
 
             _api = new ApiClient(Options, http, storage);
 

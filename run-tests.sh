@@ -26,7 +26,8 @@ if [ $BUILD -ne 0 ]; then echo "Build failed, tests were not run." >> "$R"; echo
 
 dotnet test tests/GameServer.Core.Tests --no-build > logs/unit-tests.log 2>&1
 UNIT=$?
-echo "unit test exit code: $UNIT" >> "$R"
+dotnet test sdk/unity/SdkUnitTests --no-build >> logs/unit-tests.log 2>&1 || UNIT=1
+echo "unit test exit code (server + SDK): $UNIT" >> "$R"
 
 dotnet publish samples/HelloGame.Modules -c Release -o modules/HelloGame.Modules > logs/module.log 2>&1
 

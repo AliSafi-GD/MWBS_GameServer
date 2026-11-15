@@ -163,7 +163,7 @@ namespace GameServer.Client
     /// exist on <see cref="RealtimeClient"/>; use either. Queueing needs an open realtime connection because the result
     /// ("matchmaker.matched") arrives there.
     /// </summary>
-    public sealed class MatchesApi
+    public sealed class MatchesApi : IMatchesApi
     {
         private readonly ApiClient _api;
         private readonly GameClientOptions _options;

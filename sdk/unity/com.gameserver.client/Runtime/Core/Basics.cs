@@ -56,16 +56,53 @@ namespace GameServer.Client
     }
 
     /// <summary>
-    /// Runs callbacks on the thread that created the client (the Unity main thread in a game), so event handlers can
-    /// touch GameObjects. Without a synchronization context (a console app) callbacks run on the calling thread.
+    /// Where the SDK raises its events (realtime messages, match data, connection changes). Set
+    /// <see cref="GameClientOptions.Dispatcher"/> to choose; the default is <see cref="SynchronizationContextDispatcher"/>.
     /// </summary>
+    public interface IDispatcher
+    {
+        void Post(Action action);
+    }
+
+    /// <summary>
+    /// The default: runs callbacks on the thread that created it (the Unity main thread in a game, because the client is
+    /// created there), so event handlers can touch GameObjects. Without a synchronization context (a console app)
+    /// callbacks run on the calling thread.
+    /// </summary>
+    public sealed class SynchronizationContextDispatcher : IDispatcher
+    {
+        private readonly SynchronizationContext _context;
+
+        /// <param name="context">Null = the context of the current thread.</param>
+        public SynchronizationContextDispatcher(SynchronizationContext context = null)
+        {
+            _context = context ?? SynchronizationContext.Current;
+        }
+
+        public void Post(Action action)
+        {
+            if (_context == null)
+                action();
+            else
+                _context.Post(_ => action(), null);
+        }
+    }
+
+    /// <summary>Runs every callback at once, on the network thread. For tests, bots and servers without a main loop.</summary>
+    public sealed class InlineDispatcher : IDispatcher
+    {
+        public void Post(Action action) => action();
+    }
+
+    /// <summary>Wraps the chosen dispatcher so an exception in a game's handler is logged instead of breaking the SDK.</summary>
     internal sealed class Dispatcher
     {
-        private readonly SynchronizationContext _context = SynchronizationContext.Current;
+        private readonly IDispatcher _inner;
         private readonly Action<string> _log;
 
-        public Dispatcher(Action<string> log)
+        public Dispatcher(IDispatcher inner, Action<string> log)
         {
+            _inner = inner;
             _log = log;
         }
 
@@ -74,13 +111,7 @@ namespace GameServer.Client
             if (action == null)
                 return;
 
-            if (_context == null)
-            {
-                Run(action);
-                return;
-            }
-
-            _context.Post(_ => Run(action), null);
+            _inner.Post(() => Run(action));
         }
 
         private void Run(Action action)

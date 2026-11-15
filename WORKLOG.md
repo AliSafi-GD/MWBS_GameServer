@@ -69,6 +69,12 @@
 - ثبت: `AddGameServerCore(...)` (سرویس‌ها) + `AddGameServerPostgres(config)` (data source، migrator، storeها). `Program.cs` هر دو را دارد.
 - `WiringTests.cs`: کل گراف DI با `ValidateOnBuild` چک می‌شود. ۱۳۱ unit test.
 
+### ۱۲. Unity SDK (قدم ۸ در CLEANUP.md، 2026-11-15، پکیج 0.2.0)
+- interface برای همه‌ی APIها و `IGameClient`؛ `client.Shop` یک `IShopApi` است، پس کد بازی با fake تست می‌شود.
+- فایل‌ها تکه شدند (هیچ‌کدام بالای ۳۰۰ خط نیست)؛ `GameClientOptions.Dispatcher` (`InlineDispatcher` برای تست/بات).
+- تست‌های پکیج: `Tests/Editor` (Unity) = `dotnet test sdk/unity/SdkUnitTests` (بدون Unity). در Unity batch هم ۷/۷ سبز و بدون warning.
+- CHANGELOG و `.meta` فایل‌های جدید؛ داکیومنت client و AGENTS.md.
+
 ### ۱۱. نسخه‌های ثابت پکیج‌ها (قدم ۷ در CLEANUP.md، 2026-11-15)
 - `Directory.Packages.props`: همه‌ی نسخه‌های NuGet یک‌جا و دقیق (همان‌هایی که قبلاً resolve می‌شدند). csprojها بدون `Version`.
 - Dockerfile آن فایل را هم کپی می‌کند. پکیج آسیب‌پذیر: هیچ.
@@ -150,8 +156,8 @@ dotnet test tests/GameServer.Core.Tests
 2. ~~**قدم ۲ در CLEANUP.md:** `TimeProvider` به جای `DateTime.UtcNow`.~~ انجام شد (بخش ۵ بالا).
 3. ~~**قدم ۳:** بیرون کشیدن SQL از سرویس‌ها و تکه کردن `AdminStore`.~~ انجام شد (بخش ۶ بالا).
 4. ~~**قدم ۴:** پروژه‌ی `GameServer.Infrastructure.Postgres`.~~ انجام شد (بخش ۷ بالا).
-5. ~~**قدم ۵ و ۶**~~ انجام شد (بخش ۹ و ۱۰). قدم ۷ هم انجام شد (بخش ۱۱). بعدی: **قدم ۸** SDK.
-6. **SDK (قدم ۸):** interface برای APIها تا بازی‌ها بتوانند fake کنند؛ تکه کردن `Models.cs`، `RealtimeClient.cs`.
+5. ~~**قدم ۵ و ۶**~~ انجام شد (بخش ۹ و ۱۰). قدم ۷ و ۸ هم انجام شد (بخش ۱۱ و ۱۲). بعدی: **قدم ۹** endpoint «گفتگوهای من با unread» (سرور + SDK).
+6. ~~**SDK (قدم ۸)**~~ انجام شد (بخش ۱۲).
 7. **کوچک ولی مفید:** پیش‌فرض امن پورت compose، JSON Schema برای فایل‌های کانفیگ (قدم ۱.۵)، cache کاتالوگ parse‌شده.
 
 ## نقشه‌ی فایل‌های مهم

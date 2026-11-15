@@ -11,6 +11,9 @@
   <Folder Name="/samples/">
     <Project Path="samples/HelloGame.Modules/HelloGame.Modules.csproj" />
   </Folder>
+  <Folder Name="/sdk/">
+    <Project Path="sdk/unity/SdkUnitTests/SdkUnitTests.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/GameServer.Core.Tests/GameServer.Core.Tests.csproj" />
   </Folder>

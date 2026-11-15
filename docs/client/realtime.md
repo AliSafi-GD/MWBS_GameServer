@@ -27,7 +27,8 @@ With `AutoReconnect` (default on) the client reconnects and signs in again by it
 | `EventReceived` | Any server event |
 | `On("type", token => ...)` | A specific event, e.g. `friend.request`, `group.invite`, `goal.completed`, or your own from `ctx.Chat.PushAsync` |
 
-Events are raised on the Unity main thread.
+Events are raised on the Unity main thread (the thread that created the `GameClient`). To choose another place, set
+`GameClientOptions.Dispatcher`: `InlineDispatcher` runs them at once (tests, bots), or write your own `IDispatcher`.
 
 ```csharp
 client.Realtime.On("friend.request", data => Debug.Log("Friend request: " + data));

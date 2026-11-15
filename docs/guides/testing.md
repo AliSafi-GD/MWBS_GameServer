@@ -5,7 +5,7 @@
 `run-tests.ps1` (Windows) or `run-tests.sh` (Linux/macOS) does everything:
 
 1. builds the solution (also the SDK smoke test and the Arena bots)
-2. runs the unit tests (`tests/GameServer.Core.Tests`, no server or database needed)
+2. runs the unit tests (`tests/GameServer.Core.Tests` and the Unity SDK's `sdk/unity/SdkUnitTests`, no server, database or Unity needed)
 3. starts PostgreSQL with Docker
 4. publishes the sample module
 5. starts the server
@@ -24,6 +24,7 @@ powershell -ExecutionPolicy Bypass -File .\run-tests.ps1     # Windows
 
 ```bash
 dotnet test tests/GameServer.Core.Tests
+dotnet test sdk/unity/SdkUnitTests
 ```
 
 They need nothing running (no server, no database). They cover:
@@ -34,6 +35,10 @@ They need nothing running (no server, no database). They cover:
 - the wiring: the whole Core + Postgres container is built with `ValidateOnBuild`, and Core must not reference Npgsql
 
 How the fakes work: [Server architecture](/server/architecture#testing-a-service).
+
+`SdkUnitTests` compiles the SDK sources and the package tests (`com.gameserver.client/Tests/Editor`) as plain .NET: login and
+session, error codes, request ids, the interfaces, a fake `IShopApi`, relay messages, the dispatcher. The same test file runs
+in the Unity Test Runner (EditMode) of a project that lists the package under `testables` (the Tank Arena project does).
 
 ## Against a running server
 

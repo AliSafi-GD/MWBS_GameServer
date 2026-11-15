@@ -14,6 +14,12 @@ namespace GameServer.Client
         /// <summary>Where the session and device id are kept. Null = PlayerPrefs inside Unity, memory elsewhere.</summary>
         public IClientStorage Storage { get; set; }
 
+        /// <summary>
+        /// Where SDK events are raised. Null = the thread that creates the <see cref="GameClient"/> (Unity's main thread).
+        /// Use <see cref="InlineDispatcher"/> in tests and bots, or your own <see cref="IDispatcher"/> for a custom main loop.
+        /// </summary>
+        public IDispatcher Dispatcher { get; set; }
+
         /// <summary>Write SDK diagnostics here, for example <c>Debug.Log</c>. Null = silent.</summary>
         public Action<string> Log { get; set; }
 

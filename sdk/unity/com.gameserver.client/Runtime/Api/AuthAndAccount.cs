@@ -7,7 +7,7 @@ using Newtonsoft.Json.Linq;
 namespace GameServer.Client
 {
     /// <summary>Signing in and out. A successful login stores the session, so every other call is authenticated.</summary>
-    public sealed class AuthApi
+    public sealed class AuthApi : IAuthApi
     {
         private readonly ApiClient _api;
         private readonly IClientStorage _storage;
@@ -117,7 +117,7 @@ namespace GameServer.Client
     }
 
     /// <summary>The signed-in player's account and other players' public profiles.</summary>
-    public sealed class AccountApi
+    public sealed class AccountApi : IAccountApi
     {
         private readonly ApiClient _api;
 
@@ -158,7 +158,7 @@ namespace GameServer.Client
     }
 
     /// <summary>Public settings the game can read before login.</summary>
-    public sealed class ConfigApi
+    public sealed class ConfigApi : IConfigApi
     {
         private readonly ApiClient _api;
         private string _etag;

@@ -1,7 +1,7 @@
 {
   "name": "com.gameserver.client",
   "displayName": "GameServer Client SDK",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "unity": "2021.3",
   "description": "Client for the GameServer (accounts, wallet, shop, progress, social, chat, matchmaking, matches over WebSocket/TCP/UDP).",
   "dependencies": {

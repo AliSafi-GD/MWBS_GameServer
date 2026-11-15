@@ -77,11 +77,13 @@ if ($buildExit -ne 0) {
 }
 
 # ---- 2b. Unit tests (no server or database needed) ------------------------------------------------------
-Step "unit tests (tests/GameServer.Core.Tests)"
+Step "unit tests (tests/GameServer.Core.Tests, sdk/unity/SdkUnitTests)"
 dotnet test tests/GameServer.Core.Tests --no-build *> (Join-Path $logs "unit-tests.log")
 $unitExit = $LASTEXITCODE
+dotnet test sdk/unity/SdkUnitTests --no-build *>> (Join-Path $logs "unit-tests.log")
+if ($LASTEXITCODE -ne 0) { $unitExit = $LASTEXITCODE }
 $report.Add("unit test exit code: $unitExit")
-Get-Content (Join-Path $logs "unit-tests.log") -ErrorAction SilentlyContinue | Select-Object -Last 3 | ForEach-Object { Write-Host $_ }
+Get-Content (Join-Path $logs "unit-tests.log") -ErrorAction SilentlyContinue | Select-String "Passed!|Failed!" | ForEach-Object { Write-Host $_.Line }
 
 # ---- 3. Sample module ----------------------------------------------------------------------------------
 Step "publish sample module"

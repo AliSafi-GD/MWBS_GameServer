@@ -23,5 +23,8 @@
     <!-- The SDK smoke test compiles the Unity SDK sources outside Unity; in Unity the SDK gets Newtonsoft.Json from the
          com.unity.nuget.newtonsoft-json package instead. -->
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
+    <!-- The SDK unit tests are NUnit because the same files run in the Unity Test Runner. -->
+    <PackageVersion Include="NUnit" Version="3.14.0" />
+    <PackageVersion Include="NUnit3TestAdapter" Version="4.6.0" />
   </ItemGroup>
 </Project>

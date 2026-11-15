@@ -12,6 +12,7 @@ to use and which mistakes to avoid.
 2. **All network calls are `async Task`.** Use `await`. Never block with `.Result` or `.Wait()` (it deadlocks the Unity main thread).
 3. **Create `GameClient` once, on the main thread** (for example in a bootstrap MonoBehaviour marked `DontDestroyOnLoad`).
    SDK events are raised on the Unity main thread only because of that, so they may touch GameObjects directly.
+   (`GameClientOptions.Dispatcher` changes this; `InlineDispatcher` is for tests and bots.)
 4. **Every failure throws `ApiException`** (`Code`, `Message`, `Status`, `IsNetworkError`). Wrap UI-triggered calls in try/catch and
    show `Code`-based messages. Do not parse `Message`.
 5. Currency and item names, shop products, quests, achievements, leaderboards, tournaments and match modes are
@@ -196,6 +197,8 @@ advances when a handler calls `AddStatAsync(user, "matches_won")`. Example confi
 
 1. `Backend` singleton (section 2). One scene "Boot": login, version check, load config/wallet, then load "Menu".
 2. Thin service classes per area (`WalletService`, `ShopService`, `MatchService`) that call the SDK and expose C# events to the UI. UI never calls the SDK directly.
+   Give each service the SDK **interface** it needs (`IShopApi`, `IProgressApi`, `IRealtimeClient`, or `IGameClient`), not `GameClient`,
+   so tests can pass a fake. `client.Shop` already is an `IShopApi`.
 3. Game scene: `MatchService` owns the `MatchConnection`; decode server snapshots into a state object; render from it (interpolate between snapshots); send only input.
 4. Show loading/error states for every awaited call; disable buttons while a call is in flight (double taps cause duplicate requests).
 5. Save nothing authoritative locally. The only thing stored on the device is the session (`PlayerPrefsStorage`).
