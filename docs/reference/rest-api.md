@@ -11,12 +11,12 @@ Open `/playground/` on your server for every endpoint with a Send button, or imp
 
 | Method | Path | Auth | What |
 |---|---|---|---|
-| POST | `/v1/auth/device` | none | `{deviceId, username?, create?}` -> `token`, `refreshToken` |
-| GET | `/v1/auth/providers` | none | Enabled providers |
+| POST | `/v1/auth/device` | none | `{deviceId, username?, create?}` -> `token`, `refreshToken`. 30/min per IP. 404 `unknown_provider` if guest login is switched off |
+| GET | `/v1/auth/providers` | none | Login methods that are on, including `device` |
 | POST | `/v1/auth/{provider}/begin` | none | First step (phone sends a code) |
 | POST | `/v1/auth/{provider}` | none | Login `{credential, create?, username?}` |
 | POST | `/v1/auth/refresh` | none | `{refreshToken}` -> new pair |
-| POST | `/v1/auth/logout` | | `{refreshToken}` ends one session |
+| POST | `/v1/auth/logout` | none | `{refreshToken}` ends one session (always 204) |
 | POST | `/v1/account/logout-all` | Bearer | End all sessions |
 | GET / PUT / DELETE | `/v1/account` | Bearer | Profile |
 | POST / DELETE | `/v1/account/link/{provider}` | Bearer | Link / unlink a login |
@@ -28,7 +28,7 @@ Open `/playground/` on your server for every endpoint with a Send button, or imp
 |---|---|---|---|
 | GET | `/v1/config` | none | Public config keys, ETag |
 | GET | `/v1/version-check?store=&version=` | none | `ok`, `update_available`, `update_required` |
-| GET | `/v1/realtime` | | Enabled realtime transports |
+| GET | `/v1/realtime` | none | Enabled realtime transports |
 | GET | `/healthz` | none | Status and loaded RPCs |
 
 ## Game
@@ -44,12 +44,12 @@ Open `/playground/` on your server for every endpoint with a Send button, or imp
 | GET | `/v1/daily` | Streak state |
 | POST | `/v1/daily/claim` | Claim today |
 | GET | `/v1/leaderboards/{id}?limit=&around=&period=` | Board |
-| GET | `/v1/tournaments`, `/v1/tournaments/{id}` | Tournaments |
+| GET | `/v1/tournaments`, `/v1/tournaments/{id}?limit=&around=` | Upcoming, running and recently ended tournaments; one tournament with its standings |
 | POST | `/v1/tournaments/{id}/join`, `/claim` | Join, claim |
-| GET | `/v1/notifications?unread=true` | Inbox |
+| GET | `/v1/notifications?limit=&unread=true` | Inbox |
 | POST | `/v1/notifications/{id}/read`, `/claim` | |
 | DELETE | `/v1/notifications/{id}` | |
-| POST | `/v1/rpc/{id}` | Call a module RPC |
+| POST | `/v1/rpc/{id}` | Call a module RPC (body is passed to the module as a string; 404 `rpc_not_found`) |
 
 ## Social
 
@@ -60,7 +60,8 @@ Open `/playground/` on your server for every endpoint with a Send button, or imp
 | POST / DELETE | `/v1/friends/{userId}/block` | Block, unblock |
 | GET / POST | `/v1/groups` | Search, create. Also `/mine`, `/{id}`, `/{id}/join`, `/leave`, `/members`, invite, accept, kick, ban, promote, demote, transfer |
 | GET / POST | `/v1/parties` | `/mine`, join, leave, invite, kick, promote, close |
-| GET | `/v1/chat/...` | Channel history |
+| GET | `/v1/chat/history?channel=&limit=&before=` | Channel history |
+| GET | `/v1/online?ids=a,b,c` | Which of these players are connected (max 200 ids) |
 
 ## Matches
 

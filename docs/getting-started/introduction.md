@@ -42,6 +42,28 @@ samples/unity-client/         "Tank Arena", a Unity 6 game built on the SDK
 tests/                        smoke test and Arena bots
 ```
 
+### Host project layout
+
+`src/GameServer.Host` is a small ASP.NET Core app. Everything in it follows the same pattern, so a new game project can
+find its way quickly:
+
+```
+Program.cs                 composition root: options, services, JWT auth, rate limits, module loading, middleware, app.MapX()
+Endpoints/                 one file per area: AuthEndpoints, AccountEndpoints, ConfigEndpoints, EconomyEndpoints,
+                           CompetitionEndpoints, NotificationEndpoints, RpcEndpoints, SocialEndpoints, ChatEndpoints,
+                           MatchEndpoints, ShopEndpoints, ProgressEndpoints, AdminEndpoints (+ AdminConsole/AdminSocial)
+Middleware/                GameExceptionMiddleware, MaintenanceModeMiddleware, AdminAuditMiddleware
+Extensions/                small helpers, e.g. http.UserId() (the signed-in player's id)
+wwwroot/                   admin panel, web playground, sample game config
+```
+
+To add your own HTTP endpoint, create `Endpoints/MyAreaEndpoints.cs` with
+`public static IEndpointRouteBuilder MapMyArea(this IEndpointRouteBuilder app)`, add `.RequireAuthorization()` to routes
+that need a login, read the player with `http.UserId()`, throw `GameException` for errors (the exception middleware turns
+it into JSON; unknown codes answer 400, so add a code to `StatusFor` in `GameExceptionMiddleware.cs` for another status),
+and call `app.MapMyArea()` in `Program.cs`. Most game logic needs no endpoint at all: write an
+[RPC function](../server/rpc) in a module instead.
+
 ## The one rule
 
 > **The server is the authority.** A client never decides coins, XP, wins, scores or inventory.

@@ -58,7 +58,10 @@ namespace GameServer.Client
             return result;
         }
 
-        /// <summary>Which login methods the server offers besides the device id (for example "phone", "google").</summary>
+        /// <summary>
+        /// Which login methods the server has switched on, e.g. "device", "googleplay", "phone". "device" is the guest login
+        /// (<see cref="LoginDeviceAsync"/>); it is missing when the server owner turned guest login off, so show only the buttons listed here.
+        /// </summary>
         public async Task<List<string>> ProvidersAsync(CancellationToken ct = default(CancellationToken))
         {
             var root = await _api.SendAsync<JObject>("GET", "/v1/auth/providers", null, false, ct);

@@ -29,6 +29,7 @@ The server answers on <http://localhost:7350> and the admin panel is at `/admin`
 | `JWT_SECRET` | At least 32 characters. Generate with `openssl rand -base64 48` |
 | `ADMIN_KEY` | At least 24 characters. Leave empty to disable the admin panel and API |
 | `DB_PASSWORD` | Random password **without** `;` or `=` (it goes into a connection string) |
+| `AUTH_PROVIDERS` | Login methods, e.g. `device` or `device,googleplay`. Empty = guest plus whatever is configured |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google Play Games login. Leave empty to disable |
 | `REALTIME_TRANSPORTS` | `websocket`, `tcp` or `websocket,tcp` |
 | `MATCH_TRANSPORTS` | `websocket`, `udp` or `websocket,udp` |

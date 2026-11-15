@@ -8,7 +8,8 @@ PUT /admin/api/config/{key}     { "value": <any JSON>, "public": true }
 ```
 
 Each change keeps the previous value (last 50 per key) so you can roll back:
-`GET /admin/api/config/{key}/history`, `POST /admin/api/config/{key}/rollback/{historyId}`.
+`GET /admin/api/config/{key}/history`, `POST /admin/api/config/{key}/rollback/{historyId}`. `DELETE /admin/api/config/{key}`
+removes a key (the old value goes to the history too).
 
 ## Reading config
 
@@ -29,7 +30,8 @@ Config key `app_version`:
 ```
 
 `GET /v1/version-check?store=bazaar&version=1.2.0` answers
-`{ status: ok | update_available | update_required, latest, minimum, url }`.
+`{ status: ok | update_available | update_required, latest, minimum, url }`. A `version` that is not like `1.2` or
+`1.2.3` is `400 invalid_version`.
 An unknown store falls back to `default`; with no rule at all the answer is `ok`.
 
 ## Maintenance mode

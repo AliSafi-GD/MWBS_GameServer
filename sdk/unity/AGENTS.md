@@ -75,7 +75,7 @@ All methods take an optional `CancellationToken` last. Names are exact.
 | Call | Notes |
 |---|---|
 | `Auth.LoginDeviceAsync(username=null, create=true, deviceId=null)` | guest login. Returns `LoginResult` |
-| `Auth.ProvidersAsync()` | enabled login providers |
+| `Auth.ProvidersAsync()` | enabled login methods, e.g. `device`, `googleplay` (`device` = guest login; absent if the server turned it off) |
 | `Auth.LoginAsync(provider, credential, username=null, create=true)` | e.g. email/password, social. `credential` is an object whose shape depends on the provider |
 | `Auth.BeginAsync(provider, credential)` | first step for providers that send a code (then `LoginAsync` with the code) |
 | `Auth.TryRestoreSessionAsync()` | true if a saved session is still valid |

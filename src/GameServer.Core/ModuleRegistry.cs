@@ -44,6 +44,21 @@ public sealed class ModuleRegistry : IModuleInitializer
             throw new InvalidOperationException($"Match handler '{name}' is already registered.");
     }
 
+    // Modules load after the container is built, so identity providers wait here until IdentityProviders reads them
+    // (Program.cs calls IdentityProviders.Validate() once all modules are loaded).
+    private readonly List<IIdentityProvider> _identityProviders = new();
+
+    public void RegisterIdentityProvider(IIdentityProvider provider)
+    {
+        ArgumentNullException.ThrowIfNull(provider);
+        lock (_identityProviders) _identityProviders.Add(provider);
+    }
+
+    public IReadOnlyList<IIdentityProvider> IdentityProvidersFromModules
+    {
+        get { lock (_identityProviders) return _identityProviders.ToArray(); }
+    }
+
     public bool TryGetMatchHandler(string name, out Func<MatchHandler> factory) => _matchHandlers.TryGetValue(name, out factory!);
 
     public IReadOnlyCollection<string> MatchHandlerNames => _matchHandlers.Keys.ToArray();

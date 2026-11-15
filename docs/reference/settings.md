@@ -33,6 +33,7 @@ variables (`GameServer__Jwt__Secret`).
     },
     "Parties": { "MaxSize": 8, "GraceSeconds": 15, "InviteMinutes": 5, "RequireConnection": true },
     "Auth": {
+      "Providers": "",
       "GooglePlay": { "ClientId": "", "ClientSecret": "" },
       "Phone": { "Enabled": false, "CodeTtlSeconds": 300, "CooldownSeconds": 60, "MaxAttempts": 5 }
     }
@@ -49,6 +50,7 @@ Not in the file (secrets, set them yourself): `GameServer:Jwt:Secret`, `GameServ
 | `JWT_SECRET` | `GameServer__Jwt__Secret` |
 | `ADMIN_KEY` | `GameServer__Admin__Key` |
 | `DB_PASSWORD` | the Postgres password in `ConnectionStrings__Default` |
+| `AUTH_PROVIDERS` | `GameServer__Auth__Providers` |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | `GameServer__Auth__GooglePlay__*` |
 | `REALTIME_TRANSPORTS` | `GameServer__Realtime__Transports` |
 | `MATCH_TRANSPORTS` | `GameServer__Match__Transports` |

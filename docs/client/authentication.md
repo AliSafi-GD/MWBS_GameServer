@@ -15,7 +15,7 @@ With `Storage = new PlayerPrefsStorage()` the session is kept between runs.
 ## Other providers
 
 ```csharp
-var providers = await client.Auth.ProvidersAsync();                   // e.g. ["googleplay"]
+var providers = await client.Auth.ProvidersAsync();                   // e.g. ["device", "googleplay"]
 await client.Auth.LoginAsync("googleplay", new { serverAuthCode = code }, create: false);
 ```
 

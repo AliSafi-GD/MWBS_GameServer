@@ -5,7 +5,7 @@ A small, Nakama-style game backend in C#. One server instance per game; game log
 ```
 src/GameServer.Abstractions   interfaces modules compile against (version carefully, only add)
 src/GameServer.Core           module loader, auth (JWT), accounts/profiles, Postgres storage + migrations
-src/GameServer.Host           ASP.NET Core executable, admin panel (wwwroot/admin), Dockerfile
+src/GameServer.Host           ASP.NET Core executable: Program.cs (composition root), Endpoints/ (one file per API area), Middleware/, admin panel (wwwroot/admin), Dockerfile
 samples/HelloGame.Modules     example game module
 ```
 
@@ -128,7 +128,7 @@ recoverable on a new phone.
 | Endpoint | What it does |
 |---|---|
 | `POST /v1/auth/device` | guest login `{deviceId, username?, create?}` |
-| `GET /v1/auth/providers` | enabled providers, e.g. `["googleplay"]` |
+| `GET /v1/auth/providers` | login methods that are on, e.g. `["device","googleplay"]` |
 | `POST /v1/auth/{provider}/begin` | first step (phone: sends the code) `{credential:{phone}}` |
 | `POST /v1/auth/{provider}` | login `{credential, create?, username?}`; `create:false` = restore only (404 if unknown) |
 | `POST /v1/account/link/{provider}` | attach a login to the signed-in account (409 `identity_in_use`, `provider_already_linked`) |
@@ -136,6 +136,14 @@ recoverable on a new phone.
 
 Typical flow: game starts as guest (device) -> player taps "Save my progress" -> client gets a Play Games
 server auth code and calls `link/googleplay`. On a new phone: `POST /v1/auth/googleplay` with `create:false`.
+
+**Choosing the methods.** `GameServer__Auth__Providers` (`AUTH_PROVIDERS` in `.env`) is a comma separated list of the
+login methods this game offers: `device` (guest), `googleplay`, `phone`, or one a module adds. Examples: `device` (guest
+only), `device,googleplay`, `googleplay` (no guest login: `/v1/auth/device` answers 404 `unknown_provider`). Empty or not
+set = the old behavior (guest, plus googleplay when its credentials are set, plus phone when `Phone:Enabled`), so upgrading
+changes nothing. With a list, the server refuses to start if a listed method does not exist or is not configured; listing
+`phone` switches it on. In code: `AddGameServerCore(..., auth: a => a.Add<MyProvider>().Use("device", "mine"))`, or a
+module calls `init.RegisterIdentityProvider(...)`. See `docs/server/authentication.md`.
 
 **googleplay** (also used for the Bazaar and Myket builds): credential `{ "serverAuthCode": "..." }`.
 Create a "Web application" OAuth client in Google Cloud, link it in Play Console (Play Games Services),
@@ -148,7 +156,8 @@ Services can still use the guest login.
 5 attempts. SMS delivery is **not implemented**: in Development the code is printed in the server log; elsewhere
 `begin` answers 503 `sms_not_configured` until you register your own `ISmsSender` before `AddGameServerCore`.
 
-Login endpoints are rate limited per IP (20/min; admin API 600/min). Behind a reverse proxy, enable forwarded
+Provider login, refresh, logout, account link and `begin` are rate limited per IP (20/min; config and version check 120/min;
+admin API 600/min). Guest login (`/v1/auth/device`) has its own limit of 30/min per IP. Behind a reverse proxy, enable forwarded
 headers so the real client IP is counted.
 
 ## Sessions (refresh tokens)
@@ -375,7 +384,7 @@ matchmaking and matches (ws/UDP). See `sdk/unity/README.md`. `run-tests` also bu
 
 ## Automatic test run
 
-`run-tests.ps1` (Windows) or `run-tests.sh` builds the solution (also the SDK test and the Arena bots), starts Postgres with Docker, publishes the sample module, starts the server, runs `tests/GameServer.SmokeTest` (login, hooks, friends, clans, chat over websocket and tcp, parties, matchmaker and matches over websocket, shop, stats/achievements/quests/daily reward, live notification event, admin API, admin console (roles, audit, dashboard, storage, live-ops, modules), mute, rate limit, account deletion) and writes everything into `logs/REPORT.txt`.
+`run-tests.ps1` (Windows) or `run-tests.sh` builds the solution (also the SDK test and the Arena bots), runs the unit tests (`tests/GameServer.Core.Tests`, also alone with `dotnet test tests/GameServer.Core.Tests`), starts Postgres with Docker, publishes the sample module, starts the server, runs `tests/GameServer.SmokeTest` (login, hooks, friends, clans, chat over websocket and tcp, parties, matchmaker and matches over websocket, shop, stats/achievements/quests/daily reward, live notification event, admin API, admin console (roles, audit, dashboard, storage, live-ops, modules), mute, rate limit, account deletion) and writes everything into `logs/REPORT.txt`.
 
 ```
 powershell -ExecutionPolicy Bypass -File .\run-tests.ps1

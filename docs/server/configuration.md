@@ -25,6 +25,7 @@ This page is about the first kind. For the second see [Remote config](./remote-c
 | `GameServer:Jwt:RefreshDays` | `30` | Lifetime of the refresh token |
 | `GameServer:Admin:Key` | empty | Admin key (min 24 characters). Empty disables the panel and API |
 | `GameServer:Realtime:Transports` | `websocket` | `websocket`, `tcp` or both |
+| `GameServer:Auth:Providers` | empty | Login methods: `device`, `googleplay`, `phone` or a module's. Empty = guest plus every configured one. See [Authentication](./authentication) |
 | `GameServer:Match:Transports` | `websocket` | `websocket`, `udp` or both. The first is the default |
 | `GameServer:Chat:PersistRooms` | `false` | Store room messages. Direct and clan messages are always stored |
 | `GameServer:Chat:RetentionDays` | `30` | How long chat history is kept |

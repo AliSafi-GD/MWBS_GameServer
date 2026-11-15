@@ -6,7 +6,8 @@ Games define their own currency and item names (lowercase, e.g. `coins`, `card_f
 - a transaction is **all-or-nothing**
 - every change is saved in the `ledger` (reason, amount, balance after)
 
-**Only server code changes balances.** Clients can read them: `GET /v1/wallet`, `GET /v1/inventory`.
+**Only server code changes balances.** Clients can read them: `GET /v1/wallet` answers `{ "wallet": { "coins": 500 } }`
+and `GET /v1/inventory` answers `{ "items": { "card_fire": 2 } }`.
 
 ## Transactions in a module
 
@@ -51,4 +52,6 @@ Inventory counts stackable items per id. Per-item data (level, upgrades) belongs
 ## Admin
 
 User detail in the panel shows balances, an adjust form (a reason is required) and the history.
-API: `GET/POST /admin/api/users/{id}/economy`, `GET /admin/api/users/{id}/ledger`. The privacy export includes balances.
+API: `GET /admin/api/users/{id}/economy`, `POST /admin/api/users/{id}/economy`
+`{ wallet: { coins: 100 }, items: { card_fire: -1 }, reason }` (negative numbers take away, 409 if a balance would go below 0),
+`GET /admin/api/users/{id}/ledger?limit=50&before=<id>` (newest first). The privacy export includes balances.

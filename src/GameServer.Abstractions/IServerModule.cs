@@ -33,6 +33,15 @@ public interface IModuleInitializer
     /// "handler" (default: the mode name) equals <paramref name="name"/>.
     /// </summary>
     void RegisterMatchHandler(string name, Func<MatchHandler> factory);
+
+    /// <summary>
+    /// Adds a login method (Apple, email, a store-specific SDK...) to <c>POST /v1/auth/{name}</c>. Like the built-in
+    /// ones it is only switched on when <c>GameServer:Auth:Providers</c> lists its name (or, when that setting is
+    /// empty, when <see cref="IIdentityProvider.Enabled"/> is true). A duplicate name stops the server at startup.
+    /// The default body keeps older hosts and test fakes compiling; the real host overrides it.
+    /// </summary>
+    void RegisterIdentityProvider(IIdentityProvider provider) =>
+        throw new NotSupportedException("This host does not support identity providers from modules.");
 }
 
 public delegate Task<string> RpcHandler(RpcContext ctx, string payload);

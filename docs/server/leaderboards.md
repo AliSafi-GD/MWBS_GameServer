@@ -36,14 +36,15 @@ Always validate the score in your module first. The sample RPC `submit_score` sh
 | Call | What |
 |---|---|
 | `GET /v1/leaderboards/{id}?limit=50&around=0&period=current` | Top entries plus `me`. `around=N` shows N above and below me |
-| `GET /v1/tournaments` | Running tournaments |
-| `GET /v1/tournaments/{id}` | Info and standings |
-| `POST /v1/tournaments/{id}/join` | Pays the entry fee once |
+| `GET /v1/tournaments` | Upcoming, active and recently ended tournaments (`status`), with whether I joined and claimed |
+| `GET /v1/tournaments/{id}?limit=50&around=0` | `{ tournament, board }`: info and standings |
+| `POST /v1/tournaments/{id}/join` | Pays the entry fee once. 409 `insufficient_funds` / `tournament_not_active` |
 | `POST /v1/tournaments/{id}/claim` | After the end: the reward for the final rank, once. Needs a score |
 
 Tournament rewards are claimed by the player (no background job), so unclaimed rewards simply stay claimable.
+Errors are listed in [Error codes](../reference/error-codes).
 
 ## Admin
 
-**Leaderboards** tab: view a board and remove a cheater. `GET /admin/api/leaderboards/{id}` (use `tournament:<id>` for
-tournaments). The **Live-Ops** tab has a tournament editor (extend by 7 days, standings, delete).
+**Leaderboards** tab: view a board and remove a cheater. `GET /admin/api/leaderboards/{id}?period=&limit=` (use
+`tournament:<id>` for tournaments), `DELETE /admin/api/leaderboards/{id}/scores/{userId}` (all periods of that player). The **Live-Ops** tab has a tournament editor (extend by 7 days, standings, delete).
