@@ -1,7 +1,7 @@
 # Project notes (state of the work, for picking it up on another machine)
 
 Read `README.md` for the server and `sdk/unity/AGENTS.md` for the rules of the Unity client. This file is only the
-current state and what is left. The architecture cleanup roadmap (server and SDK first) is in `CLEANUP.md`.
+current state and what is left. The architecture cleanup roadmap (server and SDK first) is in `CLEANUP.md`; `WORKLOG.md` is the log of what was done, what is not tested yet and what comes next.
 
 ## Layout
 
