@@ -1191,6 +1191,7 @@ function renderConfig(container) {
   const list = h('section', { class: 'card' },
     h('div', { class: 'row', style: 'margin-top:0' },
       h('button', { class: 'primary', onclick: () => startEdit(null) }, 'New key'),
+      h('button', { title: 'One <key>.json per key, to put into the config folder of the game module', onclick: exportFiles }, 'Export as files (zip)'),
       h('button', { onclick: () => startEdit({ key: 'app_version', value: {
         default: { latest: '1.0.0', minimum: '1.0.0', url: '' },
         bazaar: { latest: '1.0.0', minimum: '1.0.0', url: '' },
@@ -1228,6 +1229,17 @@ function renderConfig(container) {
     leaderboards: 'sort: desc|asc. operator: best|set|incr. reset: never|daily|weekly|monthly (UTC).',
     tournaments: 'start/end are UTC dates. entryFee is paid in currencies. rewards: tiers of fromRank..toRank with wallet and/or items.'
   };
+
+  async function exportFiles() {
+    try {
+      const res = await fetch('/admin/api/config/export', { headers: { 'X-Admin-Key': adminKey } });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || res.statusText);
+      const url = URL.createObjectURL(await res.blob());
+      const a = h('a', { href: url, download: 'game-config.zip' });
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (ex) { handleError(ex); }
+  }
 
   async function load() {
     try {

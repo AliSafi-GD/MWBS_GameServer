@@ -17,6 +17,8 @@ docker --version
 git --version
 ```
 
+For a real server (VPS, Windows, Linux) the requirements are on the [Install the server](../install/) pages.
+
 ## For the Unity client
 
 | Tool | Version |

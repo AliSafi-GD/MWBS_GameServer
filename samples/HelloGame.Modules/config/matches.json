@@ -1,0 +1,30 @@
+{
+  "public": false,
+  "value": {
+    "modes": {
+      "arena": {
+        "handler": "arena",
+        "transport": "udp",
+        "minPlayers": 2,
+        "maxPlayers": 2,
+        "tickRate": 20,
+        "matchmaking": true,
+        "fillSeconds": 3,
+        "ticketTimeoutSeconds": 120,
+        "joinTimeoutSeconds": 30,
+        "emptyTimeoutSeconds": 20
+      },
+      "arena_friendly": {
+        "handler": "arena",
+        "transport": "udp",
+        "minPlayers": 2,
+        "maxPlayers": 2,
+        "tickRate": 20,
+        "matchmaking": false,
+        "allowClientCreate": true,
+        "joinTimeoutSeconds": 120,
+        "emptyTimeoutSeconds": 30
+      }
+    }
+  }
+}

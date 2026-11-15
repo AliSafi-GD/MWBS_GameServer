@@ -12,9 +12,11 @@ Both talk to the same server logic: `samples/HelloGame.Modules/Arena/ArenaMatch.
 ## Set up
 
 1. Run the server ([Run the server](../getting-started/run-the-server)), with the module published.
-2. Open <http://localhost:5000/arena/>, and on the login page press **Write game config** once (needs the admin key).
-   It reads `src/GameServer.Host/wwwroot/arena/arena-config.json` and saves the match modes (`arena`, `arena_friendly`), shop,
-   quests, achievements, leaderboards and a tournament **into the database**.
+2. The game config comes with the module: `samples/HelloGame.Modules/config/*.json`, one file per key. When the server starts it
+   writes the match modes (`arena`, `arena_friendly`), shop, quests, achievements, leaderboards and a tournament into the
+   database if they are not there yet, so there is no setup button. To push a change from a file, publish the module again and start
+   the server with `GameServer__GameConfig__Mode=sync`; see [Game config files](../server/game-config).
+   Open <http://localhost:5000/arena/> to try the browser version.
 3. Open `samples/unity-client` with Unity **6000.6.0f1** and press Play in the Boot scene. The gear icon sets the server address.
 
 ## What the Unity client contains

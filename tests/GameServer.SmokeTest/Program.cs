@@ -99,6 +99,21 @@ Rt? ra = null, rb = null, rc = null;
 string groupId = "", partyId = "";
 var transports = new List<string>();
 
+// The sections below overwrite some game config keys with their own values. Remember what the server had (it seeds the
+// game's config files at startup) and put it back at the end, so the next run of the arena bots finds the game's config.
+var touchedKeys = new[] { "matches", "shop", "achievements", "quests", "daily_rewards" };
+var configBefore = new Dictionary<string, (string Value, bool Public)>();
+{
+    var before = await Call("GET", "/admin/api/config", admin: true);
+    if (before.Json is { } list && list.TryGetProperty("items", out var items))
+        foreach (var item in items.EnumerateArray())
+        {
+            var key = item.GetProperty("key").GetString()!;
+            if (touchedKeys.Contains(key))
+                configBefore[key] = (item.GetProperty("value").GetRawText(), item.GetProperty("isPublic").GetBoolean());
+        }
+}
+
 await Section("server is up", async () =>
 {
     var h = await Call("GET", "/healthz");
@@ -853,6 +868,20 @@ await Section("cleanup (deleting accounts runs account.delete + group cleanup)",
     await Task.Delay(300);
     Check("A's websocket closed after account deletion", ra!.Closed);
     foreach (var r in new[] { ra, rb, rc }) if (r is not null) await r.Close();
+});
+
+await Section("restore the game config the server had", async () =>
+{
+    foreach (var key in touchedKeys)
+    {
+        if (configBefore.TryGetValue(key, out var old))
+        {
+            var put = await Call("PUT", "/admin/api/config/" + key, new { value = JsonDocument.Parse(old.Value).RootElement, @public = old.Public }, admin: true);
+            Check($"config '{key}' restored", put.Status == 200, put.Body);
+        }
+        else
+            await Call("DELETE", "/admin/api/config/" + key, admin: true); // the server had no such key
+    }
 });
 
 Log("");

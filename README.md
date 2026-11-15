@@ -5,7 +5,7 @@ A small, Nakama-style game backend in C#. One server instance per game; game log
 ```
 src/GameServer.Abstractions   interfaces modules compile against (version carefully, only add)
 src/GameServer.Core           module loader, auth (JWT), accounts/profiles, Postgres storage + migrations
-src/GameServer.Host           ASP.NET Core executable, admin panel (wwwroot/admin), Dockerfile
+src/GameServer.Host           ASP.NET Core executable: Program.cs (composition root), Endpoints/ (one file per API area), Middleware/, admin panel (wwwroot/admin), Dockerfile
 samples/HelloGame.Modules     example game module
 ```
 
@@ -97,8 +97,10 @@ curl -X POST http://localhost:5000/v1/rpc/claim_daily_reward -H "Authorization: 
 ```bash
 cp .env.example .env        # then edit JWT_SECRET, ADMIN_KEY and DB_PASSWORD
 dotnet publish samples/HelloGame.Modules -c Release -o modules/HelloGame.Modules
-docker compose up --build   # server on http://localhost:7350, panel on /admin
+docker compose up -d --build   # server on http://localhost:7350, panel on /admin
 ```
+
+Full install guides (Docker Compose, Ubuntu with systemd, Windows Service, a VPS with HTTPS): [docs/install](docs/install/index.md).
 
 Outside Development the server refuses to start without `GameServer__Jwt__Secret` (min 32 bytes)
 and `ConnectionStrings__Default`.
@@ -128,7 +130,7 @@ recoverable on a new phone.
 | Endpoint | What it does |
 |---|---|
 | `POST /v1/auth/device` | guest login `{deviceId, username?, create?}` |
-| `GET /v1/auth/providers` | enabled providers, e.g. `["googleplay"]` |
+| `GET /v1/auth/providers` | login methods that are on, e.g. `["device","googleplay"]` |
 | `POST /v1/auth/{provider}/begin` | first step (phone: sends the code) `{credential:{phone}}` |
 | `POST /v1/auth/{provider}` | login `{credential, create?, username?}`; `create:false` = restore only (404 if unknown) |
 | `POST /v1/account/link/{provider}` | attach a login to the signed-in account (409 `identity_in_use`, `provider_already_linked`) |
@@ -136,6 +138,14 @@ recoverable on a new phone.
 
 Typical flow: game starts as guest (device) -> player taps "Save my progress" -> client gets a Play Games
 server auth code and calls `link/googleplay`. On a new phone: `POST /v1/auth/googleplay` with `create:false`.
+
+**Choosing the methods.** `GameServer__Auth__Providers` (`AUTH_PROVIDERS` in `.env`) is a comma separated list of the
+login methods this game offers: `device` (guest), `googleplay`, `phone`, or one a module adds. Examples: `device` (guest
+only), `device,googleplay`, `googleplay` (no guest login: `/v1/auth/device` answers 404 `unknown_provider`). Empty or not
+set = the old behavior (guest, plus googleplay when its credentials are set, plus phone when `Phone:Enabled`), so upgrading
+changes nothing. With a list, the server refuses to start if a listed method does not exist or is not configured; listing
+`phone` switches it on. In code: `AddGameServerCore(..., auth: a => a.Add<MyProvider>().Use("device", "mine"))`, or a
+module calls `init.RegisterIdentityProvider(...)`. See `docs/server/authentication.md`.
 
 **googleplay** (also used for the Bazaar and Myket builds): credential `{ "serverAuthCode": "..." }`.
 Create a "Web application" OAuth client in Google Cloud, link it in Play Console (Play Games Services),
@@ -148,7 +158,8 @@ Services can still use the guest login.
 5 attempts. SMS delivery is **not implemented**: in Development the code is printed in the server log; elsewhere
 `begin` answers 503 `sms_not_configured` until you register your own `ISmsSender` before `AddGameServerCore`.
 
-Login endpoints are rate limited per IP (20/min; admin API 600/min). Behind a reverse proxy, enable forwarded
+Provider login, refresh, logout, account link and `begin` are rate limited per IP (20/min; config and version check 120/min;
+admin API 600/min). Guest login (`/v1/auth/device`) has its own limit of 30/min per IP. Behind a reverse proxy, enable forwarded
 headers so the real client IP is counted.
 
 ## Sessions (refresh tokens)
@@ -161,12 +172,30 @@ stolen token is detected the next time either side uses it. Then log in again (g
 Tune with `GameServer__Jwt__ExpiryMinutes` and `GameServer__Jwt__RefreshDays`. Banned accounts cannot refresh.
 If a refresh response is lost on a bad connection, the client has already burned its token and must log in again.
 
+## Game config files
+
+A game's config (keys `matches`, `leaderboards`, `tournaments`, `shop`, `achievements`, `quests`, `daily_rewards`, `economy`, `social`,
+`app_version`, `maintenance`) ships with its module as `modules/<Name>/config/<key>.json`, each file
+`{ "public": false, "value": { ... } }`. Add `<None Include="config\*.json" CopyToPublishDirectory="PreserveNewest" LinkBase="config" />` to the
+module project so `dotnet publish` copies them. Optional extra folder: `GameServer:GameConfig:Path`. The same key in two places stops
+the server at startup.
+- At startup (after the modules load, before the database migrations) every file is read and validated with the same parsers the
+  services use; a mistake stops the server with the file path and the reason.
+- Then, after the migrations, the files are written into the database by `GameServer:GameConfig:Mode` (env `GAME_CONFIG_MODE` in
+  Compose): `seed` (default) writes only missing keys, `sync` makes the files win (old values go to the key's history, actor
+  `config-files`; keys without a file are never deleted), `off` ignores the files.
+- `GET /admin/api/config/export` (button **Export as files (zip)** in the Config tab) returns the database config in this format,
+  to move an existing server to files.
+- Relative `GameServer:ModulesPath` / `GameServer:GameConfig:Path` are resolved from the host's content root, not the working directory.
+
+Full guide: `docs/server/game-config.md`.
+
 ## Remote config, version check, maintenance
 
 Edit in the admin panel (Config tab) or `PUT /admin/api/config/{key}` with `{ "value": <any JSON>, "public": bool }`.
 - `GET /v1/config` (no login): all **public** keys as `{ "config": { key: value } }`, with ETag/`If-None-Match` (304).
   Non-public keys never leave the server; modules read any key with `ctx.Config.GetAsync<T>("key")`
-  (camelCase, case-insensitive, cached ~5 s).
+  (camelCase, case-insensitive, cached ~5 s; every write drops the cache on this instance).
 - `app_version`: `{ "default": {"latest","minimum","url"}, "bazaar": {...}, "googleplay": {...} }`.
   `GET /v1/version-check?store=bazaar&version=1.2.0` -> `{ status: ok | update_available | update_required, latest, minimum, url }`.
   Unknown store falls back to `default`; without any rule the answer is `ok`.
@@ -347,8 +376,9 @@ Open <http://localhost:5000/arena/> (second player: `/arena/?p=2` in another tab
 login, wallet, shop (tank skins), daily reward, quests, achievements, leaderboards, a tournament, friends, clans, chat,
 parties, the matchmaker and a server-side match.
 
-1. On the login page press **Write game config** once (needs the admin key). It reads `wwwroot/arena/arena-config.json`
-   and saves the match modes (`arena`, `arena_friendly`), shop, quests, achievements, leaderboards and the tournament.
+1. The game config is not set up by hand: it ships in `samples/HelloGame.Modules/config/*.json` and the server writes the match
+   modes (`arena`, `arena_friendly`), shop, quests, achievements, leaderboards and the tournament into the database at startup
+   when they are missing (see "Game config files" below).
 2. Press **Play**, then **Find match** in two tabs (or use a private match code).
 
 The game rules run on the server: `samples/HelloGame.Modules/Arena/ArenaMatch.cs` is a `MatchHandler` that moves tanks and
@@ -375,7 +405,7 @@ matchmaking and matches (ws/UDP). See `sdk/unity/README.md`. `run-tests` also bu
 
 ## Automatic test run
 
-`run-tests.ps1` (Windows) or `run-tests.sh` builds the solution (also the SDK test and the Arena bots), starts Postgres with Docker, publishes the sample module, starts the server, runs `tests/GameServer.SmokeTest` (login, hooks, friends, clans, chat over websocket and tcp, parties, matchmaker and matches over websocket, shop, stats/achievements/quests/daily reward, live notification event, admin API, admin console (roles, audit, dashboard, storage, live-ops, modules), mute, rate limit, account deletion) and writes everything into `logs/REPORT.txt`.
+`run-tests.ps1` (Windows) or `run-tests.sh` builds the solution (also the SDK test and the Arena bots), runs the unit tests (`tests/GameServer.Core.Tests`, also alone with `dotnet test tests/GameServer.Core.Tests`), starts Postgres with Docker, publishes the sample module, starts the server, runs `tests/GameServer.SmokeTest` (login, hooks, friends, clans, chat over websocket and tcp, parties, matchmaker and matches over websocket, shop, stats/achievements/quests/daily reward, live notification event, admin API, admin console (roles, audit, dashboard, storage, live-ops, modules), mute, rate limit, account deletion) and writes everything into `logs/REPORT.txt`.
 
 ```
 powershell -ExecutionPolicy Bypass -File .\run-tests.ps1

@@ -1,8 +1,8 @@
 # Admin API
 
 Base path `/admin/api`. Every call needs the header `X-Admin-Key: <key>` (the key from settings is the `root` admin, or a
-`gsk_...` key of an admin you created). The API is off when `GameServer__Admin__Key` is empty. Admin calls are limited to
-600 per minute per IP.
+`gsk_...` key of an admin you created). The API is off when `GameServer__Admin__Key` is empty (`404 admin_disabled`); a
+wrong key is `403 forbidden`. Admin calls are limited to 600 per minute per IP. Every write is recorded in the audit log.
 
 ```bash
 curl http://localhost:5000/admin/api/dashboard -H "X-Admin-Key: $ADMIN_KEY"
@@ -14,8 +14,10 @@ curl http://localhost:5000/admin/api/dashboard -H "X-Admin-Key: $ADMIN_KEY"
 
 ## Users
 
-- `GET /users?q=`, `GET/PUT/DELETE /users/{id}`, ban and unban, privacy export
-- `GET/POST /users/{id}/economy`, `GET /users/{id}/ledger`
+- `GET /me` (the calling admin)
+- `GET /users?q=&limit=&offset=`, `GET/PUT/DELETE /users/{id}`, `POST /users/{id}/ban`, `POST /users/{id}/unban`,
+  `GET /users/{id}/export` (privacy export)
+- `GET/POST /users/{id}/economy`, `GET /users/{id}/ledger?limit=&before=`
 - `GET/PUT/DELETE /users/{id}/storage[/{key}]`
 - `GET /users/{id}/timeline`, `/progress`, `/shop`, `/friends`, `/groups`, `/notifications`
 - `POST /users/{id}/stats` `{stat, value, mode: add|max}`
@@ -24,12 +26,14 @@ curl http://localhost:5000/admin/api/dashboard -H "X-Admin-Key: $ADMIN_KEY"
 
 ## Config
 
-- `GET /config`, `PUT /config/{key}` `{value, public}`
+- `GET /config`, `PUT /config/{key}` `{value, public}`, `DELETE /config/{key}`
+- `GET /config/export` zip of every key as `<key>.json` files in the [game config file format](../server/game-config)
 - `GET /config/{key}/history`, `POST /config/{key}/rollback/{historyId}`
 
 ## Game data
 
-- `GET /shop`, `GET /progress`, `GET /leaderboards/{id}` (`tournament:<id>`)
+- `GET /shop`, `GET /progress`, `GET /leaderboards/{id}?period=&limit=` (`tournament:<id>`),
+  `DELETE /leaderboards/{id}/scores/{userId}`
 - `GET /groups?q=&type=`, `GET/PUT/DELETE /groups/{id}`, `POST /groups/{id}/members/{userId}/kick|ban`, `POST /groups/{id}/transfer/{userId}`
 - `DELETE /users/{id}/friends/{otherId}`
 
@@ -51,7 +55,7 @@ curl http://localhost:5000/admin/api/dashboard -H "X-Admin-Key: $ADMIN_KEY"
 
 ## Admins and audit (Admin role)
 
-- `GET/POST /admins`, `POST /admins/{id}/reset-key`
+- `GET/POST /admins`, `PUT/DELETE /admins/{id}`, `POST /admins/{id}/reset-key`
 - `GET /audit?actor=&q=&before=&limit=`
 
 Roles: **Admin** (everything), **Support** (read; ban, mute, disconnect, message, moderate chat and groups), **ReadOnly**.

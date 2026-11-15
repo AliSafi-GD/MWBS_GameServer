@@ -1,7 +1,7 @@
 # Project notes (state of the work, for picking it up on another machine)
 
 Read `README.md` for the server and `sdk/unity/AGENTS.md` for the rules of the Unity client. This file is only the
-current state and what is left.
+current state and what is left. The architecture cleanup roadmap (server and SDK first) is in `CLEANUP.md`; `WORKLOG.md` is the log of what was done, what is not tested yet and what comes next.
 
 ## Layout
 
@@ -18,9 +18,10 @@ current state and what is left.
    container on another port and pass it to the host:
    `docker run -d --name mwbs-pg -e POSTGRES_DB=game -e POSTGRES_USER=game -e POSTGRES_PASSWORD=change-me -p 127.0.0.1:5433:5432 -v mwbs_pgdata:/var/lib/postgresql/data postgres:17`,
    then start the host with `ConnectionStrings__Default="Host=localhost;Port=5433;Database=game;Username=game;Password=change-me"`.
-2. `dotnet publish samples/HelloGame.Modules -c Release -o modules/HelloGame.Modules` (`modules/` is not in git).
-3. Run the host, open `/arena/` once and press "Write game config" (shop, quests, match modes live in the DB, not in git).
-4. Open `samples/unity-client` with Unity 6000.6.0f1. In Boot, the gear (bottom right) sets the server address.
+2. `dotnet publish samples/HelloGame.Modules -c Release -o modules/HelloGame.Modules` (`modules/` is not in git). The module's
+   `config/*.json` (shop, quests, match modes...) is copied along; the host writes missing keys into the DB at startup
+   (`GameServer:GameConfig:Mode`: `seed` default, `sync`, `off`; see `docs/server/game-config.md`). Publish again after editing a file.
+3. Open `samples/unity-client` with Unity 6000.6.0f1. In Boot, the gear (bottom right) sets the server address.
 
 ## What works (all verified with screenshots and bots, not on a real phone)
 
@@ -29,15 +30,15 @@ current state and what is left.
   Ranking. Profile (avatar, name, username, delete account) opens from the top-left avatar.
 - Arena: matchmaker, private rooms, 2D match, skins, touch sticks, reconnect (written, not tested).
 - Matches run on UDP (LiteNetLib 1.3.5), not WebSocket: `GameServer:Match:Transports` is `websocket,udp`, both arena modes say
-  `"transport": "udp"` in `arena-config.json`, the client has `Assets/Plugins/LiteNetLib.dll` + the define
+  `"transport": "udp"` in `samples/HelloGame.Modules/config/matches.json`, the client has `Assets/Plugins/LiteNetLib.dll` + the define
   `GAMESERVER_LITENETLIB` and calls `UseLiteNetLib()` in `Core/MatchNet.cs`. Input goes out `Sequenced`, snapshots come in
   `Sequenced`. Chat / matchmaker / notifications stay on the realtime WebSocket (they need reliable, ordered delivery).
   Aim: Settings (and a button above the fire button) switch AUTO AIM (`GameSettings.AutoAim`, default on: the gun follows the
   enemy, the button only shoots) and manual (drag on the fire button while shooting to turn the gun; `FirePad`). SHOW PING puts
   "UDP 32 ms" under the timer (`MatchConnection.RoundTripMs`, UDP only; WebSocket shows "-- ms").
   A join token works on any enabled transport, so the web page (`/arena/`) and the console bots still play the same
-  modes over WebSocket, even against a UDP player. After pulling this: restart the server and press "Write game config"
-  on `/arena/` again (the modes live in the DB).
+  modes over WebSocket, even against a UDP player. The modes live in the DB: with `GameConfig:Mode` = `seed`
+  a DB that already has the `matches` key keeps its old (websocket) modes, so change them in the admin panel or reset the DB.
 - Arena look (`Arena/ArenaScreen.cs`): world parts are `Box` (9-sliced `Art.RoundedWorld`, keeps round corners at any size)
   and `Block`; effects (muzzle flash, hit, explosion) are short-lived `Fx` pieces made by `AddFx`. A bullet that was not on
   the list last frame counts as "just fired" (flash + gun recoil), since the server sends no fire event. The HUD canvas has

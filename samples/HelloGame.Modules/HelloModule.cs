@@ -18,6 +18,11 @@ public sealed class HelloModule : IServerModule
         // Mode "echo": define it in the "matches" config (see README) with "handler": "echo".
         init.RegisterMatchHandler("echo", () => new EchoMatch());
 
+        // ---- login example (not enabled here) ----
+        // A module can bring its own login method. Implement IIdentityProvider (Name, Enabled, VerifyAsync), register it,
+        // and list its name in GameServer:Auth:Providers (e.g. "device,mylogin"). See docs/server/authentication.md.
+        //   init.RegisterIdentityProvider(new MyLoginProvider());
+
         // ---- hook examples ----
         // After a login: a one-time welcome gift. The idempotency key makes it safe to run on every login.
         init.RegisterAfter(HookOps.AuthLogin, async (ctx, request, response) =>

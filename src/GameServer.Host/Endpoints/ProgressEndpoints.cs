@@ -6,33 +6,31 @@ namespace GameServer.Host.Endpoints;
 /// <summary>Stats, achievements, quests and the daily reward.</summary>
 public static class ProgressEndpoints
 {
-    private static string Me(HttpContext http) => http.User.FindFirst("sub")!.Value;
-
     public static IEndpointRouteBuilder MapProgress(this IEndpointRouteBuilder app)
     {
         var g = app.MapGroup("/v1").RequireAuthorization();
 
         // GET /v1/stats : my lifetime stats
         g.MapGet("/stats", async (HttpContext http, IProgress progress, CancellationToken ct) =>
-            Results.Ok(new { stats = await progress.GetStatsAsync(Me(http), ct) }));
+            Results.Ok(new { stats = await progress.GetStatsAsync(http.UserId(), ct) }));
 
         // GET /v1/achievements : progress of each; POST .../{id}/claim takes the reward once
         g.MapGet("/achievements", async (HttpContext http, ProgressService progress, CancellationToken ct) =>
-            Results.Ok(new { achievements = await progress.ListAsync(GoalCatalog.Achievement, Me(http), ct) }));
+            Results.Ok(new { achievements = await progress.ListAsync(GoalCatalog.Achievement, http.UserId(), ct) }));
         g.MapPost("/achievements/{id}/claim", async (string id, HttpContext http, ProgressService progress, CancellationToken ct) =>
-            Results.Ok(new { claim = await progress.ClaimAsync(GoalCatalog.Achievement, Me(http), id, ct) }));
+            Results.Ok(new { claim = await progress.ClaimAsync(GoalCatalog.Achievement, http.UserId(), id, ct) }));
 
         // GET /v1/quests : day/week/month goals that reset; POST .../{id}/claim
         g.MapGet("/quests", async (HttpContext http, ProgressService progress, CancellationToken ct) =>
-            Results.Ok(new { quests = await progress.ListAsync(GoalCatalog.Quest, Me(http), ct) }));
+            Results.Ok(new { quests = await progress.ListAsync(GoalCatalog.Quest, http.UserId(), ct) }));
         g.MapPost("/quests/{id}/claim", async (string id, HttpContext http, ProgressService progress, CancellationToken ct) =>
-            Results.Ok(new { claim = await progress.ClaimAsync(GoalCatalog.Quest, Me(http), id, ct) }));
+            Results.Ok(new { claim = await progress.ClaimAsync(GoalCatalog.Quest, http.UserId(), id, ct) }));
 
         // GET /v1/daily : streak and what the next claim gives; POST /v1/daily/claim
         g.MapGet("/daily", async (HttpContext http, DailyRewardService daily, CancellationToken ct) =>
-            Results.Ok(new { daily = await daily.GetAsync(Me(http), ct) }));
+            Results.Ok(new { daily = await daily.GetAsync(http.UserId(), ct) }));
         g.MapPost("/daily/claim", async (HttpContext http, DailyRewardService daily, CancellationToken ct) =>
-            Results.Ok(new { claim = await daily.ClaimAsync(Me(http), ct) }));
+            Results.Ok(new { claim = await daily.ClaimAsync(http.UserId(), ct) }));
 
         return app;
     }

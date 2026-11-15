@@ -6,7 +6,7 @@ You have two ways to start. Pick one.
 
 `samples/unity-client` is the **Tank Arena** project (Unity 6000.6.0f1). It already references the SDK.
 
-1. Make sure the server runs and you pressed **Write game config** on <http://localhost:5000/arena/> once.
+1. Make sure the server runs with the sample module published (the server loads its game config from the module's `config/` folder at startup, see [Game config files](../server/game-config)).
 2. Open `samples/unity-client` in Unity Hub.
 3. Open the **Boot** scene and press Play. The gear icon (bottom right) sets the server address.
 

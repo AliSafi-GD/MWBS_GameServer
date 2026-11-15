@@ -8,7 +8,8 @@ public delegate Task<string> RpcHandler(RpcContext ctx, string payload);
 ```
 
 You get the player in `ctx.UserId` and the request body as a string, and you return a string (usually JSON).
-Clients call it as `POST /v1/rpc/{id}` with a Bearer token.
+Clients call it as `POST /v1/rpc/{id}` with a Bearer token. The answer is your string with content type
+`application/json`; an id that no module registered is `404 rpc_not_found`.
 
 ## Example: an atomic purchase
 

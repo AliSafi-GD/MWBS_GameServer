@@ -16,18 +16,20 @@ Rewards are checked against the [economy catalog](./economy) when sent, so an un
 
 From the admin panel (user detail): send to one player or to everyone. API:
 `POST /admin/api/users/{id}/notifications`, `POST /admin/api/notifications/broadcast`,
-`GET /admin/api/users/{id}/notifications`. Scheduled sends are in **Live-Ops**.
+`GET /admin/api/users/{id}/notifications` (includes expired ones). The body is
+`{ subject, body, reward?, expiresInDays? }`. Scheduled sends are in **Live-Ops**.
 
 ## Reading (client)
 
 | Call | What |
 |---|---|
-| `GET /v1/notifications?unread=true` | List the inbox |
-| `POST /v1/notifications/{id}/read` | Mark read |
-| `POST /v1/notifications/{id}/claim` | Claim the reward |
-| `DELETE /v1/notifications/{id}` | Delete (an unclaimed reward must be claimed first) |
+| `GET /v1/notifications?limit=50&unread=true` | List the inbox |
+| `POST /v1/notifications/{id}/read` | Mark read (204, or 404 `not_found`) |
+| `POST /v1/notifications/{id}/claim` | Claim the reward. Answers `{ reward, wallet, items }` with the new balances |
+| `DELETE /v1/notifications/{id}` | Delete (204). An unclaimed reward must be claimed first: 409 `reward_unclaimed` |
 
-Expired messages are hidden and cannot be claimed.
+Expired messages are hidden and cannot be claimed (409 `expired`). Claiming twice is 409 `already_claimed`; a message
+without a reward is 409 `no_reward`.
 
 ## Live event
 

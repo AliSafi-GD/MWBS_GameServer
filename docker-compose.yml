@@ -3,6 +3,7 @@
 services:
   server:
     build: .
+    restart: unless-stopped
     ports:
       - "7350:8080"
       - "7351:7351"   # only used when REALTIME_TRANSPORTS includes "tcp"
@@ -13,6 +14,12 @@ services:
       GameServer__Jwt__Secret: "${JWT_SECRET:?set JWT_SECRET in .env (at least 32 characters)}"
       # Optional: leave ADMIN_KEY empty to disable the admin API and panel.
       GameServer__Admin__Key: "${ADMIN_KEY:-}"
+      # Which login methods are on, comma separated: "device" (guest), "googleplay", "phone", or one a module adds.
+      # Empty = device plus every method that is configured (the behavior before this setting existed).
+      GameServer__Auth__Providers: "${AUTH_PROVIDERS:-}"
+      # How the game's config files (modules/<Name>/config/*.json) are applied at startup: empty or "seed" = write only
+      # the keys that are missing in the database, "sync" = files win on every restart, "off" = ignore the files.
+      GameServer__GameConfig__Mode: "${GAME_CONFIG_MODE:-}"
       # Google Play Games login (also used for Bazaar/Myket builds). Leave empty to disable it.
       GameServer__Auth__GooglePlay__ClientId: "${GOOGLE_CLIENT_ID:-}"
       GameServer__Auth__GooglePlay__ClientSecret: "${GOOGLE_CLIENT_SECRET:-}"
@@ -20,6 +27,9 @@ services:
       GameServer__Realtime__Transports: "${REALTIME_TRANSPORTS:-websocket}"
       # Match/matchmaker protocols: "websocket", "udp" or "websocket,udp". Each mode picks one in the "matches" config.
       GameServer__Match__Transports: "${MATCH_TRANSPORTS:-websocket,udp}"
+      # Set to true ONLY behind a reverse proxy that is the only way to reach this server (see the docs). It makes
+      # the server use the real player IP from X-Forwarded-For instead of the proxy's.
+      GameServer__ForwardedHeaders__Enabled: "${FORWARDED_HEADERS:-false}"
       ConnectionStrings__Default: "Host=postgres;Database=game;Username=game;Password=${DB_PASSWORD:?set DB_PASSWORD in .env}"
     depends_on:
       postgres:
@@ -27,6 +37,7 @@ services:
 
   postgres:
     image: postgres:17
+    restart: unless-stopped
     ports:
       - "127.0.0.1:5432:5432"   # local access for development (e.g. `dotnet run` on your machine)
     environment:

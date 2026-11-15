@@ -1,7 +1,7 @@
 namespace Game.Core
 {
     /// <summary>
-    /// Ids of the content this game defines on the server (see wwwroot/arena/arena-config.json). Currencies, shop products,
+    /// Ids of the content this game defines on the server (see samples/HelloGame.Modules/config/). Currencies, shop products,
     /// quests and achievements are read from the server and never named here.
     /// </summary>
     public static class GameIds

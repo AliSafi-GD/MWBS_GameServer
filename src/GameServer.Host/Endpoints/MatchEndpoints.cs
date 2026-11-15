@@ -5,8 +5,6 @@ namespace GameServer.Host.Endpoints;
 /// <summary>Matchmaker and matches over HTTP. The same actions exist on the realtime socket; both run the same hooks.</summary>
 public static class MatchEndpoints
 {
-    private static string Me(HttpContext http) => http.User.FindFirst("sub")!.Value;
-
     public static IEndpointRouteBuilder MapMatches(this IEndpointRouteBuilder app)
     {
         // GET /v1/match/modes : modes and transports (so a client knows which protocol each mode uses)
@@ -17,17 +15,17 @@ public static class MatchEndpoints
         // POST /v1/matchmaker/tickets  { mode, properties, partyId }  (the player must also be connected to the realtime socket,
         // because the result arrives there as "matchmaker.matched")
         g.MapPost("/matchmaker/tickets", async (MatchmakerRequest req, HttpContext http, MatchActions actions, CancellationToken ct) =>
-            Results.Ok(new { ticket = await actions.QueueAsync(Me(http), req, ct) }));
+            Results.Ok(new { ticket = await actions.QueueAsync(http.UserId(), req, ct) }));
 
         g.MapGet("/matchmaker/tickets", (HttpContext http, MatchActions actions) =>
-            Results.Ok(new { tickets = actions.Tickets(Me(http)) }));
+            Results.Ok(new { tickets = actions.Tickets(http.UserId()) }));
 
         g.MapDelete("/matchmaker/tickets/{id}", async (string id, HttpContext http, MatchActions actions) =>
-            await actions.UnqueueAsync(Me(http), id) ? Results.NoContent() : Results.NotFound(new { error = "not_found" }));
+            await actions.UnqueueAsync(http.UserId(), id) ? Results.NoContent() : Results.NotFound(new { error = "not_found" }));
 
         // POST /v1/matches  { mode, label, parameters }  : only for modes with allowClientCreate
         g.MapPost("/matches", async (CreateMatchRequest req, HttpContext http, MatchActions actions, CancellationToken ct) =>
-            Results.Ok(await actions.CreateAsync(Me(http), req, ct)));
+            Results.Ok(await actions.CreateAsync(http.UserId(), req, ct)));
 
         // GET /v1/matches?mode=&limit=
         g.MapGet("/matches", (string? mode, int? limit, MatchActions actions) =>
@@ -37,7 +35,7 @@ public static class MatchEndpoints
 
         // POST /v1/matches/{id}/join : returns { transport, token, endpoint }; connect with that protocol within a few seconds
         g.MapPost("/matches/{id}/join", async (string id, HttpContext http, MatchActions actions, CancellationToken ct) =>
-            Results.Ok(new { connect = await actions.JoinAsync(Me(http), new MatchRequest(id), ct) }));
+            Results.Ok(new { connect = await actions.JoinAsync(http.UserId(), new MatchRequest(id), ct) }));
 
         return app;
     }

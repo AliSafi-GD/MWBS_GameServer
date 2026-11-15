@@ -67,13 +67,7 @@
     <div class="row"><button class="primary grow" id="btnLogin">Play</button></div>
     <div class="row muted" id="loginMsg"></div>
   </div>
-  <div class="card">
-    <h3>Server setup (admin)</h3>
-    <p class="muted" style="margin-top:0">Writes the game config (modes, shop, quests, achievements, leaderboards, tournament). Needed once per database.</p>
-    <div class="row"><input id="adminKey" class="grow" value="dev-admin-key-do-not-use-in-production-0123456789"></div>
-    <div class="row"><button id="btnSetup">Write game config</button></div>
-    <pre id="setupOut" class="muted" style="white-space:pre-wrap;margin:6px 0 0;font-size:12px"></pre>
-  </div>
+  <p class="muted" style="font-size:12px">The game config (modes, shop, quests, leaderboards) is loaded from the module's config folder when the server starts.</p>
 </div>
 
 <!-- ============================ app ============================ -->
@@ -749,21 +743,6 @@ $("#btnLogout").onclick = async () => {
   if (S.refresh) await raw("POST", "/v1/auth/logout", { refreshToken: S.refresh }, false).catch(() => {});
   RT.close(); clearSession(); location.reload();
 };
-$("#btnSetup").onclick = async () => {
-  const out = $("#setupOut"); out.textContent = "Loading arena-config.json…\n";
-  try {
-    const cfg = await (await fetch("arena-config.json")).json();
-    const now = Date.now(), day = 86400000;
-    const fix = v => typeof v === "string" && v.startsWith("@now") ? new Date(now + (v.includes("+") ? 1 : -1) * parseInt(v.replace(/\D/g, "") || "0", 10) * day).toISOString()
-      : Array.isArray(v) ? v.map(fix) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fix(x)])) : v;
-    for (const [key, value] of Object.entries(cfg.configs)) {
-      const r = await raw("PUT", `/admin/api/config/${key}`, { value: fix(value), public: false }, false, { "X-Admin-Key": $("#adminKey").value.trim() });
-      out.textContent += `${r.ok ? "✔" : "✖"} ${key} ${r.ok ? "" : r.status + " " + (r.json?.message || r.text)}\n`;
-    }
-    out.textContent += "Done. The match modes may need ~3 s to be picked up.";
-  } catch (e) { out.textContent += "Error: " + e.message; }
-};
-
 (async function boot() {
   if (S.token) {
     try { await call("GET", "/v1/account"); await enterApp(); return; }

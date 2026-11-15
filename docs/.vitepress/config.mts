@@ -20,6 +20,7 @@ export default defineConfig({
     siteTitle: 'GameServer',
     nav: [
       { text: 'Getting started', link: '/getting-started/introduction' },
+      { text: 'Install', link: '/install/' },
       { text: 'Server', link: '/server/configuration' },
       { text: 'Unity client', link: '/client/installation' },
       { text: 'Guides', link: '/guides/tank-arena' },
@@ -34,9 +35,20 @@ export default defineConfig({
             { text: 'Requirements', link: '/getting-started/requirements' },
             { text: 'Download the project', link: '/getting-started/download' },
             { text: 'Run the server', link: '/getting-started/run-the-server' },
-            { text: 'Run with Docker', link: '/getting-started/docker' },
             { text: 'Your first request', link: '/getting-started/first-request' },
             { text: 'Your first Unity game', link: '/getting-started/first-unity-game' },
+          ],
+        },
+      ],
+      '/install/': [
+        {
+          text: 'Install the server',
+          items: [
+            { text: 'Overview', link: '/install/' },
+            { text: 'Docker Compose', link: '/install/docker-compose' },
+            { text: 'Linux binary', link: '/install/linux' },
+            { text: 'Windows binary', link: '/install/windows' },
+            { text: 'Put it on a VPS', link: '/install/vps' },
           ],
         },
       ],
@@ -47,6 +59,7 @@ export default defineConfig({
             { text: 'Configuration', link: '/server/configuration' },
             { text: 'Authentication', link: '/server/authentication' },
             { text: 'Remote config', link: '/server/remote-config' },
+            { text: 'Game config files', link: '/server/game-config' },
             { text: 'Wallet and inventory', link: '/server/economy' },
             { text: 'Shop', link: '/server/shop' },
             { text: 'Progress and quests', link: '/server/progress' },

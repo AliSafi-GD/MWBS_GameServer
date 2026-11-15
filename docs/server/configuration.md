@@ -7,7 +7,7 @@ There are two different kinds of configuration. Do not mix them up:
 
 | | Server settings | Remote config |
 |---|---|---|
-| Where | `appsettings*.json`, environment | Database table `config`, edited in the admin panel |
+| Where | `appsettings*.json`, environment | Database table `config`, edited in the admin panel; a game ships its values as files ([Game config files](./game-config)) |
 | Holds | Secrets, ports, transports, limits | Game content: shop, quests, match modes, version rules |
 | Change needs | Restart | Nothing, applies in about 5 seconds |
 | Reaches clients | Never | Public keys, via `GET /v1/config` |
@@ -19,12 +19,15 @@ This page is about the first kind. For the second see [Remote config](./remote-c
 | Key | Default | Meaning |
 |---|---|---|
 | `ConnectionStrings:Default` | none | PostgreSQL connection string. Required outside Development |
-| `GameServer:ModulesPath` | `modules` | Folder with `<Name>/<Name>.dll` modules |
+| `GameServer:ModulesPath` | `modules` | Folder with `<Name>/<Name>.dll` modules. A relative path is taken from the host's content root, see [Settings](../reference/settings#relative-paths) |
+| `GameServer:GameConfig:Mode` | `seed` | How the module's `config/*.json` are applied at startup: `seed`, `sync` or `off`. See [Game config files](./game-config) |
+| `GameServer:GameConfig:Path` | empty | Extra folder with config files, besides the modules' `config/` folders |
 | `GameServer:Jwt:Secret` | none | Signing key, at least 32 bytes. Required outside Development |
 | `GameServer:Jwt:ExpiryMinutes` | `60` | Lifetime of the access token |
 | `GameServer:Jwt:RefreshDays` | `30` | Lifetime of the refresh token |
 | `GameServer:Admin:Key` | empty | Admin key (min 24 characters). Empty disables the panel and API |
 | `GameServer:Realtime:Transports` | `websocket` | `websocket`, `tcp` or both |
+| `GameServer:Auth:Providers` | empty | Login methods: `device`, `googleplay`, `phone` or a module's. Empty = guest plus every configured one. See [Authentication](./authentication) |
 | `GameServer:Match:Transports` | `websocket` | `websocket`, `udp` or both. The first is the default |
 | `GameServer:Chat:PersistRooms` | `false` | Store room messages. Direct and clan messages are always stored |
 | `GameServer:Chat:RetentionDays` | `30` | How long chat history is kept |
@@ -46,4 +49,4 @@ These values are in a public repository. A server that uses them can be taken ov
 ## Passing settings in Docker
 
 `docker-compose.yml` maps `.env` values to the right settings (`JWT_SECRET` to `GameServer__Jwt__Secret`, and so on).
-See [Run with Docker](../getting-started/docker).
+See [Docker Compose](../install/docker-compose).

@@ -10,4 +10,7 @@
   <Folder Name="/samples/">
     <Project Path="samples/HelloGame.Modules/HelloGame.Modules.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/GameServer.Core.Tests/GameServer.Core.Tests.csproj" />
+  </Folder>
 </Solution>

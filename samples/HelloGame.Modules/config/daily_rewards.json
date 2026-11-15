@@ -1,0 +1,16 @@
+{
+  "public": false,
+  "value": {
+    "utcOffsetMinutes": 0,
+    "resetOnMiss": true,
+    "rewards": [
+      { "wallet": { "coins": 50 } },
+      { "wallet": { "coins": 75 } },
+      { "wallet": { "coins": 100 } },
+      { "wallet": { "gems": 2 } },
+      { "wallet": { "coins": 150 } },
+      { "wallet": { "coins": 200 } },
+      { "wallet": { "gems": 10 } }
+    ]
+  }
+}

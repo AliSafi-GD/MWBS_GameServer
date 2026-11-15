@@ -6,9 +6,11 @@ using NpgsqlTypes;
 namespace GameServer.Core.Postgres;
 
 /// <summary>
-/// Config in Postgres with a 5-second in-memory snapshot, so public clients and the maintenance check
-/// do not hit the database on every request. Writes on this instance show up immediately; other instances
-/// see them within the TTL.
+/// Config in Postgres with a 5-second in-memory snapshot of all keys, so public clients, the maintenance check and the
+/// services that read their catalog (shop, quests, match modes...) do not hit the database on every request.
+/// Every write, delete and rollback goes through SetAsync/DeleteAsync here and drops the snapshot, so changes made on this
+/// instance show up immediately. Single instance only: a second server instance would see a change only after the TTL
+/// (see docs/server/production.md).
 /// </summary>
 public sealed class PostgresConfigStore : IConfigStore, IConfig
 {
@@ -18,6 +20,7 @@ public sealed class PostgresConfigStore : IConfigStore, IConfig
     private readonly NpgsqlDataSource _db;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private volatile Snapshot? _snapshot;
+    private int _version; // bumped by every write; a load that started before a write must not become the snapshot
 
     private sealed record Snapshot(IReadOnlyList<ConfigEntry> Entries, DateTime LoadedUtc);
 
@@ -51,7 +54,7 @@ public sealed class PostgresConfigStore : IConfigStore, IConfig
         using var doc = JsonDocument.Parse(reader.GetString(0));
         var entry = new ConfigEntry(key, doc.RootElement.Clone(), isPublic, reader.GetDateTime(1));
 
-        _snapshot = null; // next read reloads
+        Invalidate();
         return entry;
     }
 
@@ -60,8 +63,14 @@ public sealed class PostgresConfigStore : IConfigStore, IConfig
         await using var cmd = _db.CreateCommand("DELETE FROM config WHERE key = @k");
         cmd.Parameters.AddWithValue("k", key);
         var deleted = await cmd.ExecuteNonQueryAsync(ct) > 0;
-        _snapshot = null;
+        Invalidate();
         return deleted;
+    }
+
+    private void Invalidate()
+    {
+        Interlocked.Increment(ref _version);
+        _snapshot = null; // next read reloads
     }
 
     private async Task<Snapshot> LoadAsync(CancellationToken ct)
@@ -77,6 +86,7 @@ public sealed class PostgresConfigStore : IConfigStore, IConfig
             if (snap is not null && DateTime.UtcNow - snap.LoadedUtc < Ttl)
                 return snap;
 
+            var versionAtStart = Volatile.Read(ref _version);
             var entries = new List<ConfigEntry>();
             await using var cmd = _db.CreateCommand("SELECT key, value, is_public, updated_at FROM config ORDER BY key");
             await using (var reader = await cmd.ExecuteReaderAsync(ct))
@@ -88,7 +98,9 @@ public sealed class PostgresConfigStore : IConfigStore, IConfig
                 }
             }
 
-            _snapshot = snap = new Snapshot(entries, DateTime.UtcNow);
+            snap = new Snapshot(entries, DateTime.UtcNow);
+            if (versionAtStart == Volatile.Read(ref _version))
+                _snapshot = snap; // else a write happened while loading: use these entries once, but do not keep them
             return snap;
         }
         finally

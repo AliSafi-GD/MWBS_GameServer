@@ -1,14 +1,18 @@
 # Remote config
 
-Game content lives in the database as **config keys**: free-form JSON per key, either public or server-only. Edit them in the
-admin panel (**Config** tab) or with the admin API:
+Game content lives in the database as **config keys**: free-form JSON per key, either public or server-only. A game ships its
+starting values as files in its module, which the server writes into the database at startup, see
+[Game config files](./game-config). After that you can edit the keys in the admin panel (**Config** tab) or with the admin API
+(the **Export as files (zip)** button turns the current database values back into files):
 
 ```
 PUT /admin/api/config/{key}     { "value": <any JSON>, "public": true }
+GET /admin/api/config/export    zip with one <key>.json per key
 ```
 
 Each change keeps the previous value (last 50 per key) so you can roll back:
-`GET /admin/api/config/{key}/history`, `POST /admin/api/config/{key}/rollback/{historyId}`.
+`GET /admin/api/config/{key}/history`, `POST /admin/api/config/{key}/rollback/{historyId}`. `DELETE /admin/api/config/{key}`
+removes a key (the old value goes to the history too).
 
 ## Reading config
 
@@ -16,7 +20,7 @@ Each change keeps the previous value (last 50 per key) so you can roll back:
   with ETag / `If-None-Match` (answer `304`). Non-public keys never leave the server.
 - **Modules**: `await ctx.Config.GetAsync<T>("key")`. Any key, camelCase and case-insensitive, cached about 5 seconds.
 
-Changes apply within about 5 seconds, per server instance.
+Changes apply within about 5 seconds, per server instance (a write on the same instance shows up at once). In `sync` mode of the game config files, a key that has a file is reset to the file's value at every restart.
 
 ## Version check
 
@@ -29,7 +33,8 @@ Config key `app_version`:
 ```
 
 `GET /v1/version-check?store=bazaar&version=1.2.0` answers
-`{ status: ok | update_available | update_required, latest, minimum, url }`.
+`{ status: ok | update_available | update_required, latest, minimum, url }`. A `version` that is not like `1.2` or
+`1.2.3` is `400 invalid_version`.
 An unknown store falls back to `default`; with no rule at all the answer is `ok`.
 
 ## Maintenance mode

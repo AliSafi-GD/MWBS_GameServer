@@ -17,11 +17,14 @@ public static class ServiceCollectionExtensions
     /// Registers core services. Needs ConnectionStrings:Default (env var ConnectionStrings__Default).
     /// <paramref name="realtime"/> chooses the chat/realtime transports in code, e.g. <c>rt =&gt; rt.Use("websocket", "tcp")</c>;
     /// without it the config value GameServer:Realtime:Transports (default "websocket") decides.
+    /// <paramref name="auth"/> adds or chooses login methods in code, e.g. <c>a =&gt; a.Use("device", "googleplay")</c>;
+    /// without a choice there the config value GameServer:Auth:Providers decides (not set = every configured one).
     /// </summary>
     public static IServiceCollection AddGameServerCore(
         this IServiceCollection services, IConfiguration config, bool isDevelopment = false,
         Action<RealtimeBuilder>? realtime = null,
-        Action<MatchTransportBuilder>? match = null)
+        Action<MatchTransportBuilder>? match = null,
+        Action<AuthBuilder>? auth = null)
     {
         var connectionString = config.GetConnectionString("Default");
         if (string.IsNullOrWhiteSpace(connectionString))
@@ -54,6 +57,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<PostgresConfigStore>();
         services.AddSingleton<IConfigStore>(sp => sp.GetRequiredService<PostgresConfigStore>());
         services.AddSingleton<IConfig>(sp => sp.GetRequiredService<PostgresConfigStore>());
+        services.AddSingleton<GameServer.Core.GameConfig.GameConfigStartup>();
 
         // ---- hooks, social, chat ----
         services.AddSingleton<HookRunner>();
@@ -73,9 +77,21 @@ public static class ServiceCollectionExtensions
         services.AddRealtimeServices(config, realtime);
         services.AddMatchServices(config, match);
 
-        // ---- login providers (besides the device id) ----
+        // ---- login providers ----
         services.Configure<GooglePlayOptions>(config.GetSection("GameServer:Auth:GooglePlay"));
         services.Configure<PhoneOptions>(config.GetSection("GameServer:Auth:Phone"));
+
+        var authBuilder = new AuthBuilder();
+        auth?.Invoke(authBuilder);
+        var selection = authBuilder.Pinned is not null
+            ? new AuthProviderSelection(authBuilder.Pinned)
+            : AuthProviderSelection.Parse(config["GameServer:Auth:Providers"]);
+        services.AddSingleton(selection);
+
+        // Once a list exists, being listed is what switches phone on (Phone:Enabled is only the switch for the old,
+        // list-less setup). Googleplay is switched on by its credentials, device and custom ones by the list alone.
+        if (selection.IsSet)
+            services.PostConfigure<PhoneOptions>(o => o.Enabled = selection.IsListed(PhoneIdentityProvider.ProviderName));
 
         // SMS: only the logging sender in Development; elsewhere a real gateway must replace NotConfiguredSmsSender.
         // To plug one in, register your ISmsSender before calling this method (TryAdd keeps yours).
@@ -84,9 +100,13 @@ public static class ServiceCollectionExtensions
         else
             services.TryAddSingleton<ISmsSender, NotConfiguredSmsSender>();
 
+        services.AddSingleton<IIdentityProvider, DeviceIdentityProvider>();
         services.AddHttpClient<GooglePlayIdentityProvider>(c => c.Timeout = TimeSpan.FromSeconds(10));
         services.AddSingleton<IIdentityProvider>(sp => sp.GetRequiredService<GooglePlayIdentityProvider>());
+        services.AddSingleton<IPhoneCodeStore, PostgresPhoneCodes>();
         services.AddSingleton<IIdentityProvider, PhoneIdentityProvider>();
+        foreach (var register in authBuilder.Registrations)
+            register(services);
         services.AddSingleton<IdentityProviders>();
 
         return services;
