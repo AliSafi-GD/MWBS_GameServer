@@ -1,6 +1,7 @@
 using System.Text.Json;
 using GameServer.Abstractions;
 using GameServer.Core.Progression;
+using GameServer.Core.Realtime;
 using GameServer.Core.Shop;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,6 +36,7 @@ internal sealed class TestServer : IDisposable
         services.AddSingleton<IShopPurchaseStore>(Purchases);
         services.AddSingleton<IDailyRewardStore>(Daily);
         services.AddSingleton<IProgressStore>(Progress);
+        services.AddSingleton<IPlayerPush>(Push);
         _sp = services.BuildServiceProvider();
     }
 
@@ -44,6 +46,7 @@ internal sealed class TestServer : IDisposable
     public MemoryShopPurchases Purchases { get; } = new();
     public MemoryDailyRewards Daily { get; } = new();
     public MemoryProgress Progress { get; } = new();
+    public RecordingPush Push { get; } = new();
 
     public T Get<T>() where T : notnull => _sp.GetRequiredService<T>();
 
@@ -237,6 +240,24 @@ internal sealed class MemoryProgress : IProgressStore
     public Task UnclaimAsync(string userId, string kind, string goalId, string periodKey, CancellationToken ct)
     {
         _claims.Remove((userId, kind, goalId, periodKey));
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>Remembers what would have been sent to online players.</summary>
+internal sealed class RecordingPush : IPlayerPush
+{
+    public List<(string? UserId, string Frame)> Sent { get; } = new();
+
+    public Task SendToUserAsync(string userId, string frame, CancellationToken ct = default)
+    {
+        lock (Sent) Sent.Add((userId, frame));
+        return Task.CompletedTask;
+    }
+
+    public Task SendToAllAsync(string frame, CancellationToken ct = default)
+    {
+        lock (Sent) Sent.Add((null, frame));
         return Task.CompletedTask;
     }
 }

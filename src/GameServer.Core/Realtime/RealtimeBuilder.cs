@@ -81,6 +81,7 @@ internal static class RealtimeRegistration
 
         services.AddSingleton<ConnectionManager>();
         services.AddSingleton<IRealtime>(sp => sp.GetRequiredService<ConnectionManager>());
+        services.AddSingleton<IPlayerPush>(sp => sp.GetRequiredService<ConnectionManager>());
         services.AddSingleton<RealtimeHub>();
         services.AddSingleton<IConnectionHandler>(sp => sp.GetRequiredService<RealtimeHub>());
 

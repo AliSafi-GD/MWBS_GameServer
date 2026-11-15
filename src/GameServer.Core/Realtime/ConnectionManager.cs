@@ -29,7 +29,19 @@ public interface IRealtime
     event Action<string>? UserWentOffline;
 }
 
-public sealed class ConnectionManager : IRealtime
+// <summary>
+/// Sends an event to online players. All a service needs to tell a player something right away (a reached goal, a new
+/// notification); players who are offline simply read it later from the server.
+/// </summary>
+public interface IPlayerPush
+{
+    Task SendToUserAsync(string userId, string frame, CancellationToken ct = default);
+
+    /// <summary>Sends to every signed-in player (server-wide events such as broadcast notifications).</summary>
+    Task SendToAllAsync(string frame, CancellationToken ct = default);
+}
+
+public sealed class ConnectionManager : IRealtime, IPlayerPush
 {
     public const int MaxChannelsPerConnection = 20;
 

@@ -17,18 +17,18 @@ public static class AccountEndpoints
             var user = await users.GetAsync(http.UserId(), ct);
             if (user is null)
                 return Results.NotFound(new { error = "not_found" });
-            return Results.Ok(AccountView(user, await users.ListIdentitiesAsync(user.Id, ct)));
+            return Results.Ok(ViewOf(user, await users.ListIdentitiesAsync(user.Id, ct)));
         }).RequireAuthorization();
 
         // PUT /v1/account : change username / displayName / avatar / lang / timezone (send only what changes)
         app.MapPut("/v1/account", async (ProfileUpdate update, HttpContext http, IUserStore users, HookRunner hooks, CancellationToken ct) =>
         {
             var userId = http.UserId();
-            var view = await hooks.RunAsync<ProfileUpdate, object>(HookOps.AccountUpdate, userId, update, async u =>
+            var view = await hooks.RunAsync<ProfileUpdate, AccountView>(HookOps.AccountUpdate, userId, update, async u =>
             {
                 var user = await users.UpdateProfileAsync(userId, ProfileValidator.Normalize(u), ct)
                            ?? throw new GameException("not_found", "Account not found.");
-                return AccountView(user, await users.ListIdentitiesAsync(user.Id, ct));
+                return ViewOf(user, await users.ListIdentitiesAsync(user.Id, ct));
             }, ct);
             return Results.Ok(view);
         }).RequireAuthorization();
@@ -96,18 +96,13 @@ public static class AccountEndpoints
     }
 
     // What a player sees about their own account (no admin-only fields).
-    private static object AccountView(User u, IReadOnlyList<IdentityInfo> identities) => new
-    {
-        id = u.Id,
-        username = u.Username,
-        displayName = u.DisplayName,
-        avatar = u.Avatar,
-        lang = u.Lang,
-        timezone = u.Timezone,
-        createdUtc = u.CreatedUtc,
-        lastLoginUtc = u.LastLoginUtc,
-        identities = identities.Select(i => new { provider = i.Provider, label = i.Label, createdUtc = i.CreatedUtc })
-    };
+    private static AccountView ViewOf(User u, IReadOnlyList<IdentityInfo> identities) =>
+        new(u.Id, u.Username, u.DisplayName, u.Avatar, u.Lang, u.Timezone, u.CreatedUtc, u.LastLoginUtc, identities);
 }
+
+/// <summary>What a player sees about their own account (no admin-only fields).</summary>
+public sealed record AccountView(
+    string Id, string Username, string DisplayName, string Avatar, string Lang, string Timezone,
+    DateTime CreatedUtc, DateTime? LastLoginUtc, IReadOnlyList<IdentityInfo> Identities);
 
 public sealed record ProviderLinkRequest(JsonElement Credential);

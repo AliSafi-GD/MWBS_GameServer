@@ -9,6 +9,16 @@ public sealed record MatchRequest(string MatchId);
 public sealed record TicketRequest(string TicketId);
 public sealed record MatchListRequest(string? Mode = null, int? Limit = null);
 
+/// <summary>A match a player created, and their seat in it.</summary>
+public sealed record MatchCreated(MatchInfo Match, MatchConnectInfo Connect);
+
+/// <summary>A match mode as clients see it; <see cref="Transport"/> is filled in with the server's default.</summary>
+public sealed record MatchModeView(
+    string Name, string? Transport, int MinPlayers, int MaxPlayers, int TickRate, bool Matchmaking, bool AllowClientCreate);
+
+/// <summary>The modes and the enabled match transports (each transport describes itself: port, path, ...).</summary>
+public sealed record MatchModesView(IReadOnlyList<MatchModeView> Modes, IReadOnlyList<object> Transports);
+
 /// <summary>What players may do with matches. Used by both the realtime socket and the REST API, so both run the same hooks.</summary>
 public sealed class MatchActions
 {
@@ -33,8 +43,8 @@ public sealed class MatchActions
 
     public IReadOnlyList<TicketView> Tickets(string userId) => _matchmaker.Mine(userId);
 
-    public async Task<object> CreateAsync(string userId, CreateMatchRequest request, CancellationToken ct) =>
-        await _hooks.RunAsync(HookOps.MatchesCreate, userId, request, async r =>
+    public Task<MatchCreated> CreateAsync(string userId, CreateMatchRequest request, CancellationToken ct) =>
+        _hooks.RunAsync(HookOps.MatchesCreate, userId, request, async r =>
         {
             var mode = await _modes.RequireAsync(r.Mode, ct);
             if (!mode.AllowClientCreate)
@@ -44,7 +54,7 @@ public sealed class MatchActions
             try
             {
                 var connect = await _matches.JoinAsync(match.Id, userId, ct);
-                return (object)new { match = _matches.Get(match.Id) ?? match, connect };
+                return new MatchCreated(_matches.Get(match.Id) ?? match, connect);
             }
             catch
             {
@@ -63,22 +73,14 @@ public sealed class MatchActions
     public IReadOnlyList<MatchInfo> List(string? mode, int? limit) =>
         _matches.List(mode, limit ?? 50).Where(m => m.Open).ToArray();
 
-    public async Task<object> ModesAsync(CancellationToken ct)
+    public async Task<MatchModesView> ModesAsync(CancellationToken ct)
     {
         var modes = await _modes.GetAsync(ct);
-        return new
-        {
-            modes = modes.Values.Select(m => new
-            {
-                name = m.Name,
-                transport = m.Transport ?? _matches.Transports.FirstOrDefault()?.Name,
-                m.MinPlayers,
-                m.MaxPlayers,
-                m.TickRate,
-                m.Matchmaking,
-                m.AllowClientCreate
-            }),
-            transports = _matches.Transports.Select(t => t.Describe())
-        };
+        var transports = _matches.Transports;
+        var fallback = transports.FirstOrDefault()?.Name;
+        return new MatchModesView(
+            modes.Values.Select(m => new MatchModeView(
+                m.Name, m.Transport ?? fallback, m.MinPlayers, m.MaxPlayers, m.TickRate, m.Matchmaking, m.AllowClientCreate)).ToArray(),
+            transports.Select(t => t.Describe()).ToArray());
     }
 }

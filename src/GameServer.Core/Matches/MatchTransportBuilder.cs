@@ -75,6 +75,7 @@ internal static class MatchRegistration
         services.Configure<MatchOptions>(section);
         services.AddSingleton<MatchModeProvider>();
         services.AddSingleton<MatchService>();
+        services.AddLazy<IEnumerable<IMatchTransport>>(); // transports take MatchService as their IMatchHost
         services.AddSingleton<IMatches>(sp => sp.GetRequiredService<MatchService>());
         services.AddSingleton<IMatchHost>(sp => sp.GetRequiredService<MatchService>());
         services.AddSingleton<Matchmaker>();

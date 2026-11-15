@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using GameServer.Abstractions;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -18,29 +17,32 @@ public sealed class MatchService : IMatches, IMatchHost
     private readonly MatchModeProvider _modes;
     private readonly ModuleRegistry _registry;
     private readonly IUserStore _users;
-    private readonly IServiceProvider _services;
+    private readonly Lazy<IEnumerable<IMatchTransport>> _transports;
+    private readonly MatchServices _matchServices;
     private readonly MatchOptions _options;
     private readonly ILogger<MatchService> _log;
     private readonly TimeProvider _time;
 
     public MatchService(
-        MatchModeProvider modes, ModuleRegistry registry, IUserStore users, IServiceProvider services,
+        MatchModeProvider modes, ModuleRegistry registry, IUserStore users, Lazy<IEnumerable<IMatchTransport>> transports,
+        IEconomy economy, IProgress progress, ILeaderboards leaderboards, INotifications notifications, IConfig config,
         IOptions<MatchOptions> options, ILogger<MatchService> log, TimeProvider time)
     {
+        _transports = transports;
+        _matchServices = new MatchServices(economy, progress, leaderboards, notifications, config);
         _time = time;
         _modes = modes;
         _registry = registry;
         _users = users;
-        _services = services;
         _options = options.Value;
         _log = log;
     }
 
     public MatchModeProvider Modes => _modes;
 
-    // ---- transports (resolved lazily: transports depend on this service as IMatchHost) ------------------------
+    // ---- transports (Lazy: transports depend on this service as IMatchHost) -----------------------------------
 
-    public IReadOnlyList<IMatchTransport> Transports => _services.GetServices<IMatchTransport>().ToArray();
+    public IReadOnlyList<IMatchTransport> Transports => _transports.Value.ToArray();
 
     private IMatchTransport ResolveTransport(MatchMode mode)
     {
@@ -73,17 +75,12 @@ public sealed class MatchService : IMatches, IMatchHost
 
         var handler = CreateHandler(definition.Handler);
         var id = Guid.NewGuid().ToString("N");
-        var instance = new MatchInstance(id, definition, handler, label, parametersJson, joinable, CreateServices(), _log, _time);
+        var instance = new MatchInstance(id, definition, handler, label, parametersJson, joinable, _matchServices, _log, _time);
         instance.Ended += OnMatchEnded;
         _matches[id] = instance;
         instance.Start();
         return instance;
     }
-
-    private MatchServices CreateServices() => new(
-        _services.GetRequiredService<IEconomy>(), _services.GetRequiredService<IProgress>(),
-        _services.GetRequiredService<ILeaderboards>(), _services.GetRequiredService<INotifications>(),
-        _services.GetRequiredService<IConfig>());
 
     private MatchHandler CreateHandler(string name)
     {

@@ -42,6 +42,8 @@ public static class ServiceCollectionExtensions
 
         // ---- hooks, social, chat ----
         services.AddSingleton<HookRunner>();
+        services.AddSingleton<HookServices>();
+        services.AddLazy<HookServices>(); // chat and social run hooks: the cycle HookRunner -> chat -> HookRunner
         services.Configure<PartyOptions>(config.GetSection("GameServer:Parties"));
         services.AddSingleton<FriendsService>();
         services.AddSingleton<GroupService>();
@@ -87,4 +89,11 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
+
+    /// <summary>
+    /// Registers <see cref="Lazy{T}"/> for a service that would otherwise close a constructor cycle; the service is
+    /// created on the first <c>.Value</c>, after the container has built everything around it.
+    /// </summary>
+    internal static IServiceCollection AddLazy<T>(this IServiceCollection services) where T : notnull =>
+        services.AddSingleton(sp => new Lazy<T>(() => sp.GetRequiredService<T>()));
 }

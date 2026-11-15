@@ -42,7 +42,7 @@
 - **کجا:** [Program.cs](src/GameServer.Host/Program.cs) 767 خط؛ endpointهای auth، account، config، version-check، wallet، leaderboards، notifications، rpc و admin + منطق داخل lambdaها. در حالی که Social/Shop/Match/Chat/Progress/Admin از قبل در [Endpoints/](src/GameServer.Host/Endpoints) هستند.
 - **راه‌حل:** یک فایل Endpoints برای هر حوزه + extension method برای middlewareها؛ `Program.cs` فقط ترکیب (composition root).
 
-### 4.4 Service locator (`IServiceProvider`)
+### 4.4 Service locator (`IServiceProvider`) — **انجام شد** (قدم ۵)
 - **کجا (بررسی شد):**
   - [HookRunner.cs](src/GameServer.Core/HookRunner.cs): برای ساختن `HookContext` سرویس‌ها را lazy می‌گیرد؛ کامنت خودش می‌گوید به‌خاطر وابستگی دایره‌ای است (chat/social خودشان از hook استفاده می‌کنند).
   - [MatchService.cs](src/GameServer.Core/Matches/MatchService.cs): `IEconomy`, `IProgress`, `ILeaderboards`, `IConfig`, transportها.
@@ -62,7 +62,7 @@
 - **کجا:** `DateTime.UtcNow` در **17 فایل (46 مورد)**، از جمله [ShopService.cs](src/GameServer.Core/Shop/ShopService.cs), [DailyRewardService.cs](src/GameServer.Core/Progression/DailyRewardService.cs), [ProgressService.cs](src/GameServer.Core/Progression/ProgressService.cs), [PostgresCompetitions.cs](src/GameServer.Core/Postgres/PostgresCompetitions.cs), [PartyService.cs](src/GameServer.Core/Social/PartyService.cs), [RealtimeHub.cs](src/GameServer.Core/Realtime/RealtimeHub.cs).
 - **راه‌حل:** `TimeProvider` تزریق شود (`TimeProvider.System` در production، `FakeTimeProvider` در تست). دوره‌های shop، جایزه روزانه و تورنومنت‌ها بدون این قابل تست نیستند.
 
-### 4.8 پاسخ‌های untyped
+### 4.8 پاسخ‌های untyped — **موارد `object` انجام شد** (قدم ۵)؛ anonymous objectهای endpointها مانده
 - **کجا:** `ShopService.PurchasesOfAsync` → `IReadOnlyList<object>` ([ShopService.cs](src/GameServer.Core/Shop/ShopService.cs)); `MatchActions.CreateAsync/ModesAsync` → `Task<object>` ([MatchActions.cs](src/GameServer.Core/Matches/MatchActions.cs)); `LoginResultAsync` → `Task<object>` در Program.cs؛ و چندین endpoint با anonymous object.
 - **راه‌حل:** recordهای response → قرارداد typed؛ مستندات و SDK نمی‌توانند از سرور جدا شوند (drift). بعداً می‌شود OpenAPI از آن‌ها ساخت.
 
@@ -142,7 +142,11 @@
   - انجام شد (2026-11-15): پروژه‌ی [GameServer.Infrastructure.Postgres](src/GameServer.Infrastructure.Postgres) (namespace `GameServer.Infrastructure.Postgres`) با هر ۲۱ فایل `Postgres/` (با `git mv`، محتوا جز namespace دست نخورده). ثبت DI دو تکه شد: `AddGameServerCore` فقط سرویس‌ها (دیگر connection string لازم ندارد)، و `AddGameServerPostgres(config)` در [PostgresServiceCollectionExtensions.cs](src/GameServer.Infrastructure.Postgres/PostgresServiceCollectionExtensions.cs) data source، `DatabaseMigrator` و همه‌ی storeها را ثبت می‌کند (خطای نبودن `ConnectionStrings__Default` هم آن‌جاست). `Program.cs` هر دو را صدا می‌زند. `GameServer.Core.csproj` دیگر Npgsql ندارد؛ `InMemoryStorage.cs` حذف شد. Dockerfile عوض نشد (کل `src/` را کپی می‌کند).
   - تست‌ها: [WiringTests.cs](tests/GameServer.Core.Tests/WiringTests.cs): Core + Postgres با `ValidateOnBuild` (هر سرویس همه‌ی وابستگی‌هایش را دارد)، Core بدون connection string، پیام خطای Postgres بدون connection string، و این‌که assembly ی Core به Npgsql ارجاع ندارد. تست‌های سرویس (`TestServer`) حالا اصلاً Postgres ثبت نمی‌کنند. جمعاً ۱۳۱ unit test.
   - مانده (4.1): JWT (`TokenService`، پکیج `JwtBearer`) و `FrameworkReference` به AspNetCore هنوز در Core است.
-- [ ] **۵.** حذف `IServiceProvider` از `HookRunner`/`MatchService`/`ProgressService`/`PostgresNotifications` + recordهای typed response (`ShopService.PurchasesOfAsync`, `MatchActions`, `LoginResultAsync`...). *تمام:* هیچ `IServiceProvider` در constructor سرویس‌ها و هیچ `object` به‌عنوان نوع برگشتی در endpointها نیست.
+- [x] **۵.** حذف `IServiceProvider` از `HookRunner`/`MatchService`/`ProgressService`/`PostgresNotifications` + recordهای typed response (`ShopService.PurchasesOfAsync`, `MatchActions`, `LoginResultAsync`...). *تمام:* هیچ `IServiceProvider` در constructor سرویس‌ها و هیچ `object` به‌عنوان نوع برگشتی در endpointها نیست.
+  - انجام شد (2026-11-15): `ProgressService` و `PostgresNotifications` حالا `IPlayerPush` (فقط `SendToUserAsync`/`SendToAllAsync`، در [ConnectionManager.cs](src/GameServer.Core/Realtime/ConnectionManager.cs)) می‌گیرند؛ دایره‌ای نبود چون `ConnectionManager` وابستگی ندارد. دو دایره‌ی واقعی با `Lazy<T>` صریح شدند (helper داخلی `AddLazy<T>()`): `HookRunner` ← `Lazy<HookServices>` (record هفت سرویس context؛ chat و social خودشان hook اجرا می‌کنند) و `MatchService` ← `Lazy<IEnumerable<IMatchTransport>>` (transportها `MatchService` را به‌عنوان `IMatchHost` می‌گیرند). سرویس‌های match (`IEconomy`, `IProgress`, ...) مستقیم تزریق می‌شوند و یک `MatchServices` برای همه‌ی matchها ساخته می‌شود. `GET /v1/realtime` به جای `IServiceProvider` خود transportها را می‌گیرد. در `src/` فقط APIهای builder (`Add(name, sp => ...)` برای transport/provider) هنوز `IServiceProvider` دارند که جای درستشان composition root است.
+  - typed: `MatchCreated`, `MatchModeView`, `MatchModesView` ([MatchActions.cs](src/GameServer.Core/Matches/MatchActions.cs))، `LoginResult` (AuthEndpoints)، `AccountView` (AccountEndpoints)؛ `PurchasesOfAsync` در قدم ۳ شد. JSON همان است (Web defaults، camelCase). تنها `object` باقی‌مانده `Transports` در `MatchModesView` است چون هر transport شکل خودش را دارد (`Describe()`).
+  - تست‌ها: `ReachingAGoal_TellsThePlayer_Once` (push با `IPlayerPush` جعلی)، `MatchRecords_KeepTheirJsonNames`، و resolve شدن `Lazy<HookServices>` در `WiringTests`. جمعاً ۱۳۳ unit test.
+  - مانده: anonymous objectهای خیلی از endpointها (مثلاً `new { items = ... }`)؛ می‌شود با OpenAPI بعداً record شوند.
 - [ ] **۶.** تکه کردن `IUserStore` (و interfaceهای کوچک `IPresence` برای `ChatService`/`SocialFacade`/`AccountCleanup`). *تمام:* هر مصرف‌کننده فقط interface لازمش را می‌گیرد.
 - [ ] **۷.** Central Package Management و pin کردن نسخه‌ها. *تمام:* هیچ `10.*` در csprojها؛ `Directory.Packages.props` موجود.
 - [ ] **۸.** SDK: interface برای APIها و `IGameClient`، تکه کردن `Models.cs`/`RealtimeClient.cs`/`Transports.cs`، `IDispatcher`، `Tests/` و CHANGELOG. *تمام:* بازی بتواند `IShopApi` را fake کند؛ فایلی بالای ~300 خط نباشد.

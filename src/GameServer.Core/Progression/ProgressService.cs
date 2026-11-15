@@ -1,6 +1,5 @@
 using GameServer.Abstractions;
 using GameServer.Core.Realtime;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace GameServer.Core.Progression;
@@ -25,20 +24,20 @@ public sealed class ProgressService : IProgress
     private readonly IEconomy _economy;
     private readonly IConfigStore _config;
     private readonly HookRunner _hooks;
-    private readonly IServiceProvider _services;
+    private readonly IPlayerPush _push;
     private readonly ILogger<ProgressService> _log;
     private readonly TimeProvider _time;
     private volatile Catalogs? _catalogs;
 
     public ProgressService(
-        IProgressStore store, IEconomy economy, IConfigStore config, HookRunner hooks, IServiceProvider services,
+        IProgressStore store, IEconomy economy, IConfigStore config, HookRunner hooks, IPlayerPush push,
         ILogger<ProgressService> log, TimeProvider time)
     {
         _store = store;
         _economy = economy;
         _config = config;
         _hooks = hooks;
-        _services = services;
+        _push = push;
         _log = log;
         _time = time;
     }
@@ -105,13 +104,9 @@ public sealed class ProgressService : IProgress
             if (reached.Count == 0)
                 return;
 
-            var realtime = _services.GetService<ConnectionManager>();
-            if (realtime is null)
-                return;
-
             foreach (var (kind, goal) in reached)
             {
-                await realtime.SendToUserAsync(userId, Frames.Build("goal.completed", null,
+                await _push.SendToUserAsync(userId, Frames.Build("goal.completed", null,
                     new { kind, id = goal.Id, name = goal.Name, hasReward = !goal.Reward.IsEmpty }), ct);
             }
         }

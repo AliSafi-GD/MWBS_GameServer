@@ -1,6 +1,5 @@
 using System.Text.Json;
 using GameServer.Abstractions;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace GameServer.Core;
@@ -11,6 +10,11 @@ public sealed record EmptyRequest;
 /// <summary>Request JSON of the <c>auth.login</c> after-hook.</summary>
 public sealed record LoginEvent(string Provider, bool IsNew);
 
+/// <summary>The services a hook gets in its <see cref="HookContext"/>.</summary>
+public sealed record HookServices(
+    IStorage Storage, IConfig Config, IEconomy Economy, ILeaderboards Leaderboards, INotifications Notifications,
+    ISocial Social, IChat Chat);
+
 /// <summary>
 /// Runs the hooks modules registered around an operation. Endpoints call <see cref="RunAsync{TReq,TRes}"/>;
 /// when no module registered a hook for the operation it just calls the action.
@@ -20,11 +24,11 @@ public sealed class HookRunner
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     private readonly ModuleRegistry _registry;
-    private readonly IServiceProvider _services;
+    private readonly Lazy<HookServices> _services;
     private readonly ILogger<HookRunner> _log;
 
-    // The context services are resolved on demand: some of them (chat, social) depend on parts that also use hooks.
-    public HookRunner(ModuleRegistry registry, IServiceProvider services, ILogger<HookRunner> log)
+    // Lazy: chat and social, two of the context services, run hooks themselves (a cycle), so they are created on first use.
+    public HookRunner(ModuleRegistry registry, Lazy<HookServices> services, ILogger<HookRunner> log)
     {
         _registry = registry;
         _services = services;
@@ -120,14 +124,9 @@ public sealed class HookRunner
         }
     }
 
-    private HookContext CreateContext(string operation, string userId, CancellationToken ct) => new(
-        operation, userId,
-        _services.GetRequiredService<IStorage>(),
-        _services.GetRequiredService<IConfig>(),
-        _services.GetRequiredService<IEconomy>(),
-        _services.GetRequiredService<ILeaderboards>(),
-        _services.GetRequiredService<INotifications>(),
-        _services.GetRequiredService<ISocial>(),
-        _services.GetRequiredService<IChat>(),
-        ct);
+    private HookContext CreateContext(string operation, string userId, CancellationToken ct)
+    {
+        var s = _services.Value;
+        return new HookContext(operation, userId, s.Storage, s.Config, s.Economy, s.Leaderboards, s.Notifications, s.Social, s.Chat, ct);
+    }
 }

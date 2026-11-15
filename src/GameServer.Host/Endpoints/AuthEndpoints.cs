@@ -101,12 +101,12 @@ public static class AuthEndpoints
         return app;
     }
 
-    private static async Task<object> LoginResultAsync(
+    private static async Task<LoginResult> LoginResultAsync(
         User user, string provider, TokenService tokens, IRefreshTokenStore refresh, HookRunner hooks, TimeProvider time, CancellationToken ct)
     {
         var (token, expiresUtc) = tokens.Issue(user.Id);
         var refreshToken = await refresh.IssueAsync(user.Id, ct);
-        var result = new { token, refreshToken, userId = user.Id, username = user.Username, expiresUtc };
+        var result = new LoginResult(token, refreshToken, user.Id, user.Username, expiresUtc);
 
         // After-hooks only (a login cannot be blocked this way). "IsNew" is a guess based on the account age, so
         // modules should still use idempotency keys for one-time rewards.
@@ -115,6 +115,9 @@ public static class AuthEndpoints
         return result;
     }
 }
+
+// <summary>What every login answers: the access token (JWT), the refresh token and who signed in.</summary>
+public sealed record LoginResult(string Token, string RefreshToken, string UserId, string Username, DateTime ExpiresUtc);
 
 public sealed record DeviceAuthRequest(string DeviceId, string? Username = null, bool Create = true);
 public sealed record ProviderAuthRequest(JsonElement Credential, string? Username = null, bool Create = true);

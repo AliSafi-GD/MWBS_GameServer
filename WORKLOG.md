@@ -69,6 +69,11 @@
 - ثبت: `AddGameServerCore(...)` (سرویس‌ها) + `AddGameServerPostgres(config)` (data source، migrator، storeها). `Program.cs` هر دو را دارد.
 - `WiringTests.cs`: کل گراف DI با `ValidateOnBuild` چک می‌شود. ۱۳۱ unit test.
 
+### ۹. بدون service locator + پاسخ‌های typed (قدم ۵ در CLEANUP.md، 2026-11-15)
+- `ProgressService` و `PostgresNotifications`: `IPlayerPush` به جای `IServiceProvider`.
+- `HookRunner`: `Lazy<HookServices>`؛ `MatchService`: `Lazy<IEnumerable<IMatchTransport>>` + سرویس‌ها مستقیم. دایره‌ها حالا در نوع دیده می‌شوند.
+- recordها: `MatchCreated`, `MatchModesView`, `LoginResult`, `AccountView` (همان JSON). ۱۳۳ unit test.
+
 ### ۸. باگ بستن WebSocket (2026-11-15)
 - سرور بعد از فرستادن close فوراً `Abort()` می‌کرد؛ اتصال reset می‌شد و گاهی آخرین پیام (مثلاً خطای `unauthorized`) به کلاینت نمی‌رسید. SmokeTest یک بار به همین دلیل رد شد.
 - حالا [WebSocketClosing.cs](src/GameServer.Transport.WebSocket/WebSocketClosing.cs): close زیر قفل ارسال، صبر برای جواب close کلاینت (حداکثر ۲ ثانیه)، و فقط بعد abort. برای realtime و match هر دو.
@@ -131,12 +136,13 @@ dotnet test tests/GameServer.Core.Tests
 
 ## قدم بعدی (پیشنهاد، به ترتیب)
 
-1. **تست روی Postgres** (بخش «هنوز تست نشده» بالا). اگر چیزی خراب بود، اول همان را درست کنیم.
+1. ~~**تست روی Postgres**~~ انجام شد (همه سبز؛ فقط دکمه‌ی export و بازی یونیتی مانده).
 2. ~~**قدم ۲ در CLEANUP.md:** `TimeProvider` به جای `DateTime.UtcNow`.~~ انجام شد (بخش ۵ بالا).
 3. ~~**قدم ۳:** بیرون کشیدن SQL از سرویس‌ها و تکه کردن `AdminStore`.~~ انجام شد (بخش ۶ بالا).
 4. ~~**قدم ۴:** پروژه‌ی `GameServer.Infrastructure.Postgres`.~~ انجام شد (بخش ۷ بالا).
-5. **SDK (قدم ۸):** interface برای APIها تا بازی‌ها بتوانند fake کنند؛ تکه کردن `Models.cs`، `RealtimeClient.cs`.
-6. **کوچک ولی مفید:** پیش‌فرض امن پورت compose، JSON Schema برای فایل‌های کانفیگ (قدم ۱.۵)، cache کاتالوگ parse‌شده.
+5. **قدم ۶:** تکه کردن `IUserStore` + `IPresence` برای `ChatService`/`SocialFacade`/`AccountCleanup`. (قدم ۵ انجام شد، بخش ۹.)
+6. **SDK (قدم ۸):** interface برای APIها تا بازی‌ها بتوانند fake کنند؛ تکه کردن `Models.cs`، `RealtimeClient.cs`.
+7. **کوچک ولی مفید:** پیش‌فرض امن پورت compose، JSON Schema برای فایل‌های کانفیگ (قدم ۱.۵)، cache کاتالوگ parse‌شده.
 
 ## نقشه‌ی فایل‌های مهم
 

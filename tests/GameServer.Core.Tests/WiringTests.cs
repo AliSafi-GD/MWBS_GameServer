@@ -62,6 +62,26 @@ public class WiringTests
         Assert.IsType<PostgresAdminAccounts>(sp.GetRequiredService<IAdminAccountStore>());
         Assert.IsType<PostgresAdminMetrics>(sp.GetRequiredService<IAdminMetrics>());
         Assert.NotNull(sp.GetRequiredService<DatabaseMigrator>());
+
+        // The hook services close a cycle (chat and social run hooks); through Lazy they still resolve.
+        var hooks = sp.GetRequiredService<Lazy<HookServices>>().Value;
+        Assert.NotNull(hooks.Chat);
+        Assert.NotNull(hooks.Social);
+        Assert.IsType<GameServer.Core.Realtime.ConnectionManager>(sp.GetRequiredService<GameServer.Core.Realtime.IPlayerPush>());
+    }
+
+    [Fact]
+    public void MatchRecords_KeepTheirJsonNames()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(
+            new GameServer.Core.Matches.MatchModesView(
+                new[] { new GameServer.Core.Matches.MatchModeView("duel", "udp", 2, 2, 20, true, false) },
+                new object[] { new { name = "udp", port = 7360 } }),
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+
+        Assert.Equal(
+            """{"modes":[{"name":"duel","transport":"udp","minPlayers":2,"maxPlayers":2,"tickRate":20,"matchmaking":true,"allowClientCreate":false}],"transports":[{"name":"udp","port":7360}]}""",
+            json);
     }
 
     [Fact]

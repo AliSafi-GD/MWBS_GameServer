@@ -325,6 +325,26 @@ public class ProgressServiceTests
     }
 
     [Fact]
+    public async Task ReachingAGoal_TellsThePlayer_Once()
+    {
+        using var s = Server(Utc(2026, 11, 15));
+        var progress = s.Get<ProgressService>();
+
+        await progress.AddStatAsync(User, "played", 2);
+        Assert.Empty(s.Push.Sent);
+
+        await progress.AddStatAsync(User, "played");  // 3: the daily quest is done
+        await progress.AddStatAsync(User, "played");  // 4: already done, no second event
+
+        var sent = Assert.Single(s.Push.Sent);
+        Assert.Equal(User, sent.UserId);
+        using var frame = System.Text.Json.JsonDocument.Parse(sent.Frame);
+        Assert.Equal("goal.completed", frame.RootElement.GetProperty("type").GetString());
+        Assert.Equal("play_3", frame.RootElement.GetProperty("data").GetProperty("id").GetString());
+        Assert.Equal("quest", frame.RootElement.GetProperty("data").GetProperty("kind").GetString());
+    }
+
+    [Fact]
     public async Task HiddenAchievement_ShowsUpOnceReached()
     {
         using var s = Server(Utc(2026, 11, 15));

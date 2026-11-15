@@ -7,10 +7,10 @@ public static class ChatEndpoints
     public static IEndpointRouteBuilder MapChat(this IEndpointRouteBuilder app)
     {
         // GET /v1/realtime : which transports this server was built with and how to reach them (no login needed).
-        app.MapGet("/v1/realtime", (IServiceProvider services, Microsoft.Extensions.Options.IOptions<RealtimeOptions> options) =>
+        app.MapGet("/v1/realtime", ([Microsoft.AspNetCore.Mvc.FromServices] IEnumerable<ITransport> transports, Microsoft.Extensions.Options.IOptions<RealtimeOptions> options) =>
             Results.Ok(new
             {
-                transports = services.GetServices<ITransport>().Select(t => t.Describe()).ToArray(),
+                transports = transports.Select(t => t.Describe()).ToArray(),
                 maxMessageBytes = options.Value.MaxMessageBytes,
                 protocol = "After connecting send {\"type\":\"auth\",\"data\":{\"token\":\"<jwt>\"}} within a few seconds."
             }));

@@ -2,7 +2,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using GameServer.Abstractions;
 using GameServer.Core.Realtime;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using NpgsqlTypes;
@@ -21,20 +20,19 @@ public sealed class PostgresNotifications : INotificationStore
     private readonly NpgsqlDataSource _db;
     private readonly IEconomy _economy;
     private readonly IConfigStore _config;
-    private readonly IServiceProvider _services;
+    private readonly IPlayerPush _push;
     private readonly ILogger<PostgresNotifications> _log;
     private readonly TimeProvider _time;
 
-    // The realtime layer is looked up on first use: it depends on services that may depend on this store.
     public PostgresNotifications(
-        NpgsqlDataSource db, IEconomy economy, IConfigStore config, IServiceProvider services, ILogger<PostgresNotifications> log,
+        NpgsqlDataSource db, IEconomy economy, IConfigStore config, IPlayerPush push, ILogger<PostgresNotifications> log,
         TimeProvider time)
     {
         _time = time;
         _db = db;
         _economy = economy;
         _config = config;
-        _services = services;
+        _push = push;
         _log = log;
     }
 
@@ -46,15 +44,11 @@ public sealed class PostgresNotifications : INotificationStore
     {
         try
         {
-            var realtime = _services.GetService<ConnectionManager>();
-            if (realtime is null)
-                return;
-
             var frame = Frames.Build("notification.new", null, new { id, broadcast = userId is null, subject, hasReward });
             if (userId is null)
-                await realtime.SendToAllAsync(frame);
+                await _push.SendToAllAsync(frame);
             else
-                await realtime.SendToUserAsync(userId, frame);
+                await _push.SendToUserAsync(userId, frame);
         }
         catch (Exception ex)
         {
