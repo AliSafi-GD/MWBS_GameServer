@@ -55,7 +55,8 @@ dotnet publish samples/HelloGame.Modules -c Release -o /opt/gameserver/modules/H
 
 The server looks for modules in the folder set by `GameServer:ModulesPath` (environment variable
 `GameServer__ModulesPath`). Each module is `modules/<Name>/<Name>.dll`, and the folder name must equal the DLL name.
-Use an absolute path, so it does not depend on the folder the server is started from. For your own game publish your
+Use an absolute path in a service, so it does not depend on the folder the server is started from. (A relative path is
+resolved from the server's content root, which under systemd is its `WorkingDirectory`.) For your own game publish your
 own project into `/opt/gameserver/modules/<YourModule>`.
 
 ## 4. A user for the server
@@ -164,8 +165,9 @@ firewall in the web console: open the port there too.
 From any computer: `curl http://<server-address>:7350/healthz` should print `{"status":"ok","rpcs":[...]}`.
 The admin panel is `http://<server-address>:7350/admin` (sign in with `GameServer__Admin__Key`).
 
-Then write the game config once: open `http://<server-address>:7350/arena/`, press **Write game config** and enter the admin key.
-See [Tank Arena](../guides/tank-arena).
+The game config needs no extra step: the module's `config/*.json` is written into the database when the server starts
+(only keys that are missing; see `GameServer__GameConfig__Mode` in [Game config files](../server/game-config)). Look for
+`Game config '...': written` in `journalctl -u gameserver`.
 
 ## Everyday commands
 

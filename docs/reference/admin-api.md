@@ -27,6 +27,7 @@ curl http://localhost:5000/admin/api/dashboard -H "X-Admin-Key: $ADMIN_KEY"
 ## Config
 
 - `GET /config`, `PUT /config/{key}` `{value, public}`, `DELETE /config/{key}`
+- `GET /config/export` zip of every key as `<key>.json` files in the [game config file format](../server/game-config)
 - `GET /config/{key}/history`, `POST /config/{key}/rollback/{historyId}`
 
 ## Game data

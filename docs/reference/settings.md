@@ -7,6 +7,7 @@ variables (`GameServer__Jwt__Secret`).
 {
   "GameServer": {
     "ModulesPath": "modules",
+    "GameConfig": { "Path": "", "Mode": "seed" },
     "ForwardedHeaders": { "Enabled": false, "KnownProxies": "" },
     "Jwt": { "Issuer": "gameserver", "ExpiryMinutes": 60, "RefreshDays": 30 },
     "Realtime": {
@@ -55,7 +56,30 @@ Not in the file (secrets, set them yourself): `GameServer:Jwt:Secret`, `GameServ
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | `GameServer__Auth__GooglePlay__*` |
 | `REALTIME_TRANSPORTS` | `GameServer__Realtime__Transports` |
 | `MATCH_TRANSPORTS` | `GameServer__Match__Transports` |
+| `GAME_CONFIG_MODE` | `GameServer__GameConfig__Mode` |
 | `FORWARDED_HEADERS` | `GameServer__ForwardedHeaders__Enabled` |
+
+## Game config {#game-config}
+
+| Setting | Meaning |
+|---|---|
+| `GameServer:GameConfig:Mode` | `seed` (default, also when empty): write only the keys missing in the database. `sync`: files win on every start. `off`: ignore the files |
+| `GameServer:GameConfig:Path` | Optional extra folder with `<key>.json` files, besides `modules/<Name>/config/`. Empty = none |
+
+The files themselves are described in [Game config files](../server/game-config).
+
+## Relative paths
+
+`GameServer:ModulesPath` and `GameServer:GameConfig:Path` may be relative. They are resolved from the host's **content root**,
+not from the process working directory:
+
+| How it runs | Content root |
+|---|---|
+| `dotnet run --project src/GameServer.Host` | the project folder `src/GameServer.Host` (so `../../modules` in `appsettings.Development.json` is the repository's `modules/`) |
+| Windows Service | the folder of `GameServer.Host.exe` (the service's working directory is `C:\Windows\System32`) |
+| `dotnet GameServer.Host.dll` / systemd / Docker | the current directory (`WorkingDirectory=` in a unit, `/app` in the image) |
+
+An absolute path is always the clearest choice for a service, and the Docker image sets `GameServer__ModulesPath=/modules`.
 
 ## Behind a reverse proxy
 
@@ -71,7 +95,7 @@ If the port is also reachable directly, set `KnownProxies` to the proxy's addres
 ## Running as a service
 
 The host runs as a Windows Service or a systemd unit (`Type=notify`) with no extra setting. See
-[Windows](../install/windows) and [Linux](../install/linux). `GameServer__ModulesPath` should be an absolute path there,
+[Windows](../install/windows) and [Linux](../install/linux). `GameServer__ModulesPath` is best an absolute path there,
 and `ASPNETCORE_URLS` (e.g. `http://0.0.0.0:7350`) sets the address, because the default is `localhost` only.
 
 ## Ports

@@ -67,6 +67,20 @@ dotnet publish MyGame.Modules -c Release -o modules/MyGame.Modules
 
 Restart the host. `GET /healthz` and the admin **Modules** tab list what was registered.
 
+## 4. Ship the game config with the module
+
+Put the game's config (shop, quests, match modes, leaderboards...) in `config/<key>.json` next to the project file and add one
+item to the `.csproj` so `dotnet publish` copies it into `modules/<Name>/config/`:
+
+```xml
+<ItemGroup>
+  <None Include="config\*.json" CopyToPublishDirectory="PreserveNewest" LinkBase="config" />
+</ItemGroup>
+```
+
+The server checks the files and writes them into the database at startup. Format, modes (`seed`, `sync`, `off`) and the export
+of an existing server are in [Game config files](./game-config). The sample module's `config/` folder is a complete example.
+
 ## What a module can use
 
 `RpcContext` (and `HookContext`) gives you:

@@ -5,7 +5,7 @@ using GameServer.Abstractions;
 
 namespace HelloGame.Modules.Arena;
 
-/// <summary>Registers the "arena" match handler. Define the modes in the "matches" config (see wwwroot/arena/arena-config.json).</summary>
+/// <summary>Registers the "arena" match handler. Define the modes in the "matches" config (see samples/HelloGame.Modules/config/matches.json).</summary>
 public sealed class ArenaModule : IServerModule
 {
     public void Initialize(IModuleInitializer init) =>

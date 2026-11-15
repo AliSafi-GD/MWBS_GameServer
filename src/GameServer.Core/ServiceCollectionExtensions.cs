@@ -57,6 +57,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<PostgresConfigStore>();
         services.AddSingleton<IConfigStore>(sp => sp.GetRequiredService<PostgresConfigStore>());
         services.AddSingleton<IConfig>(sp => sp.GetRequiredService<PostgresConfigStore>());
+        services.AddSingleton<GameServer.Core.GameConfig.GameConfigStartup>();
 
         // ---- hooks, social, chat ----
         services.AddSingleton<HookRunner>();

@@ -129,15 +129,16 @@ see [Troubleshooting](../guides/troubleshooting). In a browser:
 |---|---|
 | <http://localhost:7350/healthz> | Status and loaded RPCs |
 | <http://localhost:7350/admin> | Admin panel. Sign in with your `ADMIN_KEY` |
-| <http://localhost:7350/arena/> | Browser version of the Tank Arena demo (also where you write the game config) |
+| <http://localhost:7350/arena/> | Browser version of the Tank Arena demo |
 
 On a remote machine replace `localhost` with its address.
 
-## 7. Write the game config (once)
+## 7. The game config
 
-Shop, quests and match modes live in the **database**, not in git. For the sample game open
-`http://localhost:7350/arena/`, press **Write game config** and enter your admin key. You do this once per database. See
-[Tank Arena](../guides/tank-arena).
+Nothing to do for the sample game. Shop, quests and match modes ship inside the module as `config/*.json`, and the server writes
+the keys that are missing into the database when it starts (look for `Game config '...': written` in
+`docker compose logs server`). To change how that works (`sync` or `off`) see [Game config files](../server/game-config)
+and `GAME_CONFIG_MODE` below.
 
 ## Everyday commands
 
@@ -178,6 +179,7 @@ machine (it does by default on Linux; on Windows and macOS Docker Desktop must b
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google Play Games login. Leave empty to disable |
 | `REALTIME_TRANSPORTS` | `websocket`, `tcp` or `websocket,tcp` |
 | `MATCH_TRANSPORTS` | `websocket`, `udp` or `websocket,udp` |
+| `GAME_CONFIG_MODE` | How the module's `config/*.json` are applied at startup: empty or `seed` (only missing keys), `sync` (files win) or `off`. See [Game config files](../server/game-config) |
 | `FORWARDED_HEADERS` | `true` only behind a reverse proxy that is the only way in. See [Put it on a VPS](./vps#https) |
 
 Outside Development the server refuses to start without `GameServer__Jwt__Secret` (min 32 bytes) and

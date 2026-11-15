@@ -1,0 +1,39 @@
+{
+  "public": false,
+  "value": {
+    "achievements": {
+      "first_match": {
+        "name": "First match",
+        "stat": "matches_played",
+        "target": 1,
+        "reward": { "wallet": { "coins": 25 } },
+        "category": "pvp",
+        "sort": 1
+      },
+      "first_win": {
+        "name": "First victory",
+        "stat": "matches_won",
+        "target": 1,
+        "reward": { "wallet": { "coins": 50 } },
+        "category": "pvp",
+        "sort": 2
+      },
+      "win_10": {
+        "name": "Ten victories",
+        "stat": "matches_won",
+        "target": 10,
+        "reward": { "wallet": { "gems": 20 } },
+        "category": "pvp",
+        "sort": 3
+      },
+      "sharpshooter": {
+        "name": "50 hits",
+        "stat": "arena_hits",
+        "target": 50,
+        "reward": { "wallet": { "gems": 10 } },
+        "category": "skill",
+        "sort": 4
+      }
+    }
+  }
+}

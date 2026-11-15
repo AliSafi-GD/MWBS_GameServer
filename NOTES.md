@@ -18,9 +18,10 @@ current state and what is left. The architecture cleanup roadmap (server and SDK
    container on another port and pass it to the host:
    `docker run -d --name mwbs-pg -e POSTGRES_DB=game -e POSTGRES_USER=game -e POSTGRES_PASSWORD=change-me -p 127.0.0.1:5433:5432 -v mwbs_pgdata:/var/lib/postgresql/data postgres:17`,
    then start the host with `ConnectionStrings__Default="Host=localhost;Port=5433;Database=game;Username=game;Password=change-me"`.
-2. `dotnet publish samples/HelloGame.Modules -c Release -o modules/HelloGame.Modules` (`modules/` is not in git).
-3. Run the host, open `/arena/` once and press "Write game config" (shop, quests, match modes live in the DB, not in git).
-4. Open `samples/unity-client` with Unity 6000.6.0f1. In Boot, the gear (bottom right) sets the server address.
+2. `dotnet publish samples/HelloGame.Modules -c Release -o modules/HelloGame.Modules` (`modules/` is not in git). The module's
+   `config/*.json` (shop, quests, match modes...) is copied along; the host writes missing keys into the DB at startup
+   (`GameServer:GameConfig:Mode`: `seed` default, `sync`, `off`; see `docs/server/game-config.md`). Publish again after editing a file.
+3. Open `samples/unity-client` with Unity 6000.6.0f1. In Boot, the gear (bottom right) sets the server address.
 
 ## What works (all verified with screenshots and bots, not on a real phone)
 

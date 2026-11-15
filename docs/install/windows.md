@@ -52,8 +52,8 @@ dotnet publish samples/HelloGame.Modules -c Release -o C:\GameServer\modules\Hel
 ```
 
 The server finds modules in the folder set by `GameServer:ModulesPath` (environment variable `GameServer__ModulesPath`).
-Each module is `modules\<Name>\<Name>.dll`, and the folder name must equal the DLL name. Use an absolute path: a Windows Service
-does not start in your folder. For your own game publish your own project into `C:\GameServer\modules\<YourModule>`.
+Each module is `modules\<Name>\<Name>.dll`, and the folder name must equal the DLL name. Use an absolute path for a service (a relative one is taken from the folder of the program, but an absolute one is
+easier to read and survives a move). For your own game publish your own project into `C:\GameServer\modules\<YourModule>`.
 
 ## 4. The settings
 
@@ -137,8 +137,9 @@ Add a rule for `7351` (TCP) if you use the TCP chat transport, and for `7360` (U
 `Invoke-RestMethod http://localhost:7350/healthz` should print `status ok` and the RPCs of your module. The admin panel is
 `http://localhost:7350/admin` (sign in with `GameServer__Admin__Key`).
 
-Then write the game config once: open `http://localhost:7350/arena/`, press **Write game config** and enter the admin key.
-See [Tank Arena](../guides/tank-arena).
+The game config needs no extra step: the module's `config/*.json` is written into the database when the server starts
+(only keys that are missing; see `GameServer__GameConfig__Mode` in [Game config files](../server/game-config)). The first start
+logs `Game config '...': written` for each key.
 
 ## Logs
 

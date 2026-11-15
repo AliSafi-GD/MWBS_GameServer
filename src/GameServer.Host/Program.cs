@@ -145,8 +145,16 @@ app.Services.GetRequiredService<ModuleLoader>().LoadAll();
 // Now that modules had their chance to add login providers, check GameServer:Auth:Providers (fails fast if wrong).
 app.Services.GetRequiredService<GameServer.Core.Identity.IdentityProviders>().Validate();
 
+// Read and check the game's config files (modules/<Name>/config/*.json, GameServer:GameConfig:Path) before touching the
+// database, so a typo stops the server with the file name instead of failing at the first player who hits that key.
+var gameConfig = app.Services.GetRequiredService<GameServer.Core.GameConfig.GameConfigStartup>();
+gameConfig.LoadAndValidate();
+
 // Create/upgrade database tables.
 await app.Services.GetRequiredService<GameServer.Core.Postgres.DatabaseMigrator>().MigrateAsync();
+
+// Write the config files into the database: only missing keys (mode seed, default), or every difference (mode sync).
+await gameConfig.ApplyAsync();
 
 // Request pipeline. The order matters.
 if (forwardedHeadersEnabled)

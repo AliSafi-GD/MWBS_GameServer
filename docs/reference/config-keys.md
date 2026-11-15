@@ -1,6 +1,6 @@
 # Config keys
 
-Remote config keys the server understands. Edit them in the admin panel (Config tab). See [Remote config](../server/remote-config).
+Remote config keys the server understands. A game ships them as files in its module ([Game config files](../server/game-config)) and can edit them in the admin panel (Config tab). See [Remote config](../server/remote-config).
 
 | Key | Public? | Used by | Page |
 |---|---|---|---|
@@ -49,4 +49,4 @@ Any other key is yours: read it in a module with `ctx.Config.GetAsync<T>("key")`
 { "groupTypes": { "clan": { "maxPerUser": 1, "maxMembers": 50 } } }
 ```
 
-A complete working set is in `src/GameServer.Host/wwwroot/arena/arena-config.json`.
+A complete working set (one file per key, in the file format of [Game config files](../server/game-config)) is in `samples/HelloGame.Modules/config/`.

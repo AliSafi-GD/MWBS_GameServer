@@ -59,6 +59,7 @@ export default defineConfig({
             { text: 'Configuration', link: '/server/configuration' },
             { text: 'Authentication', link: '/server/authentication' },
             { text: 'Remote config', link: '/server/remote-config' },
+            { text: 'Game config files', link: '/server/game-config' },
             { text: 'Wallet and inventory', link: '/server/economy' },
             { text: 'Shop', link: '/server/shop' },
             { text: 'Progress and quests', link: '/server/progress' },

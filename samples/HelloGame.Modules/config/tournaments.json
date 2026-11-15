@@ -1,0 +1,16 @@
+{
+  "public": false,
+  "value": {
+    "arena_cup": {
+      "name": { "en": "Arena Cup" },
+      "start": "2026-01-01T00:00:00Z",
+      "end": "2030-12-31T23:59:59Z",
+      "operator": "incr",
+      "entryFee": { "coins": 10 },
+      "rewards": [
+        { "fromRank": 1, "toRank": 1, "wallet": { "coins": 300, "gems": 10 } },
+        { "fromRank": 2, "toRank": 10, "wallet": { "coins": 100 } }
+      ]
+    }
+  }
+}

@@ -46,7 +46,7 @@ A small machine is enough to start: 1 CPU and 1-2 GB of RAM runs the server and 
 
 1. Get the files and build your **module**.
 2. Give the server its **secrets** (JWT secret, admin key, database password).
-3. Start it, open `/healthz`, then write the **game config** once from the `/arena/` page.
+3. Start it and open `/healthz`. The game's **config** (shop, quests, match modes) comes from the module's `config/` folder and is written into the database at startup, see [Game config files](../server/game-config).
 
 ::: warning Never use the development keys
 The keys in `appsettings.Development.json` and the Postman files are in a public repository. Every page here shows how to

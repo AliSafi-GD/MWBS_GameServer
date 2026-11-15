@@ -1,7 +1,10 @@
+using System.IO.Compression;
+using System.Text;
 using System.Text.Json;
 using GameServer.Abstractions;
 using GameServer.Core;
 using GameServer.Core.Admin;
+using GameServer.Core.GameConfig;
 using GameServer.Core.Identity;
 using GameServer.Core.Realtime;
 using GameServer.Core.Social;
@@ -176,6 +179,25 @@ public static class AdminEndpoints
         // GET /admin/api/config : every key (public and server-only)
         admin.MapGet("/config", async (IConfigStore config, CancellationToken ct) =>
             Results.Ok(new { items = await config.ListAsync(ct) }));
+
+        // GET /admin/api/config/export : zip with one <key>.json per key, in the game config file format
+        // ({ "public": ..., "value": ... }). Put the files into the module's config folder to ship them with the game.
+        admin.MapGet("/config/export", async (IConfigStore config, CancellationToken ct) =>
+        {
+            using var zip = new MemoryStream();
+            using (var archive = new ZipArchive(zip, ZipArchiveMode.Create, leaveOpen: true))
+            {
+                foreach (var entry in await config.ListAsync(ct))
+                {
+                    if (!ConfigRules.IsValidName(entry.Key))
+                        continue; // cannot be a file name the loader accepts
+                    var file = archive.CreateEntry(entry.Key + ".json", CompressionLevel.Optimal);
+                    await using var stream = file.Open();
+                    await stream.WriteAsync(Encoding.UTF8.GetBytes(GameConfigFormat.Serialize(entry)), ct);
+                }
+            }
+            return Results.File(zip.ToArray(), "application/zip", "game-config.zip");
+        });
 
         // PUT /admin/api/config/{key}   body: { "value": <any JSON>, "public": true|false }
         admin.MapPut("/config/{key}", async (string key, ConfigWriteRequest req, HttpContext http, IConfigStore config, AdminStore adminStore, CancellationToken ct) =>

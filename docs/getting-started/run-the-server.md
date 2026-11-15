@@ -57,10 +57,14 @@ Open these in a browser:
 | <http://localhost:5000/playground/> | Web playground: every player endpoint with a "Send" button |
 | <http://localhost:5000/arena/> | The browser version of the Tank Arena demo |
 
-## Write the game config (for the demo game)
+## The game config (for the demo game)
 
-Shop, quests and match modes live in the **database**, not in git. For the sample game open
-<http://localhost:5000/arena/> once and press **Write game config** (it asks for the admin key). See [Tank Arena](../guides/tank-arena).
+Nothing to do. Shop, quests and match modes ship with the module as `config/*.json`. When the server starts it writes the keys
+that are missing into the database (look for `Game config '...': written` in the log). If you changed the files and want them to
+win over the database, start with `GameServer__GameConfig__Mode=sync`. See [Game config files](../server/game-config).
+
+Publish the module again after a change (`dotnet publish samples/HelloGame.Modules -c Release -o modules/HelloGame.Modules`), the
+files are copied from there.
 
 ## Next
 

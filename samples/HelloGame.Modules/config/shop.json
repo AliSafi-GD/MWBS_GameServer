@@ -1,0 +1,54 @@
+{
+  "public": false,
+  "value": {
+    "products": {
+      "daily_crate": {
+        "name": "Daily crate (free)",
+        "category": "gifts",
+        "sort": 1,
+        "gives": { "wallet": { "coins": 25 } },
+        "limit": { "per": "day", "count": 1 }
+      },
+      "skin_red": {
+        "name": "Red tank",
+        "category": "skins",
+        "sort": 2,
+        "cost": { "wallet": { "coins": 60 } },
+        "gives": { "items": { "skin_red": 1 } },
+        "limit": { "per": "lifetime", "count": 1 }
+      },
+      "skin_camo": {
+        "name": "Camo tank",
+        "category": "skins",
+        "sort": 3,
+        "cost": { "wallet": { "coins": 100 } },
+        "gives": { "items": { "skin_camo": 1 } },
+        "limit": { "per": "lifetime", "count": 1 }
+      },
+      "skin_gold": {
+        "name": "Gold tank",
+        "category": "skins",
+        "sort": 4,
+        "cost": { "wallet": { "coins": 250 } },
+        "gives": { "items": { "skin_gold": 1 } },
+        "limit": { "per": "lifetime", "count": 1 }
+      },
+      "skin_neon": {
+        "name": "Neon tank",
+        "category": "skins",
+        "sort": 5,
+        "cost": { "wallet": { "gems": 20 } },
+        "gives": { "items": { "skin_neon": 1 } },
+        "limit": { "per": "lifetime", "count": 1 }
+      },
+      "coin_pack": {
+        "name": "100 coins for 5 gems",
+        "category": "gems",
+        "sort": 6,
+        "cost": { "wallet": { "gems": 5 } },
+        "gives": { "wallet": { "coins": 100 } },
+        "limit": { "per": "day", "count": 5 }
+      }
+    }
+  }
+}

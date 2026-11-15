@@ -1,0 +1,8 @@
+{
+  "public": false,
+  "value": {
+    "arena_wins": { "sort": "desc", "operator": "incr", "reset": "never" },
+    "arena_weekly": { "sort": "desc", "operator": "incr", "reset": "weekly" },
+    "arena_best_hits": { "sort": "desc", "operator": "best", "reset": "never" }
+  }
+}

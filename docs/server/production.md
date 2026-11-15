@@ -36,7 +36,7 @@ Put a reverse proxy (Caddy, nginx, Traefik) in front and terminate TLS. Clients 
 
 ## 5. Modules
 
-`modules/` is mounted read-only into the container (binary installs: the folder in `GameServer__ModulesPath`). Publish your module into it and restart the server:
+`modules/` is mounted read-only into the container (binary installs: the folder in `GameServer__ModulesPath`). Publish your module into it (its `config/*.json` goes along, see [Game config files](./game-config); use `GAME_CONFIG_MODE=sync` if git should win over panel edits) and restart the server:
 
 ```bash
 dotnet publish MyGame.Modules -c Release -o modules/MyGame.Modules

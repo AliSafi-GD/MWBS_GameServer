@@ -172,12 +172,30 @@ stolen token is detected the next time either side uses it. Then log in again (g
 Tune with `GameServer__Jwt__ExpiryMinutes` and `GameServer__Jwt__RefreshDays`. Banned accounts cannot refresh.
 If a refresh response is lost on a bad connection, the client has already burned its token and must log in again.
 
+## Game config files
+
+A game's config (keys `matches`, `leaderboards`, `tournaments`, `shop`, `achievements`, `quests`, `daily_rewards`, `economy`, `social`,
+`app_version`, `maintenance`) ships with its module as `modules/<Name>/config/<key>.json`, each file
+`{ "public": false, "value": { ... } }`. Add `<None Include="config\*.json" CopyToPublishDirectory="PreserveNewest" LinkBase="config" />` to the
+module project so `dotnet publish` copies them. Optional extra folder: `GameServer:GameConfig:Path`. The same key in two places stops
+the server at startup.
+- At startup (after the modules load, before the database migrations) every file is read and validated with the same parsers the
+  services use; a mistake stops the server with the file path and the reason.
+- Then, after the migrations, the files are written into the database by `GameServer:GameConfig:Mode` (env `GAME_CONFIG_MODE` in
+  Compose): `seed` (default) writes only missing keys, `sync` makes the files win (old values go to the key's history, actor
+  `config-files`; keys without a file are never deleted), `off` ignores the files.
+- `GET /admin/api/config/export` (button **Export as files (zip)** in the Config tab) returns the database config in this format,
+  to move an existing server to files.
+- Relative `GameServer:ModulesPath` / `GameServer:GameConfig:Path` are resolved from the host's content root, not the working directory.
+
+Full guide: `docs/server/game-config.md`.
+
 ## Remote config, version check, maintenance
 
 Edit in the admin panel (Config tab) or `PUT /admin/api/config/{key}` with `{ "value": <any JSON>, "public": bool }`.
 - `GET /v1/config` (no login): all **public** keys as `{ "config": { key: value } }`, with ETag/`If-None-Match` (304).
   Non-public keys never leave the server; modules read any key with `ctx.Config.GetAsync<T>("key")`
-  (camelCase, case-insensitive, cached ~5 s).
+  (camelCase, case-insensitive, cached ~5 s; every write drops the cache on this instance).
 - `app_version`: `{ "default": {"latest","minimum","url"}, "bazaar": {...}, "googleplay": {...} }`.
   `GET /v1/version-check?store=bazaar&version=1.2.0` -> `{ status: ok | update_available | update_required, latest, minimum, url }`.
   Unknown store falls back to `default`; without any rule the answer is `ok`.
@@ -358,8 +376,9 @@ Open <http://localhost:5000/arena/> (second player: `/arena/?p=2` in another tab
 login, wallet, shop (tank skins), daily reward, quests, achievements, leaderboards, a tournament, friends, clans, chat,
 parties, the matchmaker and a server-side match.
 
-1. On the login page press **Write game config** once (needs the admin key). It reads `wwwroot/arena/arena-config.json`
-   and saves the match modes (`arena`, `arena_friendly`), shop, quests, achievements, leaderboards and the tournament.
+1. The game config is not set up by hand: it ships in `samples/HelloGame.Modules/config/*.json` and the server writes the match
+   modes (`arena`, `arena_friendly`), shop, quests, achievements, leaderboards and the tournament into the database at startup
+   when they are missing (see "Game config files" below).
 2. Press **Play**, then **Find match** in two tabs (or use a private match code).
 
 The game rules run on the server: `samples/HelloGame.Modules/Arena/ArenaMatch.cs` is a `MatchHandler` that moves tanks and

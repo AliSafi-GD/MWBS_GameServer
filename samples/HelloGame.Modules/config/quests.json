@@ -1,0 +1,35 @@
+{
+  "public": false,
+  "value": {
+    "quests": {
+      "play_3": {
+        "name": "Play 3 matches today",
+        "stat": "matches_played",
+        "target": 3,
+        "period": "day",
+        "reward": { "wallet": { "coins": 40 } }
+      },
+      "win_1": {
+        "name": "Win a match today",
+        "stat": "matches_won",
+        "target": 1,
+        "period": "day",
+        "reward": { "wallet": { "coins": 30 } }
+      },
+      "hit_15": {
+        "name": "Land 15 hits today",
+        "stat": "arena_hits",
+        "target": 15,
+        "period": "day",
+        "reward": { "wallet": { "coins": 25 } }
+      },
+      "win_10w": {
+        "name": "Win 10 matches this week",
+        "stat": "matches_won",
+        "target": 10,
+        "period": "week",
+        "reward": { "wallet": { "gems": 15 } }
+      }
+    }
+  }
+}

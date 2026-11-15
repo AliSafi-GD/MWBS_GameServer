@@ -64,8 +64,8 @@ even if `ufw` does not allow it. To really close one, bind it to localhost (see 
 firewall.
 :::
 
-Test from your own computer: `http://203.0.113.10:7350/healthz` should show `{"status":"ok",...}`. Then write the game config
-once (`http://203.0.113.10:7350/arena/`, **Write game config**), see [Docker Compose, step 7](./docker-compose#_7-write-the-game-config-once).
+Test from your own computer: `http://203.0.113.10:7350/healthz` should show `{"status":"ok",...}`. The game config is written by the server itself
+when it starts, see [Docker Compose, step 7](./docker-compose#_7-the-game-config).
 
 ## 5. Point the game at your server
 

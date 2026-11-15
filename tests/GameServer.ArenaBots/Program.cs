@@ -1,6 +1,7 @@
 // Tank Arena bots: a load and end-to-end test for the server.
 //   dotnet run --project tests/GameServer.ArenaBots -- <baseUrl> <adminKey> [bots=8] [--keep]
-// Writes the arena config (like the web page does), creates N players, queues them in the matchmaker, plays full
+// Needs the arena config in the database: the server seeds it from samples/HelloGame.Modules/config at startup (a fresh
+// database, or GameServer:GameConfig:Mode=sync). Creates N players, queues them in the matchmaker, plays full
 // server-side matches over websocket, then checks that coins, stats, quests and leaderboards were updated by the server.
 // Log: arena-bots.log. Exit code 0 = everything passed.
 using System.Net.Http.Json;
@@ -37,45 +38,23 @@ var json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 Log($"Arena bots, run {run}, server {baseUrl}, {botCount} bots");
 
 // ---- 1. config ------------------------------------------------------------------------------------------------
-string cfgText;
-try { cfgText = await http.GetStringAsync("/arena/arena-config.json"); }
-catch (Exception ex) { Log("FAIL  cannot read /arena/arena-config.json: " + ex.Message); return 1; }
-
-JsonNode Fix(JsonNode? node)
+// The server writes the module's config files into the database at startup. Here we only check that it did.
+var needed = new[] { "matches", "leaderboards", "tournaments", "shop", "achievements", "quests", "daily_rewards" };
+var present = new HashSet<string>();
+try
 {
-    switch (node)
-    {
-        case JsonObject o:
-            var copy = new JsonObject();
-            foreach (var kv in o) copy[kv.Key] = Fix(kv.Value);
-            return copy;
-        case JsonArray a:
-            var arr = new JsonArray();
-            foreach (var x in a) arr.Add(Fix(x));
-            return arr;
-        case JsonValue v when v.TryGetValue<string>(out var s) && s.StartsWith("@now"):
-            var days = int.Parse(new string(s.Where(char.IsDigit).ToArray()));
-            return JsonValue.Create(DateTime.UtcNow.AddDays(s.Contains('+') ? days : -days).ToString("o"))!;
-        default:
-            return node?.DeepClone() ?? JsonValue.Create((string?)null)!;
-    }
-}
-
-var configs = JsonNode.Parse(cfgText)!["configs"]!.AsObject();
-var allWritten = true;
-foreach (var kv in configs)
-{
-    using var req = new HttpRequestMessage(HttpMethod.Put, "/admin/api/config/" + kv.Key)
-    {
-        Content = new StringContent(new JsonObject { ["value"] = Fix(kv.Value), ["public"] = false }.ToJsonString(), Encoding.UTF8, "application/json")
-    };
+    using var req = new HttpRequestMessage(HttpMethod.Get, "/admin/api/config");
     req.Headers.Add("X-Admin-Key", adminKey);
     using var res = await http.SendAsync(req);
-    if (!res.IsSuccessStatusCode) { allWritten = false; Log($"      config {kv.Key}: {(int)res.StatusCode} {await res.Content.ReadAsStringAsync()}"); }
+    if (!res.IsSuccessStatusCode) { Log($"FAIL  cannot read the config: {(int)res.StatusCode} {await res.Content.ReadAsStringAsync()}"); return 1; }
+    foreach (var item in JsonNode.Parse(await res.Content.ReadAsStringAsync())!["items"]!.AsArray())
+        present.Add(item!["key"]!.GetValue<string>());
 }
-Check("game config written (matches, shop, quests, achievements, leaderboards, tournament)", allWritten);
-Log("      waiting for the mode cache (3.5 s)");
-await Task.Delay(3500);
+catch (Exception ex) { Log("FAIL  cannot reach the server: " + ex.Message); return 1; }
+var missing = needed.Where(k => !present.Contains(k)).ToList();
+Check("game config is in the database (seeded from the module's config folder)", missing.Count == 0,
+    "missing: " + string.Join(", ", missing) + ". Is the HelloGame.Modules module published with its config folder?");
+if (missing.Count > 0) return Finish(1);
 
 // ---- 2. bots ----------------------------------------------------------------------------------------------------
 var bots = new List<Bot>();

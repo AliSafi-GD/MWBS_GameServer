@@ -7,7 +7,7 @@ There are two different kinds of configuration. Do not mix them up:
 
 | | Server settings | Remote config |
 |---|---|---|
-| Where | `appsettings*.json`, environment | Database table `config`, edited in the admin panel |
+| Where | `appsettings*.json`, environment | Database table `config`, edited in the admin panel; a game ships its values as files ([Game config files](./game-config)) |
 | Holds | Secrets, ports, transports, limits | Game content: shop, quests, match modes, version rules |
 | Change needs | Restart | Nothing, applies in about 5 seconds |
 | Reaches clients | Never | Public keys, via `GET /v1/config` |
@@ -19,7 +19,9 @@ This page is about the first kind. For the second see [Remote config](./remote-c
 | Key | Default | Meaning |
 |---|---|---|
 | `ConnectionStrings:Default` | none | PostgreSQL connection string. Required outside Development |
-| `GameServer:ModulesPath` | `modules` | Folder with `<Name>/<Name>.dll` modules |
+| `GameServer:ModulesPath` | `modules` | Folder with `<Name>/<Name>.dll` modules. A relative path is taken from the host's content root, see [Settings](../reference/settings#relative-paths) |
+| `GameServer:GameConfig:Mode` | `seed` | How the module's `config/*.json` are applied at startup: `seed`, `sync` or `off`. See [Game config files](./game-config) |
+| `GameServer:GameConfig:Path` | empty | Extra folder with config files, besides the modules' `config/` folders |
 | `GameServer:Jwt:Secret` | none | Signing key, at least 32 bytes. Required outside Development |
 | `GameServer:Jwt:ExpiryMinutes` | `60` | Lifetime of the access token |
 | `GameServer:Jwt:RefreshDays` | `30` | Lifetime of the refresh token |

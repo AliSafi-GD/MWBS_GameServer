@@ -17,6 +17,9 @@ services:
       # Which login methods are on, comma separated: "device" (guest), "googleplay", "phone", or one a module adds.
       # Empty = device plus every method that is configured (the behavior before this setting existed).
       GameServer__Auth__Providers: "${AUTH_PROVIDERS:-}"
+      # How the game's config files (modules/<Name>/config/*.json) are applied at startup: empty or "seed" = write only
+      # the keys that are missing in the database, "sync" = files win on every restart, "off" = ignore the files.
+      GameServer__GameConfig__Mode: "${GAME_CONFIG_MODE:-}"
       # Google Play Games login (also used for Bazaar/Myket builds). Leave empty to disable it.
       GameServer__Auth__GooglePlay__ClientId: "${GOOGLE_CLIENT_ID:-}"
       GameServer__Auth__GooglePlay__ClientSecret: "${GOOGLE_CLIENT_SECRET:-}"

@@ -54,7 +54,7 @@ Endpoints/                 one file per area: AuthEndpoints, AccountEndpoints, C
                            MatchEndpoints, ShopEndpoints, ProgressEndpoints, AdminEndpoints (+ AdminConsole/AdminSocial)
 Middleware/                GameExceptionMiddleware, MaintenanceModeMiddleware, AdminAuditMiddleware
 Extensions/                small helpers, e.g. http.UserId() (the signed-in player's id)
-wwwroot/                   admin panel, web playground, sample game config
+wwwroot/                   admin panel, web playground, the browser version of Tank Arena
 ```
 
 To add your own HTTP endpoint, create `Endpoints/MyAreaEndpoints.cs` with

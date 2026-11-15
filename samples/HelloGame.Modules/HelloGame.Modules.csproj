@@ -6,4 +6,8 @@
       <ExcludeAssets>runtime</ExcludeAssets>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <!-- The game's config ships with the module: config/<key>.json, copied next to the DLL by dotnet publish. -->
+    <None Include="config\*.json" CopyToPublishDirectory="PreserveNewest" LinkBase="config" />
+  </ItemGroup>
 </Project>

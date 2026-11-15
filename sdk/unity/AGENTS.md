@@ -183,7 +183,7 @@ Optional: `fillSeconds`, `ticketTimeoutSeconds`, `joinTimeoutSeconds`, `emptyTim
 
 `shop`, `achievements`, `quests`, `daily_rewards`, `leaderboards`, `tournaments`, `matches`, `social`. Edit them in the admin panel
 (`/admin`, Config tab; each save is versioned and can be rolled back). Stats feed achievements and quests: a quest with `"stat": "matches_won"`
-advances when a handler calls `AddStatAsync(user, "matches_won")`. Example config files: `samples/HelloGame.Modules` and `src/GameServer.Host/wwwroot/arena/arena-config.json`.
+advances when a handler calls `AddStatAsync(user, "matches_won")`. Example config files: `samples/HelloGame.Modules` and `samples/HelloGame.Modules/config/` (one `<key>.json` per config key).
 
 ## 6. Error codes you will meet
 

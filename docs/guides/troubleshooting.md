@@ -27,7 +27,7 @@
 
 | Symptom | Fix |
 |---|---|
-| "unknown mode" | Press **Write game config**, or define the mode in the `matches` config |
+| "unknown mode" | The `matches` config has no such mode. Check `config/matches.json` in the module and that the module was published again. In the default `seed` mode a key that is already in the database is not overwritten, use `sync` (see [Game config files](../server/game-config)) |
 | Match found but the client cannot connect | You have about 30 seconds to connect after `MatchFound`. Check the transport (`udp` needs LiteNetLib and the define) |
 | Nobody is matched | `minPlayers` more than the players waiting. After `fillSeconds` a smaller match may start |
 | Reconnect fails | The handler's grace time passed (15 s in the sample) |
