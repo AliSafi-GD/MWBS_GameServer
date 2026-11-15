@@ -60,9 +60,11 @@
 
 هیچ‌کدام از تغییرات بالا روی سرور واقعی با Postgres اجرا نشده‌اند. اول در خانه این‌ها را چک کن:
 
-- [ ] `tests/GameServer.SmokeTest` روی سرور واقعی (DI، binding، ترتیب middleware، auth جدید).
-- [ ] seed و sync کانفیگ بازی روی Postgres، و دکمه‌ی export در پنل admin.
-- [ ] `tests/GameServer.ArenaBots` (حالا کانفیگ نمی‌نویسد؛ فقط چک می‌کند هست).
+- [x] `tests/GameServer.SmokeTest` روی سرور واقعی (DI، binding، ترتیب middleware، auth جدید). 2026-11-15: ۲۱۰ سبز.
+- [x] seed و sync کانفیگ بازی روی Postgres. 2026-11-15: هر دو حالت کار کرد. دکمه‌ی export در پنل admin هنوز تست نشده.
+- [x] `tests/GameServer.ArenaBots`. 2026-11-15: ۱۵ سبز (۸ بات). اول خراب بود چون `SdkSmokeTest` کانفیگ `matches`
+  را با مدهای `sdk_*` عوض می‌کرد و برنمی‌گرداند؛ حالا مثل SmokeTest قبل از تست کانفیگ را نگه می‌دارد و آخر برمی‌گرداند.
+  اگر DB از قبل خراب شده، یک بار سرور را با `GameServer__GameConfig__Mode=sync` اجرا کن.
 - [ ] بازی یونیتی Tank Arena با سرور (کانفیگ باید خودکار seed شده باشد).
 - [ ] (اختیاری) قدم‌های Linux/systemd و Windows Service و Caddy از `docs/install/`.
 

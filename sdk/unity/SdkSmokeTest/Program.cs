@@ -81,6 +81,23 @@ var matchedB = new Inbox<MatchFound>();
 var room = Channels.Room("sdk" + run);
 var udpOffered = false;
 
+// The sections below overwrite some game config keys with their own values. Remember what the server had (it seeds the
+// game's config files at startup) and put it back at the end, so the arena bots that run next find the game's config.
+var touchedKeys = new[] { "matches", "shop", "achievements", "daily_rewards" };
+var configBefore = new Dictionary<string, (JToken Value, bool Public)>();
+{
+    var before = await Admin("GET", "/admin/api/config");
+    if (before.Status == 200 && JObject.Parse(before.Body)["items"] is JArray items)
+        foreach (var item in items)
+        {
+            var key = (string)item["key"];
+            if (touchedKeys.Contains(key))
+                configBefore[key] = (item["value"], (bool)item["isPublic"]);
+        }
+    else
+        Log("WARN  could not read the game config before the test (" + before.Status + "); it will not be restored");
+}
+
 await Section("login, account, config, errors", async () =>
 {
     a = Make();
@@ -492,6 +509,20 @@ await Section("cleanup", async () =>
     }
 
     Check("accounts deleted", a == null || !a.Session.IsLoggedIn);
+});
+
+await Section("restore the game config the server had", async () =>
+{
+    foreach (var key in touchedKeys)
+    {
+        if (configBefore.TryGetValue(key, out var old))
+        {
+            var put = await Admin("PUT", "/admin/api/config/" + key, new { value = old.Value, @public = old.Public });
+            Check("config '" + key + "' restored", put.Status == 200, put.Body);
+        }
+        else
+            await Admin("DELETE", "/admin/api/config/" + key); // the server had no such key
+    }
 });
 
 Log("");
