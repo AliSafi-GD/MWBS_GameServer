@@ -75,6 +75,8 @@ A client that is too old is not an error: `GET /v1/version-check` answers `statu
 | `already_in_party`, `party_full`, `not_party_leader` | |
 | `not_group_admin`, `group_full`, `banned_from_group` | |
 | `muted` | The player is muted |
+| `not_a_member` | Not in that clan or party |
+| `not_stored` | `POST /v1/chat/read` on party chat or a room (only direct and clan chats keep a read mark) |
 
 ## Matches
 

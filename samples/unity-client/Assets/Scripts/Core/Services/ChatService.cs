@@ -57,27 +57,26 @@ namespace Game.Core
     /// <summary>
     /// All chat: the lobby room, direct messages, party chat and clan chat. The party and clan conversations follow
     /// <see cref="SocialService"/>, so their messages arrive (and count as unread) even while the chat is closed.
-    /// What was read is remembered on this device only: the server keeps messages, not who has seen them.
+    /// Unread counts come from the server (one <c>Chat.ConversationsAsync</c> call), and what was read is saved there,
+    /// so every device of the player agrees. Party chat and the lobby are not stored, so they have no read mark.
     /// </summary>
     public sealed class ChatService : IDisposable
     {
         private const int HistorySize = 40;
         private const int MaxLines = 200;
-        private const int MaxSyncedFriends = 30;
 
         /// <summary>How long a repeated unstored message from the same sender counts as the same one (our send racing the echo).</summary>
         private static readonly TimeSpan EchoWindow = TimeSpan.FromSeconds(3);
 
-        /// <summary>How far the device clock may be behind the server's when deciding what was written before this session.</summary>
-        private static readonly TimeSpan ClockSlack = TimeSpan.FromMinutes(2);
-
-        private readonly DateTime _startedUtc = DateTime.UtcNow;
         private readonly GameClient _client;
         private readonly BackendService _backend;
         private readonly SocialService _social;
         private readonly string _me;
         private readonly Dictionary<string, ChatThread> _threads = new Dictionary<string, ChatThread>();
-        private bool _directSynced;
+
+        /// <summary>The newest message id the player has read, per stored conversation (from the server, then moved by us).</summary>
+        private readonly Dictionary<string, long> _readUpTo = new Dictionary<string, long>();
+        private bool _synced;
 
         public event Action<ChatThread, ChatLine> MessageAdded;
 
@@ -163,6 +162,9 @@ namespace Game.Core
             if (line == null)
                 return;
 
+            // The server marks what we send as read; only the local mark has to follow.
+            if (line.Id.HasValue)
+                RememberRead(thread, line.Id.Value);
             MarkRead(thread);
             MessageAdded?.Invoke(thread, line);
         }
@@ -243,25 +245,42 @@ namespace Game.Core
             }
         }
 
-        /// <summary>Loads the last messages of each friend once per session, to know who wrote while we were away.</summary>
-        private async void SyncDirect(List<Friend> friends)
+        /// <summary>
+        /// One call for every stored conversation: who wrote while we were away, how many are unread and the last message
+        /// (for the list). Runs once the clan is known, and again after a reconnect.
+        /// </summary>
+        private async void SyncConversations()
         {
-            foreach (var f in friends.Take(MaxSyncedFriends))
+            List<Conversation> list;
+            try
             {
-                var thread = Direct(f.Profile.Id, NameOf(f.Profile));
-                if (thread.Loaded)
+                list = await _client.Chat.ConversationsAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[Chat] could not load the conversations: " + ex.Message);
+                return;
+            }
+
+            foreach (var c in list)
+            {
+                ChatThread thread;
+                if (c.Kind == "direct" && !string.IsNullOrEmpty(c.PeerId))
+                    thread = Direct(c.PeerId, c.Title);
+                else if (c.Kind == "group" && ClanThread != null && ClanThread.Key == c.Channel)
+                    thread = ClanThread;
+                else
                     continue;
 
-                try
-                {
-                    await LoadHistoryAsync(thread);
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogWarning("[Chat] could not load messages of " + thread.Title + ": " + ex.Message);
-                    return;
-                }
+                RememberRead(thread, c.LastReadId);
+                if (c.LastMessage != null)
+                    Add(thread, c.LastMessage, false);
+
+                if (thread != Active)
+                    thread.Unread = c.Unread;
             }
+
+            UnreadChanged?.Invoke();
         }
 
         // ---- following the party and the clan -----------------------------------------------------------------
@@ -298,10 +317,10 @@ namespace Game.Core
             foreach (var f in friends)
                 Direct(f.Profile.Id, NameOf(f.Profile));
 
-            if (!_directSynced && friends.Count > 0)
+            if (!_synced)
             {
-                _directSynced = true;
-                SyncDirect(friends);
+                _synced = true;
+                SyncConversations();
             }
         }
 
@@ -313,6 +332,8 @@ namespace Game.Core
 
             if (Active != null)
                 Watch(Active);
+
+            SyncConversations();
         }
 
         // ---- incoming -----------------------------------------------------------------------------------------
@@ -342,10 +363,6 @@ namespace Game.Core
             }
             else if (!line.Mine && thread.Kind != ChatKind.Lobby)
             {
-                // First message ever seen on this device: everything before it counts as read.
-                if (line.Id.HasValue && LastRead(thread) == null)
-                    SaveRead(thread, line.Id.Value - 1);
-
                 thread.Unread++;
                 UnreadChanged?.Invoke();
             }
@@ -394,12 +411,14 @@ namespace Game.Core
             return line;
         }
 
-        // ---- read state (this device only) --------------------------------------------------------------------
+        // ---- read state (kept on the server) -------------------------------------------------------------------
+
+        private static bool IsStored(ChatThread thread) => thread.Kind == ChatKind.Direct || thread.Kind == ChatKind.Clan;
 
         private void MarkRead(ChatThread thread)
         {
             var newest = thread.Lines.LastOrDefault(l => l.Id.HasValue);
-            if (newest != null)
+            if (newest != null && IsStored(thread) && RememberRead(thread, newest.Id.Value))
                 SaveRead(thread, newest.Id.Value);
 
             if (thread.Unread == 0)
@@ -409,22 +428,15 @@ namespace Game.Core
             UnreadChanged?.Invoke();
         }
 
+        /// <summary>After loading the history: what came after the read mark is unread.</summary>
         private void CountUnread(ChatThread thread)
         {
-            var read = LastRead(thread);
-            int unread;
-            if (read == null)
-            {
-                // Nothing remembered (new device or new friend): what was written before this session counts as read,
-                // so old history is not reported as new. Messages of this session are still new.
-                var cutoff = _startedUtc - ClockSlack;
-                var old = thread.Lines.LastOrDefault(l => l.Id.HasValue && (l.Mine || l.At < cutoff));
-                read = old != null ? old.Id.Value : 0;
-                SaveRead(thread, read.Value);
-            }
+            var read = _readUpTo.TryGetValue(thread.Key, out var id) ? id : 0;
+            var others = thread.Lines.Where(l => !l.Mine && l.Id.HasValue).ToList();
+            var counted = others.Count(l => l.Id.Value > read);
 
-            unread = thread.Lines.Count(l => !l.Mine && l.Id.HasValue && l.Id.Value > read.Value);
-
+            // Every loaded message is unread: there may be more before them, so keep the server's (bigger) count.
+            var unread = counted == others.Count && thread.Unread > counted ? thread.Unread : counted;
             if (unread == thread.Unread)
                 return;
 
@@ -432,16 +444,26 @@ namespace Game.Core
             UnreadChanged?.Invoke();
         }
 
-        private string ReadKey(ChatThread thread) => "chat.read." + _me + "." + thread.Key;
-
-        private long? LastRead(ChatThread thread) =>
-            long.TryParse(PlayerPrefs.GetString(ReadKey(thread), ""), out var id) ? id : (long?)null;
-
-        private void SaveRead(ChatThread thread, long id)
+        /// <summary>Moves the local read mark forward. True when it moved.</summary>
+        private bool RememberRead(ChatThread thread, long id)
         {
-            var read = LastRead(thread);
-            if (read == null || id > read.Value)
-                PlayerPrefs.SetString(ReadKey(thread), id.ToString());
+            if (_readUpTo.TryGetValue(thread.Key, out var known) && known >= id)
+                return false;
+            _readUpTo[thread.Key] = id;
+            return true;
+        }
+
+        private async void SaveRead(ChatThread thread, long id)
+        {
+            try
+            {
+                await _client.Chat.MarkReadAsync(thread.Key, id);
+            }
+            catch (Exception ex)
+            {
+                // Not fatal: the next read saves a newer mark.
+                Debug.LogWarning("[Chat] could not save what was read in " + thread.Title + ": " + ex.Message);
+            }
         }
 
         // ---- names --------------------------------------------------------------------------------------------

@@ -2,6 +2,15 @@
 
 All notable changes of `com.gameserver.client`. The version follows the package's own API, not the server's.
 
+## [0.3.0] - 2026-11-15
+
+### Added
+- `Chat.ConversationsAsync()`: my direct chats and clans, newest first, each with `LastMessage`, `LastReadId` and `Unread`
+  (at most 100). Needs server endpoint `GET /v1/chat/conversations`.
+- `Chat.MarkReadAsync(channel, messageId)`: saves how far a direct or clan conversation was read, on the server, so every
+  device agrees. Messages you send count as read.
+- Model `Conversation`.
+
 ## [0.2.0] - 2026-11-15
 
 ### Added

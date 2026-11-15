@@ -225,5 +225,23 @@ namespace GameServer.Client
             var root = await _api.GetObjectAsync(ApiClient.Query("/v1/chat/history", "channel", channel, "limit", limit, "before", before), ct);
             return root.Get<List<ChatMessage>>("items");
         }
+
+        /// <summary>
+        /// My direct chats and clans, newest first, each with its last message and the number of unread messages from others
+        /// (at most 100). One call at startup is enough; after that count new messages from <see cref="IRealtimeClient.ChatMessageReceived"/>.
+        /// </summary>
+        public async Task<List<Conversation>> ConversationsAsync(int limit = 50, CancellationToken ct = default(CancellationToken))
+        {
+            var root = await _api.GetObjectAsync(ApiClient.Query("/v1/chat/conversations", "limit", limit), ct);
+            return root.Get<List<Conversation>>("items") ?? new List<Conversation>();
+        }
+
+        /// <summary>
+        /// Marks a direct ("dm:&lt;userId&gt;" or the stored "dm:&lt;a&gt;:&lt;b&gt;") or clan ("group:&lt;id&gt;") conversation as read
+        /// up to <paramref name="messageId"/>, on every device. The mark never moves back. Messages you send count as read.
+        /// Errors: not_stored (party chat and rooms), not_a_member.
+        /// </summary>
+        public Task MarkReadAsync(string channel, long messageId, CancellationToken ct = default(CancellationToken)) =>
+            _api.SendAsync("POST", "/v1/chat/read", new { channel, messageId }, true, ct);
     }
 }

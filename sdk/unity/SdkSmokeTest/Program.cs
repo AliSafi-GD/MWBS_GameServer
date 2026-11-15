@@ -190,6 +190,21 @@ await Section("realtime over websocket: chat", async () =>
     Check("direct message history over HTTP", history.Any(m => m.Text == "dm one"), history.Count.ToString());
     var wsHistory = await b.Realtime.ChannelHistoryAsync(Channels.Direct(la.UserId), 10);
     Check("direct message history over the socket", wsHistory.Any(m => m.Text == "dm one"));
+
+    var conversations = await b.Chat.ConversationsAsync();
+    var withA = conversations.FirstOrDefault(c => c.Kind == "direct" && c.PeerId == la.UserId);
+    Check("ConversationsAsync lists the chat with A, unread", withA != null && withA.Unread >= 1 && withA.LastMessage?.Text == "dm one",
+        Json.Serialize(conversations));
+    if (withA != null && withA.LastMessage?.Id is long lastId)
+    {
+        await b.Chat.MarkReadAsync(Channels.Direct(la.UserId), lastId);
+        var after = (await b.Chat.ConversationsAsync()).FirstOrDefault(c => c.Channel == withA.Channel);
+        Check("MarkReadAsync clears the unread count", after != null && after.Unread == 0 && after.LastReadId == lastId);
+    }
+    var mine = (await a.Chat.ConversationsAsync()).FirstOrDefault(c => c.PeerId == lb.UserId);
+    Check("my own message counts as read", mine != null && mine.Unread == 0);
+    var roomRead = await Fails(() => b.Chat.MarkReadAsync(Channels.Room("x" + run), 1));
+    Check("rooms have no read mark -> not_stored", roomRead != null && roomRead.Code == "not_stored", roomRead?.ToString());
 });
 
 await Section("friends, groups, parties", async () =>

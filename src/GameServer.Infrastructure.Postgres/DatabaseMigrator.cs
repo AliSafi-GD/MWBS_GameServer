@@ -340,6 +340,19 @@ public sealed class DatabaseMigrator
                 queued  integer NOT NULL
             );
             """),
+
+        (13, """
+            -- How far each player has read each stored conversation (direct messages, clan chat): the newest message id
+            -- they have seen. Unread = messages from others after it.
+            CREATE TABLE chat_reads (
+                user_id      text   NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                channel      text   NOT NULL,
+                last_read_id bigint NOT NULL,
+                PRIMARY KEY (user_id, channel)
+            );
+            -- Finding a player's direct conversations by prefix (dm:<id>:...) and suffix (...:<id>).
+            CREATE INDEX chat_messages_channel_pattern_idx ON chat_messages (channel text_pattern_ops);
+            """),
     };
 
     private readonly NpgsqlDataSource _db;

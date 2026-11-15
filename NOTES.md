@@ -49,9 +49,9 @@ current state and what is left. The architecture cleanup roadmap (server and SDK
   `Assets/Fonts/OFL.txt`); it is Latin only, so other scripts (Persian names, chat) fall back to the device's fonts.
 - Chat (`Core/Services/ChatService.cs`, one `ChatThread` per conversation): lobby, direct messages with friends, party chat,
   clan chat. Unread counts on the conversation list, the chat buttons and the Social tab, plus a toast for a message that is
-  not on screen. No server change was needed. What was read is kept in PlayerPrefs on the device (the server stores messages,
-  not read state), and to find messages sent while offline the client loads the last 40 messages of up to 30 friends once per
-  session; a "my conversations with unread counts" endpoint on the server would replace both.
+  not on screen. Unread counts come from one `Chat.ConversationsAsync()` call (at start and after a reconnect), and what was
+  read is saved on the server with `Chat.MarkReadAsync` (table `chat_reads`), so every device agrees. Before 2026-11-15 this
+  was PlayerPrefs plus loading the history of up to 30 friends.
 - Clan tab: create, search, join / request, accept an invite, member list, leave, disband (owner). Not there: invite, kick,
   promote, transfer, accepting join requests, editing the clan (all in `Social.Groups` of the SDK).
 - Tests: `GameTours` (MenuTour, PlayOneMatch, PopupTour, ProfileTour, InventoryTour, ChatTour, ChatThreadsTour),

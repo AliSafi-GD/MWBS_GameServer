@@ -119,7 +119,8 @@ Live: `Realtime.NotificationReceived`. `Rpc.CallAsync(id, payload)` (string) or 
 - `Social.Friends`: `ListAsync(state)` (`friend`, `invite_received`, `invite_sent`, `blocked`), `AddAsync(userId|username)`, `RemoveAsync`, `BlockAsync`, `UnblockAsync`, `OnlineAsync(userIds)`.
 - `Social.Groups` (clans): `CreateAsync(NewGroup)`, `SearchAsync(query,type)`, `MineAsync()`, `GetAsync`, `UpdateAsync`, `DeleteAsync`, `JoinAsync`, `LeaveAsync`, `MembersAsync`, `InviteAsync`, `AcceptAsync`, `KickAsync`, `BanAsync`, `UnbanAsync`, `PromoteAsync`, `DemoteAsync`, `TransferAsync`.
 - `Social.Parties` (temporary squads): `CreateAsync(open,maxSize)`, `MineAsync`, `GetAsync`, `JoinAsync`, `LeaveAsync`, `InviteAsync`, `KickAsync`, `PromoteAsync`, `CloseAsync`. Events: `Realtime.PartyInvited`, `PartyUpdated`, `PartyLeft`.
-- `Chat.HistoryAsync(channel, limit, before)`.
+- `Chat.HistoryAsync(channel, limit, before)`, `Chat.ConversationsAsync()` (my direct chats and clans with `Unread` and `LastMessage`;
+  call once at startup), `Chat.MarkReadAsync(channel, messageId)` (direct and clan only).
 
 ### Realtime (needs `Realtime.ConnectAsync()` first)
 Chat channels: `Channels.Room("lobby")`, `Channels.Group(id)`, `Channels.Party(id)`, `Channels.Direct(userId)`.

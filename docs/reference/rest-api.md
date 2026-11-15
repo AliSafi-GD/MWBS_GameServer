@@ -61,6 +61,8 @@ Open `/playground/` on your server for every endpoint with a Send button, or imp
 | GET / POST | `/v1/groups` | Search, create. Also `/mine`, `/{id}`, `/{id}/join`, `/leave`, `/members`, invite, accept, kick, ban, promote, demote, transfer |
 | GET / POST | `/v1/parties` | `/mine`, join, leave, invite, kick, promote, close |
 | GET | `/v1/chat/history?channel=&limit=&before=` | Channel history |
+| GET | `/v1/chat/conversations?limit=` | My direct chats and clans: last message, read mark, unread count (max 100) |
+| POST | `/v1/chat/read` | `{ channel, messageId }`: read up to that message (direct and clan only) |
 | GET | `/v1/online?ids=a,b,c` | Which of these players are connected (max 200 ids) |
 
 ## Matches

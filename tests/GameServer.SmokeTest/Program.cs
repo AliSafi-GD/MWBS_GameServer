@@ -315,6 +315,40 @@ await Section("chat: rooms, groups, direct messages (websocket)", async () =>
     var dmHist = await Call("GET", $"/v1/chat/history?channel=dm:{a.Id}&limit=10", token: b.Token);
     Check("B reads the direct message history", dmHist.Status == 200 && dmHist.Body.Contains("psst " + run), dmHist.Body);
 
+    // Conversations with unread counts: one call instead of reading every friend's history
+    var dmChannel = string.CompareOrdinal(a.Id, b.Id) < 0 ? $"dm:{a.Id}:{b.Id}" : $"dm:{b.Id}:{a.Id}";
+    async Task<JsonElement?> ConversationOf(Player p, string channel)
+    {
+        var list = await Call("GET", "/v1/chat/conversations", token: p.Token);
+        if (list.Status != 200 || list.Json is not { } json || !json.TryGetProperty("items", out var items))
+            return null;
+        foreach (var item in items.EnumerateArray())
+            if (S(item, "channel") == channel)
+                return item;
+        return null;
+    }
+    int UnreadOf(JsonElement? c) => c is { } e && e.TryGetProperty("unread", out var u) ? u.GetInt32() : -1;
+
+    var bDm = await ConversationOf(b, dmChannel);
+    Check("B's conversations list the direct chat with A, unread", bDm is { } && S(bDm.Value, "kind") == "direct"
+        && S(bDm.Value, "peerId") == a.Id && UnreadOf(bDm) >= 1 && (S(bDm.Value, "lastMessage", "text") ?? "").Contains("psst " + run), bDm?.GetRawText());
+    var bClan = await ConversationOf(b, "group:" + groupId);
+    Check("B's conversations list the clan, unread", bClan is { } && S(bClan.Value, "kind") == "group" && UnreadOf(bClan) >= 1, bClan?.GetRawText());
+    Check("A's own message counts as read for A", UnreadOf(await ConversationOf(a, dmChannel)) == 0);
+
+    var lastId = bDm is { } d && d.TryGetProperty("lastMessage", out var lm) && lm.TryGetProperty("id", out var lid) ? lid.GetInt64() : 0;
+    var read = await Call("POST", "/v1/chat/read", new { channel = "dm:" + a.Id, messageId = lastId }, token: b.Token);
+    Check("B marks the direct chat read (204)", read.Status == 204, read.Body);
+    Check("after that the direct chat has no unread", UnreadOf(await ConversationOf(b, dmChannel)) == 0);
+    var back = await Call("POST", "/v1/chat/read", new { channel = "dm:" + a.Id, messageId = 1 }, token: b.Token);
+    Check("an older read mark does not move it back", back.Status == 204 && UnreadOf(await ConversationOf(b, dmChannel)) == 0, back.Body);
+
+    var roomRead = await Call("POST", "/v1/chat/read", new { channel = "room:smoke", messageId = 1 }, token: b.Token);
+    Check("rooms have no read mark -> 400 not_stored", roomRead.Status == 400 && roomRead.Body.Contains("not_stored"), roomRead.Body);
+    var outsiderRead = await Call("POST", "/v1/chat/read", new { channel = "group:" + groupId, messageId = 1 }, token: c.Token);
+    Check("non-member C cannot mark the clan read -> 403", outsiderRead.Status == 403, outsiderRead.Body);
+    Check("C's conversations do not include the clan", await ConversationOf(c, "group:" + groupId) is null);
+
     var leave = await rb.Req("channel.leave", new { channel = "room:smoke" });
     Check("B leaves the room", leave is not null && S(leave, "type") == "channel.left", leave?.GetRawText());
 });

@@ -110,5 +110,17 @@ namespace GameServer.Client
     {
         /// <summary>Newest first. Pass the oldest id you have as <paramref name="before"/> for the next page.</summary>
         Task<List<ChatMessage>> HistoryAsync(string channel, int limit = 50, long? before = null, CancellationToken ct = default(CancellationToken));
+
+        /// <summary>
+        /// My direct chats and clans, newest first, each with its last message and the number of unread messages from others
+        /// (at most 100). One call at startup is enough; after that count new messages from <see cref="IRealtimeClient.ChatMessageReceived"/>.
+        /// </summary>
+        Task<List<Conversation>> ConversationsAsync(int limit = 50, CancellationToken ct = default(CancellationToken));
+
+        /// <summary>
+        /// Marks a direct or clan conversation as read up to <paramref name="messageId"/>, on every device. The mark never moves back.
+        /// Errors: not_stored (party chat and rooms), not_a_member.
+        /// </summary>
+        Task MarkReadAsync(string channel, long messageId, CancellationToken ct = default(CancellationToken));
     }
 }

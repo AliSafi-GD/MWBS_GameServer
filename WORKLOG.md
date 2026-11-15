@@ -69,6 +69,11 @@
 - ثبت: `AddGameServerCore(...)` (سرویس‌ها) + `AddGameServerPostgres(config)` (data source، migrator، storeها). `Program.cs` هر دو را دارد.
 - `WiringTests.cs`: کل گراف DI با `ValidateOnBuild` چک می‌شود. ۱۳۱ unit test.
 
+### ۱۳. گفتگوها با تعداد unread (قدم ۹ در CLEANUP.md، 2026-11-15، SDK 0.3.0)
+- سرور: `GET /v1/chat/conversations` و `POST /v1/chat/read` (جدول `chat_reads`)؛ تعداد unread روی همه‌ی دستگاه‌ها یکی است.
+- کلاینت Tank Arena دیگر ۳۰ دوست را poll نمی‌کند و PlayerPrefs ندارد.
+- مانده: تست دستی در بازی با دو کلاینت؛ برای حجم زیاد، جدول شرکت‌کنندگان به جای `LIKE`.
+
 ### ۱۲. Unity SDK (قدم ۸ در CLEANUP.md، 2026-11-15، پکیج 0.2.0)
 - interface برای همه‌ی APIها و `IGameClient`؛ `client.Shop` یک `IShopApi` است، پس کد بازی با fake تست می‌شود.
 - فایل‌ها تکه شدند (هیچ‌کدام بالای ۳۰۰ خط نیست)؛ `GameClientOptions.Dispatcher` (`InlineDispatcher` برای تست/بات).
@@ -156,7 +161,7 @@ dotnet test tests/GameServer.Core.Tests
 2. ~~**قدم ۲ در CLEANUP.md:** `TimeProvider` به جای `DateTime.UtcNow`.~~ انجام شد (بخش ۵ بالا).
 3. ~~**قدم ۳:** بیرون کشیدن SQL از سرویس‌ها و تکه کردن `AdminStore`.~~ انجام شد (بخش ۶ بالا).
 4. ~~**قدم ۴:** پروژه‌ی `GameServer.Infrastructure.Postgres`.~~ انجام شد (بخش ۷ بالا).
-5. ~~**قدم ۵ و ۶**~~ انجام شد (بخش ۹ و ۱۰). قدم ۷ و ۸ هم انجام شد (بخش ۱۱ و ۱۲). بعدی: **قدم ۹** endpoint «گفتگوهای من با unread» (سرور + SDK).
+5. ~~**قدم ۵ و ۶**~~ انجام شد (بخش ۹ و ۱۰). قدم ۷ و ۸ هم انجام شد (بخش ۱۱ و ۱۲). قدم ۹ هم انجام شد (بخش ۱۳). بعدی: **قدم ۱۰** (اولویت پایین) تکه کردن کلاس‌های بزرگ کلاینت نمونه.
 6. ~~**SDK (قدم ۸)**~~ انجام شد (بخش ۱۲).
 7. **کوچک ولی مفید:** پیش‌فرض امن پورت compose، JSON Schema برای فایل‌های کانفیگ (قدم ۱.۵)، cache کاتالوگ parse‌شده.
 

@@ -109,6 +109,71 @@ public sealed class PostgresChat : IChatStore
         return await cmd.ExecuteScalarAsync(ct) as string;
     }
 
+    public async Task<IReadOnlyList<ConversationRow>> ConversationsAsync(
+        string userId, IReadOnlyCollection<string> groupChannels, int limit, int unreadCap, CancellationToken ct = default)
+    {
+        // Direct channels are named dm:<a>:<b> (ids in ordinal order), so the player is either the first or the second id.
+        await using var cmd = _db.CreateCommand("""
+            WITH mine AS (
+                SELECT DISTINCT channel FROM chat_messages WHERE channel LIKE @first OR channel LIKE @second
+                UNION
+                SELECT unnest(@groups::text[])
+            ),
+            last AS (
+                SELECT DISTINCT ON (m.channel) m.channel, m.id, m.sender_id, m.text, m.created_at
+                FROM chat_messages m JOIN mine ON mine.channel = m.channel
+                ORDER BY m.channel, m.id DESC
+            )
+            SELECT l.channel, l.id, l.sender_id, l.text, l.created_at, COALESCE(r.last_read_id, 0),
+                   (SELECT count(*) FROM (
+                        SELECT 1 FROM chat_messages c
+                        WHERE c.channel = l.channel AND c.id > COALESCE(r.last_read_id, 0) AND c.sender_id IS DISTINCT FROM @u
+                        LIMIT @cap) x)::int
+            FROM last l
+            LEFT JOIN chat_reads r ON r.user_id = @u AND r.channel = l.channel
+            ORDER BY l.id DESC
+            LIMIT @lim
+            """);
+        var id = EscapeLike(userId);
+        cmd.Parameters.AddWithValue("u", userId);
+        cmd.Parameters.AddWithValue("first", "dm:" + id + ":%");
+        cmd.Parameters.AddWithValue("second", "dm:%:" + id);
+        cmd.Parameters.Add(new NpgsqlParameter("groups", NpgsqlDbType.Array | NpgsqlDbType.Text) { Value = groupChannels.ToArray() });
+        cmd.Parameters.AddWithValue("cap", Math.Max(unreadCap, 1));
+        cmd.Parameters.AddWithValue("lim", Math.Clamp(limit, 1, 200));
+
+        var result = new List<ConversationRow>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            var last = new ChatRow(reader.GetInt64(1), reader.IsDBNull(2) ? null : reader.GetString(2), reader.GetString(3), reader.GetDateTime(4));
+            result.Add(new ConversationRow(reader.GetString(0), last, reader.GetInt64(5), reader.GetInt32(6)));
+        }
+
+        return result;
+    }
+
+    public async Task MarkReadAsync(string userId, string channel, long messageId, CancellationToken ct = default)
+    {
+        await using var cmd = _db.CreateCommand("""
+            INSERT INTO chat_reads (user_id, channel, last_read_id) VALUES (@u, @c, @m)
+            ON CONFLICT (user_id, channel) DO UPDATE SET last_read_id = GREATEST(chat_reads.last_read_id, EXCLUDED.last_read_id)
+            """);
+        cmd.Parameters.AddWithValue("u", userId);
+        cmd.Parameters.AddWithValue("c", channel);
+        cmd.Parameters.AddWithValue("m", messageId);
+        try
+        {
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.ForeignKeyViolation)
+        {
+            throw new GameServer.Abstractions.GameException("not_found", "User not found.");
+        }
+    }
+
+    private static string EscapeLike(string text) => text.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
+
     public async Task<IReadOnlyList<ChannelInfo>> ListChannelsAsync(int limit, CancellationToken ct = default)
     {
         await using var cmd = _db.CreateCommand(

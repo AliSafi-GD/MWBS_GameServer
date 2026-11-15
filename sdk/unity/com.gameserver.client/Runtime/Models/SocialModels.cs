@@ -110,6 +110,26 @@ namespace GameServer.Client
         public DateTime CreatedUtc { get; set; }
     }
 
+    /// <summary>One of my stored conversations (see <see cref="IChatApi.ConversationsAsync"/>).</summary>
+    public class Conversation
+    {
+        /// <summary>The name on its messages: "dm:&lt;a&gt;:&lt;b&gt;" or "group:&lt;id&gt;".</summary>
+        public string Channel { get; set; }
+        /// <summary>"direct" or "group".</summary>
+        public string Kind { get; set; }
+        /// <summary>The other player of a direct chat.</summary>
+        public string PeerId { get; set; }
+        /// <summary>The clan of a group conversation.</summary>
+        public string GroupId { get; set; }
+        /// <summary>The other player's display name, or the clan name.</summary>
+        public string Title { get; set; }
+        public ChatMessage LastMessage { get; set; }
+        /// <summary>The newest message id I have read (0 = none).</summary>
+        public long LastReadId { get; set; }
+        /// <summary>Messages from others after <see cref="LastReadId"/>, at most 100.</summary>
+        public int Unread { get; set; }
+    }
+
     /// <summary>Builds channel names: "room:lobby", "group:&lt;id&gt;", "party:&lt;id&gt;", "dm:&lt;userId&gt;".</summary>
     public static class Channels
     {

@@ -39,6 +39,19 @@ public sealed record MuteInfo(string UserId, DateTime? UntilUtc, string? Reason,
 
 public sealed record ChannelInfo(string Channel, long Messages, DateTime LastUtc);
 
+/// <summary>A stored conversation of a player as the store sees it: the newest message and how far the player read.</summary>
+public sealed record ConversationRow(string Channel, ChatRow Last, long LastReadId, int Unread);
+
+/// <summary>
+/// One of the player's conversations: a direct chat (<see cref="PeerId"/>) or a clan (<see cref="GroupId"/>).
+/// <see cref="Channel"/> is the name the server puts on its messages (<c>dm:&lt;a&gt;:&lt;b&gt;</c>, <c>group:&lt;id&gt;</c>).
+/// <see cref="Unread"/> counts messages from others after <see cref="LastReadId"/>, at most <see cref="ChatService.UnreadCap"/>.
+/// </summary>
+public sealed record ConversationView(
+    string Channel, string Kind, string? PeerId, string? GroupId, string Title, ChatMessageView LastMessage, long LastReadId, int Unread);
+
+public sealed record ChatReadRequest(string? Channel, long MessageId);
+
 public interface IChatStore
 {
     Task SetMuteAsync(string userId, DateTime? untilUtc, string? reason, CancellationToken ct = default);
@@ -64,4 +77,14 @@ public interface IChatStore
     Task DeleteOlderThanAsync(string channel, int days, CancellationToken ct = default);
 
     Task DeleteOlderThanAsync(int days, CancellationToken ct = default);
+
+    /// <summary>
+    /// The player's stored conversations that have messages: every direct channel with them in it, plus the given group
+    /// channels. Newest first, each with its last message, the read mark and the unread count (at most <paramref name="unreadCap"/>).
+    /// </summary>
+    Task<IReadOnlyList<ConversationRow>> ConversationsAsync(
+        string userId, IReadOnlyCollection<string> groupChannels, int limit, int unreadCap, CancellationToken ct = default);
+
+    /// <summary>Moves the player's read mark of a channel forward to <paramref name="messageId"/> (never back).</summary>
+    Task MarkReadAsync(string userId, string channel, long messageId, CancellationToken ct = default);
 }

@@ -93,6 +93,29 @@ namespace GameServer.Client.Tests
         }
 
         [Test]
+        public void Conversations_AreParsed_AndMarkReadSendsChannelAndId()
+        {
+            var (client, http) = NewClient();
+            http.Routes["POST /v1/auth/device"] = (200, Login);
+            http.Routes["GET /v1/chat/conversations"] = (200,
+                "{\"items\":[{\"channel\":\"dm:u1:u2\",\"kind\":\"direct\",\"peerId\":\"u2\",\"title\":\"Ann\"," +
+                "\"lastMessage\":{\"id\":42,\"channel\":\"dm:u1:u2\",\"senderId\":\"u2\",\"text\":\"hi\"},\"lastReadId\":40,\"unread\":2}]}");
+            http.Routes["POST /v1/chat/read"] = (204, "");
+            client.Auth.LoginDeviceAsync().GetAwaiter().GetResult();
+
+            var list = client.Chat.ConversationsAsync().GetAwaiter().GetResult();
+            client.Chat.MarkReadAsync("dm:u2", 42).GetAwaiter().GetResult();
+
+            Assert.AreEqual(1, list.Count);
+            Assert.AreEqual("u2", list[0].PeerId);
+            Assert.AreEqual(2, list[0].Unread);
+            Assert.AreEqual(42, list[0].LastMessage.Id);
+            var body = http.Sent.Last().Body;
+            StringAssert.Contains("\"channel\":\"dm:u2\"", body);
+            StringAssert.Contains("\"messageId\":42", body);
+        }
+
+        [Test]
         public void TheClient_IsUsableThroughItsInterfaces()
         {
             var (client, _) = NewClient();

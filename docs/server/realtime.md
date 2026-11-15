@@ -50,6 +50,20 @@ The full list is in [Realtime protocol](../reference/realtime-protocol).
 
 This is why `Chat.HistoryAsync` returns nothing for a lobby room by default.
 
+## Conversations and unread counts
+
+The server remembers how far each player has read each **stored** conversation (direct and clan), so unread counts are the
+same on every device:
+
+- `GET /v1/chat/conversations` lists the player's direct chats and the clans they are a member of, newest first. Each item has
+  `channel` (`dm:<a>:<b>` or `group:<id>`), `kind` (`direct`/`group`), `peerId` or `groupId`, `title`, `lastMessage`,
+  `lastReadId` and `unread` (messages from others after `lastReadId`, at most 100). One call replaces reading every
+  friend's history at startup.
+- `POST /v1/chat/read` `{ "channel": "dm:<userId>", "messageId": 123 }` moves the read mark forward (never back). Messages a
+  player sends count as read for them. Party chat and rooms are not stored and answer `not_stored`.
+
+The marks live in the `chat_reads` table (migration 13).
+
 ## Chat limits and moderation
 
 `MaxTextLength` 1000, `MessagesPerWindow` 10 per `WindowSeconds` 10, `DirectMessagesFriendsOnly` false.

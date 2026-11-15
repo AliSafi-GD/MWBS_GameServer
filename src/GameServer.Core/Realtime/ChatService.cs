@@ -127,6 +127,90 @@ public sealed class ChatService : IChat
         return await ViewRowsAsync(target.Name, limit, before, ct);
     }
 
+    // ---- conversations and read marks ------------------------------------------------------------------------
+
+    /// <summary>Unread counts stop here; clients show "99+" and the like.</summary>
+    public const int UnreadCap = 100;
+
+    /// <summary>
+    /// The player's stored conversations (direct chats and clans they are a member of), newest first, with the last
+    /// message and the unread count. One call instead of reading every friend's history.
+    /// </summary>
+    public async Task<IReadOnlyList<ConversationView>> ConversationsAsync(string userId, int limit, CancellationToken ct)
+    {
+        var groups = (await _groups.ListForUserAsync(userId, ct))
+            .Where(g => g.Role <= GroupRole.Member)
+            .ToDictionary(g => "group:" + g.Group.Id, g => g.Group);
+
+        var rows = await _store.ConversationsAsync(userId, groups.Keys.ToArray(), limit, UnreadCap, ct);
+
+        var peers = rows.ToDictionary(r => r.Channel, r => PeerOf(r.Channel, userId));
+        var ids = peers.Values.Where(p => p is not null).Select(p => p!)
+            .Concat(rows.Where(r => r.Last.SenderId is not null).Select(r => r.Last.SenderId!))
+            .Distinct().ToArray();
+        var profiles = ids.Length == 0
+            ? new Dictionary<string, PublicProfile>()
+            : (await _users.GetPublicAsync(ids, ct)).ToDictionary(p => p.Id);
+
+        var views = new List<ConversationView>(rows.Count);
+        foreach (var r in rows)
+        {
+            var senderName = r.Last.SenderId is not null && profiles.TryGetValue(r.Last.SenderId, out var sender) ? sender.Username : null;
+            var last = new ChatMessageView(r.Last.Id, r.Channel, r.Last.SenderId, senderName, r.Last.Text, r.Last.CreatedUtc);
+
+            if (groups.TryGetValue(r.Channel, out var group))
+            {
+                views.Add(new ConversationView(r.Channel, "group", null, group.Id, group.Name, last, r.LastReadId, r.Unread));
+                continue;
+            }
+
+            var peer = peers[r.Channel];
+            if (peer is null)
+                continue;
+            var title = profiles.TryGetValue(peer, out var p)
+                ? (string.IsNullOrEmpty(p.DisplayName) ? p.Username : p.DisplayName)
+                : "Player";
+            views.Add(new ConversationView(r.Channel, "direct", peer, null, title, last, r.LastReadId, r.Unread));
+        }
+
+        return views;
+    }
+
+    /// <summary>
+    /// Marks a direct or clan conversation as read up to <paramref name="messageId"/>. The mark only moves forward.
+    /// Party chat and rooms are not stored, so they have no read mark.
+    /// </summary>
+    public async Task MarkReadAsync(string userId, string? channel, long messageId, CancellationToken ct)
+    {
+        if (messageId < 1)
+            throw new GameException("invalid_request", "messageId must be a stored message id.");
+
+        var target = ParseChannel(userId, channel);
+        switch (target.Kind)
+        {
+            case ChannelKind.Direct:
+                break; // the channel name already proves the player is one of the two
+            case ChannelKind.Group:
+                var role = await _groups.GetRoleAsync(target.Target!, userId, ct);
+                if (role is null || role.Value > GroupRole.Member)
+                    throw new GameException("not_a_member", "You are not a member of this group.");
+                break;
+            default:
+                throw new GameException("not_stored", "Only direct and clan conversations keep a read mark.");
+        }
+
+        await _store.MarkReadAsync(userId, target.Name, messageId, ct);
+    }
+
+    /// <summary>The other player of a stored direct channel "dm:&lt;a&gt;:&lt;b&gt;", or null.</summary>
+    private static string? PeerOf(string channel, string userId)
+    {
+        if (!channel.StartsWith("dm:", StringComparison.Ordinal))
+            return null;
+        var parts = channel[3..].Split(':');
+        return parts.Length != 2 ? null : parts[0] == userId ? parts[1] : parts[1] == userId ? parts[0] : null;
+    }
+
     // ---- what modules do (IChat) ----------------------------------------------------------------------------
 
     public async Task SendSystemAsync(string channel, string text, CancellationToken ct = default)
@@ -244,6 +328,10 @@ public sealed class ChatService : IChat
             var row = await _store.AddAsync(target.Name, senderId, text, ct);
             id = row.Id;
             createdUtc = row.CreatedUtc;
+
+            // What you wrote yourself is read.
+            if (senderId is not null && target.Kind is ChannelKind.Direct or ChannelKind.Group)
+                await _store.MarkReadAsync(senderId, target.Name, row.Id, ct);
             CleanupSometimes();
         }
 

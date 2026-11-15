@@ -65,6 +65,20 @@ rt.ChatMessageDeleted  += (channel, id) => RemoveBubble(id);   // (string channe
 var history = await client.Chat.HistoryAsync(Channels.Direct(friendId), limit: 40, before: null);
 ```
 
+## Unread counts
+
+Ask once at startup (and after a reconnect) which conversations have something new; after that count the live messages.
+
+```csharp
+foreach (var c in await client.Chat.ConversationsAsync())
+    Debug.Log($"{c.Title}: {c.Unread} unread, last: {c.LastMessage?.Text}");   // c.Kind is "direct" or "group"
+
+// when the player has seen a conversation, save it on the server (every device agrees)
+await client.Chat.MarkReadAsync(Channels.Direct(friendId), lastMessageId);
+```
+
+Only direct and clan chats have a read mark; party chat and rooms are not stored.
+
 ::: info What is stored
 Direct and clan messages are stored (30 days by default). Party messages never. Room messages only if the server has
 `GameServer:Chat:PersistRooms` on. See [Chat and realtime](../server/realtime).
@@ -73,4 +87,5 @@ Direct and clan messages are stored (30 days by default). Party messages never. 
 ## Reference implementation
 
 The Tank Arena client has a complete chat service: `samples/unity-client/Assets/Scripts/Core/Services/ChatService.cs`
-(one `ChatThread` per conversation, unread counts, toasts for messages not on screen) and `SocialServices.cs`.
+(one `ChatThread` per conversation, unread counts from `ConversationsAsync`, read marks saved with `MarkReadAsync`, toasts
+for messages not on screen) and `SocialServices.cs`.
