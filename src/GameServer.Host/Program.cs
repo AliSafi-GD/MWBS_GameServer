@@ -11,12 +11,18 @@ using GameServer.Transports.Tcp;
 using GameServer.Transports.Udp;
 using GameServer.Transports.Ws;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 
 // Composition root: options, services, auth and rate limits, then the request pipeline, then one Map* call per
 // area of the API (the routes live in Endpoints/, the custom middleware in Middleware/).
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Run as a Windows Service (sc.exe / New-Service) or a systemd unit (Type=notify). Both calls do nothing when the
+// process is started from a console or in Docker, so they are always safe to leave on.
+builder.Host.UseWindowsService();
+builder.Host.UseSystemd();
 
 builder.Services.Configure<ServerOptions>(builder.Configuration.GetSection("GameServer"));
 
@@ -46,6 +52,34 @@ builder.Services.AddGameServerCore(builder.Configuration, builder.Environment.Is
 // chooses which are on; not set = device plus every configured one. Pin or extend them in code with
 //   auth: a => a.Add<AppleIdentityProvider>().Use("device", "apple")
 // A game module can also bring its own with init.RegisterIdentityProvider(...).
+
+// Behind a reverse proxy every request arrives from the proxy's address, so without this all players would share one
+// rate-limit bucket. Opt-in: only turn it on when the server port is NOT reachable directly (only the proxy can reach it),
+// otherwise anyone could fake X-Forwarded-For and dodge the limits.
+// GameServer:ForwardedHeaders:Enabled (env GameServer__ForwardedHeaders__Enabled), KnownProxies = comma separated IPs.
+var forwardedHeaders = builder.Configuration.GetSection("GameServer:ForwardedHeaders");
+var forwardedHeadersEnabled = forwardedHeaders.GetValue<bool>("Enabled");
+if (forwardedHeadersEnabled)
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        options.ForwardLimit = 1; // exactly one proxy in front: take the address that proxy saw
+        var knownProxies = (forwardedHeaders["KnownProxies"] ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (knownProxies.Length == 0)
+        {
+            // By default ASP.NET only trusts loopback proxies. Clear that so a proxy in another container works too.
+            options.KnownIPNetworks.Clear();
+            options.KnownProxies.Clear();
+        }
+        else
+        {
+            foreach (var proxy in knownProxies)
+                options.KnownProxies.Add(System.Net.IPAddress.Parse(proxy));
+        }
+    });
+}
 
 // Basic abuse protection, counted per client IP. Behind a reverse proxy (nginx, Caddy...) enable forwarded
 // headers so the real client IP is used instead of the proxy's.
@@ -115,6 +149,8 @@ app.Services.GetRequiredService<GameServer.Core.Identity.IdentityProviders>().Va
 await app.Services.GetRequiredService<GameServer.Core.Postgres.DatabaseMigrator>().MigrateAsync();
 
 // Request pipeline. The order matters.
+if (forwardedHeadersEnabled)
+    app.UseForwardedHeaders(); // first, so the exception handler, rate limiter and logs see the real client IP
 app.UseGameExceptionHandler(); // GameException -> JSON error with the right status
 app.UseMaintenanceMode(); // 503 for the game API while config key "maintenance" is on
 

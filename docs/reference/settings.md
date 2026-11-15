@@ -7,6 +7,7 @@ variables (`GameServer__Jwt__Secret`).
 {
   "GameServer": {
     "ModulesPath": "modules",
+    "ForwardedHeaders": { "Enabled": false, "KnownProxies": "" },
     "Jwt": { "Issuer": "gameserver", "ExpiryMinutes": 60, "RefreshDays": 30 },
     "Realtime": {
       "Transports": "websocket",
@@ -54,6 +55,24 @@ Not in the file (secrets, set them yourself): `GameServer:Jwt:Secret`, `GameServ
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | `GameServer__Auth__GooglePlay__*` |
 | `REALTIME_TRANSPORTS` | `GameServer__Realtime__Transports` |
 | `MATCH_TRANSPORTS` | `GameServer__Match__Transports` |
+| `FORWARDED_HEADERS` | `GameServer__ForwardedHeaders__Enabled` |
+
+## Behind a reverse proxy
+
+| Setting | Meaning |
+|---|---|
+| `GameServer:ForwardedHeaders:Enabled` | `false` by default. When `true` the server trusts `X-Forwarded-For` and `X-Forwarded-Proto` (one proxy hop), so rate limits and logs use the real player IP |
+| `GameServer:ForwardedHeaders:KnownProxies` | Optional, comma separated proxy IPs to trust, e.g. `10.0.0.5,10.0.0.6`. Empty = trust whichever proxy connects |
+
+Enable it **only** when the proxy is the only way to reach the server (port bound to `127.0.0.1` or closed in the firewall).
+If the port is also reachable directly, set `KnownProxies` to the proxy's address, or leave it off. See
+[Put it on a VPS](../install/vps#https).
+
+## Running as a service
+
+The host runs as a Windows Service or a systemd unit (`Type=notify`) with no extra setting. See
+[Windows](../install/windows) and [Linux](../install/linux). `GameServer__ModulesPath` should be an absolute path there,
+and `ASPNETCORE_URLS` (e.g. `http://0.0.0.0:7350`) sets the address, because the default is `localhost` only.
 
 ## Ports
 

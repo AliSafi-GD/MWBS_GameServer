@@ -3,6 +3,7 @@
 services:
   server:
     build: .
+    restart: unless-stopped
     ports:
       - "7350:8080"
       - "7351:7351"   # only used when REALTIME_TRANSPORTS includes "tcp"
@@ -23,6 +24,9 @@ services:
       GameServer__Realtime__Transports: "${REALTIME_TRANSPORTS:-websocket}"
       # Match/matchmaker protocols: "websocket", "udp" or "websocket,udp". Each mode picks one in the "matches" config.
       GameServer__Match__Transports: "${MATCH_TRANSPORTS:-websocket}"
+      # Set to true ONLY behind a reverse proxy that is the only way to reach this server (see the docs). It makes
+      # the server use the real player IP from X-Forwarded-For instead of the proxy's.
+      GameServer__ForwardedHeaders__Enabled: "${FORWARDED_HEADERS:-false}"
       ConnectionStrings__Default: "Host=postgres;Database=game;Username=game;Password=${DB_PASSWORD:?set DB_PASSWORD in .env}"
     depends_on:
       postgres:
@@ -30,6 +34,7 @@ services:
 
   postgres:
     image: postgres:17
+    restart: unless-stopped
     ports:
       - "127.0.0.1:5432:5432"   # local access for development (e.g. `dotnet run` on your machine)
     environment:

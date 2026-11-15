@@ -97,8 +97,10 @@ curl -X POST http://localhost:5000/v1/rpc/claim_daily_reward -H "Authorization: 
 ```bash
 cp .env.example .env        # then edit JWT_SECRET, ADMIN_KEY and DB_PASSWORD
 dotnet publish samples/HelloGame.Modules -c Release -o modules/HelloGame.Modules
-docker compose up --build   # server on http://localhost:7350, panel on /admin
+docker compose up -d --build   # server on http://localhost:7350, panel on /admin
 ```
+
+Full install guides (Docker Compose, Ubuntu with systemd, Windows Service, a VPS with HTTPS): [docs/install](docs/install/index.md).
 
 Outside Development the server refuses to start without `GameServer__Jwt__Secret` (min 32 bytes)
 and `ConnectionStrings__Default`.

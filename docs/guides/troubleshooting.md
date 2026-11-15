@@ -6,7 +6,7 @@
 |---|---|
 | Refuses to start without `GameServer__Jwt__Secret` | Set a secret of at least 32 bytes (`JWT_SECRET` in `.env`) |
 | `ConnectionStrings__Default` missing | Set the connection string, or use Development |
-| Database connection refused | Is Postgres running? (`docker compose ps`). Is port 5432 taken by a local PostgreSQL? Use another port ([Run the server](../getting-started/run-the-server)) |
+| Database connection refused | Is Postgres running? (`docker compose ps`, or `systemctl status postgresql`). Is port 5432 taken by a local PostgreSQL? Use another port ([Run the server](../getting-started/run-the-server)) |
 | "transport ... not provided" | `Realtime:Transports` or `Match:Transports` names a protocol with no plugin registered in `Program.cs` |
 | Module not found | The folder `modules/<Name>/` must contain `<Name>.dll` (same name). Run `dotnet publish` again |
 | `/healthz` shows no RPCs | The module did not load. Check the server log |

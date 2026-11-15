@@ -75,6 +75,6 @@ modules and match handlers, and shop prices are always read from the server conf
 ## Where to go next
 
 1. [Requirements](./requirements) and [Download the project](./download)
-2. [Run the server](./run-the-server) (or [with Docker](./docker))
+2. [Run the server](./run-the-server) on your machine, or [install it](../install/) with Docker on a real server
 3. [Your first request](./first-request) with curl
 4. [Your first Unity game](./first-unity-game)

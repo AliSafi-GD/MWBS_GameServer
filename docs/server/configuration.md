@@ -47,4 +47,4 @@ These values are in a public repository. A server that uses them can be taken ov
 ## Passing settings in Docker
 
 `docker-compose.yml` maps `.env` values to the right settings (`JWT_SECRET` to `GameServer__Jwt__Secret`, and so on).
-See [Run with Docker](../getting-started/docker).
+See [Docker Compose](../install/docker-compose).
