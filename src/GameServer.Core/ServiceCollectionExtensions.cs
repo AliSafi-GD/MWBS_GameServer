@@ -51,7 +51,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<PostgresCompetitions>();
         services.AddSingleton<ICompetitions>(sp => sp.GetRequiredService<PostgresCompetitions>());
         services.AddSingleton<ILeaderboards>(sp => sp.GetRequiredService<PostgresCompetitions>());
+        services.AddSingleton<GameServer.Core.Shop.IShopPurchaseStore, PostgresShopPurchases>();
         services.AddSingleton<GameServer.Core.Shop.ShopService>();
+        services.AddSingleton<GameServer.Core.Progression.IProgressStore, PostgresProgress>();
+        services.AddSingleton<GameServer.Core.Progression.IDailyRewardStore, PostgresDailyRewards>();
         services.AddSingleton<GameServer.Core.Progression.ProgressService>();
         services.AddSingleton<IProgress>(sp => sp.GetRequiredService<GameServer.Core.Progression.ProgressService>());
         services.AddSingleton<GameServer.Core.Progression.DailyRewardService>();
@@ -76,7 +79,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IChat>(sp => sp.GetRequiredService<ChatService>());
         services.AddSingleton<ISocial, SocialFacade>();
         services.AddSingleton<AccountCleanup>();
-        services.AddSingleton<GameServer.Core.Admin.AdminStore>();
+        services.AddSingleton<GameServer.Core.Admin.IAdminAccountStore, PostgresAdminAccounts>();
+        services.AddSingleton<GameServer.Core.Admin.IAdminAuditLog, PostgresAdminAudit>();
+        services.AddSingleton<GameServer.Core.Admin.IConfigHistoryStore, PostgresConfigHistory>();
+        services.AddSingleton<GameServer.Core.Admin.IPlayerAdminData, PostgresPlayerAdminData>();
+        services.AddSingleton<GameServer.Core.Admin.IBroadcastStore, PostgresBroadcasts>();
+        services.AddSingleton<GameServer.Core.Admin.IAdminMetrics, PostgresAdminMetrics>();
         services.AddHostedService<GameServer.Core.Admin.AdminBackground>();
         services.AddRealtimeServices(config, realtime);
         services.AddMatchServices(config, match);

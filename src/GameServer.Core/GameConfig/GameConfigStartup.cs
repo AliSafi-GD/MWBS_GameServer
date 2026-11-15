@@ -19,19 +19,21 @@ public sealed class GameConfigStartup : IGameConfigRecorder
     private readonly string _contentRoot;
     private readonly ModuleLoader _modules;
     private readonly IConfigStore _store;
-    private readonly AdminStore _admin;
+    private readonly IConfigHistoryStore _history;
+    private readonly IAdminAuditLog _audit;
     private readonly ILogger<GameConfigStartup> _log;
     private IReadOnlyList<GameConfigFile> _files = Array.Empty<GameConfigFile>();
     private GameConfigMode _mode;
 
     public GameConfigStartup(IOptions<ServerOptions> options, IHostEnvironment environment, ModuleLoader modules,
-        IConfigStore store, AdminStore admin, ILogger<GameConfigStartup> log)
+        IConfigStore store, IConfigHistoryStore history, IAdminAuditLog audit, ILogger<GameConfigStartup> log)
     {
         _options = options.Value;
         _contentRoot = environment.ContentRootPath;
         _modules = modules;
         _store = store;
-        _admin = admin;
+        _history = history;
+        _audit = audit;
         _log = log;
     }
 
@@ -73,8 +75,8 @@ public sealed class GameConfigStartup : IGameConfigRecorder
     async Task IGameConfigRecorder.BeforeWriteAsync(GameConfigStep step, CancellationToken ct)
     {
         if (step.Previous is not null)
-            await _admin.AddConfigHistoryAsync(step.Previous, Actor, ct);
-        await _admin.AuditAsync(new AdminActor(Actor, Actor, AdminRole.Admin), "PUT", "/config/" + step.File.Key,
+            await _history.AddConfigHistoryAsync(step.Previous, Actor, ct);
+        await _audit.AuditAsync(new AdminActor(Actor, Actor, AdminRole.Admin), "PUT", "/config/" + step.File.Key,
             "from " + step.File.Path + " (" + step.Reason + ")", 200, null, ct);
     }
 }

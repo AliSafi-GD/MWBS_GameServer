@@ -57,7 +57,12 @@
 - `AddGameServerCore` ثبتش می‌کند با `TryAddSingleton(TimeProvider.System)`؛ تست یا host می‌تواند قبلش ساعت خودش را بگذارد.
 - منطق تاریخ جایزه‌ی روزانه در `DailyStreak` (بدون DB، رفتار همان).
 - ۳۳ تست جدید در `tests/GameServer.Core.Tests/TimeTests.cs` با `FakeTimeProvider`. روی Postgres: unit ۹۷، SmokeTest ۲۱۰، SDK ۹۲، ArenaBots ۱۵، همه سبز.
-- مانده: تست خود سرویس‌ها (با SQL) بعد از قدم ۳؛ ماژول بازی هنوز ساعت ندارد (`HelloModule.cs`).
+- مانده: ماژول بازی هنوز ساعت ندارد (`HelloModule.cs`).
+
+### ۶. SQL بیرون از سرویس‌ها + تکه کردن AdminStore (قدم ۳ در CLEANUP.md، 2026-11-15)
+- `ShopService`، `DailyRewardService`، `ProgressService` حالا فقط با interface کار می‌کنند (`IShopPurchaseStore`, `IDailyRewardStore`, `IProgressStore`)؛ SQL همان است و در `Postgres/` رفت.
+- `AdminStore` حذف شد → `AdminModels.cs` (مدل‌ها + `AdminKeys`/`AdminRules`) + شش interface در `IAdminStores.cs` + شش کلاس `Postgres*`.
+- ۳۰ تست جدید (`ServiceTests.cs`, `Fakes.cs`): خود سرویس‌ها بدون DB. ۱۲۷ unit test.
 
 ### نحوه‌ی کار در این جلسه
 - کار اجرایی را agentهای Sonnet 5.5 انجام دادند؛ نتیجه‌ی هر کدام (build، تست‌ها، مقایسه‌ی routeها، کد کلیدی) را جدا چک کردم.
@@ -118,7 +123,7 @@ dotnet test tests/GameServer.Core.Tests
 
 1. **تست روی Postgres** (بخش «هنوز تست نشده» بالا). اگر چیزی خراب بود، اول همان را درست کنیم.
 2. ~~**قدم ۲ در CLEANUP.md:** `TimeProvider` به جای `DateTime.UtcNow`.~~ انجام شد (بخش ۵ بالا).
-3. **قدم ۳:** بیرون کشیدن SQL از `ShopService`, `ProgressService`, `DailyRewardService` و تکه کردن `AdminStore`.
+3. ~~**قدم ۳:** بیرون کشیدن SQL از سرویس‌ها و تکه کردن `AdminStore`.~~ انجام شد (بخش ۶ بالا).
 4. **قدم ۴:** پروژه‌ی `GameServer.Infrastructure.Postgres` تا Core دیگر Npgsql نداشته باشد.
 5. **SDK (قدم ۸):** interface برای APIها تا بازی‌ها بتوانند fake کنند؛ تکه کردن `Models.cs`، `RealtimeClient.cs`.
 6. **کوچک ولی مفید:** پیش‌فرض امن پورت compose، JSON Schema برای فایل‌های کانفیگ (قدم ۱.۵)، cache کاتالوگ parse‌شده.

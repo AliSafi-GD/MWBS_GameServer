@@ -31,11 +31,11 @@ public static class AdminConsoleEndpoints
 
         // ---- admin accounts (Admin role only) ----
 
-        admin.MapGet("/admins", async (AdminStore store, CancellationToken ct) =>
+        admin.MapGet("/admins", async (IAdminAccountStore store, CancellationToken ct) =>
             Results.Ok(new { items = await store.ListAdminsAsync(ct) }));
 
         // POST /admin/api/admins  { name, role: "Admin"|"Support"|"ReadOnly" } -> { account, key }  (the key is shown only once)
-        admin.MapPost("/admins", async (AdminCreateRequest req, HttpContext http, AdminStore store, CancellationToken ct) =>
+        admin.MapPost("/admins", async (AdminCreateRequest req, HttpContext http, IAdminAccountStore store, CancellationToken ct) =>
         {
             if (!AdminPolicy.TryParseRole(req.Role, out var role))
                 throw new GameException("invalid_role", "Role must be Admin, Support or ReadOnly.");
@@ -44,7 +44,7 @@ public static class AdminConsoleEndpoints
         });
 
         // PUT /admin/api/admins/{id}  { role?, disabled? }
-        admin.MapPut("/admins/{id}", async (string id, AdminUpdateRequest req, AdminStore store, CancellationToken ct) =>
+        admin.MapPut("/admins/{id}", async (string id, AdminUpdateRequest req, IAdminAccountStore store, CancellationToken ct) =>
         {
             AdminRole? role = null;
             if (req.Role is not null)
@@ -57,25 +57,25 @@ public static class AdminConsoleEndpoints
         });
 
         // POST /admin/api/admins/{id}/reset-key -> { key }
-        admin.MapPost("/admins/{id}/reset-key", async (string id, AdminStore store, CancellationToken ct) =>
+        admin.MapPost("/admins/{id}/reset-key", async (string id, IAdminAccountStore store, CancellationToken ct) =>
         {
             var key = await store.ResetKeyAsync(id, ct);
             return key is null ? Results.NotFound(new { error = "not_found" }) : Results.Ok(new { key });
         });
 
-        admin.MapDelete("/admins/{id}", async (string id, AdminStore store, CancellationToken ct) =>
+        admin.MapDelete("/admins/{id}", async (string id, IAdminAccountStore store, CancellationToken ct) =>
             await store.DeleteAdminAsync(id, ct) ? Results.NoContent() : Results.NotFound(new { error = "not_found" }));
 
         // ---- audit log ----
 
         // GET /admin/api/audit?actor=&q=&before=<id>&limit=100
-        admin.MapGet("/audit", async (string? actor, string? q, long? before, int? limit, AdminStore store, CancellationToken ct) =>
+        admin.MapGet("/audit", async (string? actor, string? q, long? before, int? limit, IAdminAuditLog store, CancellationToken ct) =>
             Results.Ok(new { items = await store.ListAuditAsync(actor, q, before, limit ?? 100, ct) }));
 
         // ---- dashboard ----
 
         // GET /admin/api/dashboard : live numbers + 24h totals
-        admin.MapGet("/dashboard", async (ConnectionManager connections, MatchService matches, Matchmaker matchmaker, AdminStore store, TimeProvider time, CancellationToken ct) =>
+        admin.MapGet("/dashboard", async (ConnectionManager connections, MatchService matches, Matchmaker matchmaker, IAdminMetrics store, TimeProvider time, CancellationToken ct) =>
         {
             var (conns, users) = connections.Counts();
             var queue = matchmaker.CountsByMode();
@@ -90,27 +90,27 @@ public static class AdminConsoleEndpoints
         });
 
         // GET /admin/api/dashboard/series?minutes=180 : online / matches / queue over time
-        admin.MapGet("/dashboard/series", async (int? minutes, AdminStore store, CancellationToken ct) =>
+        admin.MapGet("/dashboard/series", async (int? minutes, IAdminMetrics store, CancellationToken ct) =>
             Results.Ok(new { items = await store.SeriesAsync(minutes ?? 180, ct) }));
 
         // ---- player storage ----
 
-        admin.MapGet("/users/{id}/storage", async (string id, AdminStore store, CancellationToken ct) =>
+        admin.MapGet("/users/{id}/storage", async (string id, IPlayerAdminData store, CancellationToken ct) =>
             Results.Ok(new { items = await store.ListStorageAsync(id, ct) }));
 
         // PUT /admin/api/users/{id}/storage/{key}   body: { "value": <any JSON> }
-        admin.MapPut("/users/{id}/storage/{key}", async (string id, string key, StorageWriteRequest req, AdminStore store, CancellationToken ct) =>
+        admin.MapPut("/users/{id}/storage/{key}", async (string id, string key, StorageWriteRequest req, IPlayerAdminData store, CancellationToken ct) =>
         {
             await store.WriteStorageAsync(id, key, req.Value, ct);
             return Results.NoContent();
         });
 
-        admin.MapDelete("/users/{id}/storage/{key}", async (string id, string key, AdminStore store, CancellationToken ct) =>
+        admin.MapDelete("/users/{id}/storage/{key}", async (string id, string key, IPlayerAdminData store, CancellationToken ct) =>
             await store.DeleteStorageAsync(id, key, ct) ? Results.NoContent() : Results.NotFound(new { error = "not_found" }));
 
         // ---- player 360: one merged timeline (wallet changes, inbox, chat, admin actions) ----
 
-        admin.MapGet("/users/{id}/timeline", async (string id, int? limit, IUserStore users, AdminStore store, CancellationToken ct) =>
+        admin.MapGet("/users/{id}/timeline", async (string id, int? limit, IUserStore users, IPlayerAdminData store, CancellationToken ct) =>
         {
             if (await users.GetAsync(id, ct) is null)
                 return Results.NotFound(new { error = "not_found" });
@@ -119,12 +119,12 @@ public static class AdminConsoleEndpoints
 
         // ---- live-ops: scheduled broadcasts ----
 
-        admin.MapGet("/liveops/broadcasts", async (int? limit, AdminStore store, CancellationToken ct) =>
+        admin.MapGet("/liveops/broadcasts", async (int? limit, IBroadcastStore store, CancellationToken ct) =>
             Results.Ok(new { items = await store.ListBroadcastsAsync(limit ?? 50, ct) }));
 
         // POST /admin/api/liveops/broadcasts
         //   { runAtUtc?: "2026-12-01T10:00:00Z" (default now), subject, body, reward, audience: "all"|"online", expiresInDays }
-        admin.MapPost("/liveops/broadcasts", async (ScheduleBroadcastRequest req, HttpContext http, AdminStore store, TimeProvider time, CancellationToken ct) =>
+        admin.MapPost("/liveops/broadcasts", async (ScheduleBroadcastRequest req, HttpContext http, IBroadcastStore store, TimeProvider time, CancellationToken ct) =>
         {
             ValidateReward(req.Reward);
             var runAt = req.RunAtUtc ?? time.UtcNow();
@@ -136,16 +136,16 @@ public static class AdminConsoleEndpoints
             return Results.Ok(item);
         });
 
-        admin.MapDelete("/liveops/broadcasts/{id:long}", async (long id, AdminStore store, CancellationToken ct) =>
+        admin.MapDelete("/liveops/broadcasts/{id:long}", async (long id, IBroadcastStore store, CancellationToken ct) =>
             await store.DeleteBroadcastAsync(id, ct) ? Results.NoContent() : Results.NotFound(new { error = "not_found" }));
 
         // ---- config history ----
 
-        admin.MapGet("/config/{key}/history", async (string key, AdminStore store, CancellationToken ct) =>
+        admin.MapGet("/config/{key}/history", async (string key, IConfigHistoryStore store, CancellationToken ct) =>
             Results.Ok(new { items = await store.ConfigHistoryAsync(key, 50, ct) }));
 
         // POST /admin/api/config/{key}/rollback/{historyId} : put an older value back (the current one is kept in history)
-        admin.MapPost("/config/{key}/rollback/{historyId:long}", async (string key, long historyId, HttpContext http, IConfigStore config, AdminStore store, CancellationToken ct) =>
+        admin.MapPost("/config/{key}/rollback/{historyId:long}", async (string key, long historyId, HttpContext http, IConfigStore config, IConfigHistoryStore store, CancellationToken ct) =>
         {
             var old = await store.ConfigHistoryItemAsync(key, historyId, ct);
             if (old?.Value is not { } value)

@@ -49,13 +49,13 @@ public static class AdminAuditMiddleware
                 {
                     try
                     {
-                        await context.RequestServices.GetRequiredService<AdminStore>().AuditAsync(
+                        await context.RequestServices.GetRequiredService<IAdminAuditLog>().AuditAsync(
                             actor, method, context.Request.Path.Value![AdminEndpoints.ApiPrefix.Length..], body, status,
                             context.Connection.RemoteIpAddress?.ToString());
                     }
                     catch (Exception ex)
                     {
-                        context.RequestServices.GetRequiredService<ILogger<AdminStore>>().LogWarning(ex, "Could not write the admin audit log.");
+                        context.RequestServices.GetRequiredService<ILogger<IAdminAuditLog>>().LogWarning(ex, "Could not write the admin audit log.");
                     }
                 }
             }

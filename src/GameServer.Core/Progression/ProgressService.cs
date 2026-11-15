@@ -2,7 +2,6 @@ using GameServer.Abstractions;
 using GameServer.Core.Realtime;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Npgsql;
 
 namespace GameServer.Core.Progression;
 
@@ -22,7 +21,7 @@ public sealed class ProgressService : IProgress
 
     private sealed record Catalogs(GoalCatalog Achievements, GoalCatalog Quests, DateTime LoadedUtc);
 
-    private readonly NpgsqlDataSource _db;
+    private readonly IProgressStore _store;
     private readonly IEconomy _economy;
     private readonly IConfigStore _config;
     private readonly HookRunner _hooks;
@@ -32,10 +31,10 @@ public sealed class ProgressService : IProgress
     private volatile Catalogs? _catalogs;
 
     public ProgressService(
-        NpgsqlDataSource db, IEconomy economy, IConfigStore config, HookRunner hooks, IServiceProvider services,
+        IProgressStore store, IEconomy economy, IConfigStore config, HookRunner hooks, IServiceProvider services,
         ILogger<ProgressService> log, TimeProvider time)
     {
-        _db = db;
+        _store = store;
         _economy = economy;
         _config = config;
         _hooks = hooks;
@@ -81,42 +80,14 @@ public sealed class ProgressService : IProgress
         var now = _time.UtcNow();
         var keys = PeriodKeys.All.Select(p => PeriodKeys.Key(p, now)).ToArray();
 
-        // The old values are read in the same statement, so two parallel changes cannot both miss a goal being reached.
-        var sql = $"""
-            WITH old AS (
-                SELECT period_key, value FROM player_stats WHERE user_id = @u AND name = @n AND period_key = ANY(@keys)
-            )
-            INSERT INTO player_stats (user_id, name, period_key, value)
-            SELECT @u, @n, k, @a FROM unnest(@keys) AS k
-            ON CONFLICT (user_id, name, period_key)
-            DO UPDATE SET value = {(max ? "GREATEST(player_stats.value, EXCLUDED.value)" : "player_stats.value + EXCLUDED.value")}
-            RETURNING period_key, value, COALESCE((SELECT o.value FROM old o WHERE o.period_key = player_stats.period_key), 0)
-            """;
-
-        await using var cmd = _db.CreateCommand(sql);
-        cmd.Parameters.AddWithValue("u", userId);
-        cmd.Parameters.AddWithValue("n", stat);
-        cmd.Parameters.AddWithValue("a", amount);
-        cmd.Parameters.AddWithValue("keys", keys);
-
-        var changes = new Dictionary<string, (long Old, long New)>();
-        try
-        {
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct))
-                changes[reader.GetString(0)] = (reader.GetInt64(2), reader.GetInt64(1));
-        }
-        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.ForeignKeyViolation)
-        {
-            throw new GameException("not_found", "User not found.");
-        }
+        var changes = await _store.ChangeStatAsync(userId, stat, keys, amount, max, ct);
 
         await AnnounceReachedGoalsAsync(userId, stat, changes, now, ct);
         return changes.TryGetValue("all", out var life) ? life.New : 0;
     }
 
     private async Task AnnounceReachedGoalsAsync(
-        string userId, string stat, Dictionary<string, (long Old, long New)> changes, DateTime now, CancellationToken ct)
+        string userId, string stat, IReadOnlyDictionary<string, StatChange> changes, DateTime now, CancellationToken ct)
     {
         try
         {
@@ -150,18 +121,8 @@ public sealed class ProgressService : IProgress
         }
     }
 
-    public async Task<IReadOnlyDictionary<string, long>> GetStatsAsync(string userId, CancellationToken ct = default)
-    {
-        await using var cmd = _db.CreateCommand(
-            "SELECT name, value FROM player_stats WHERE user_id = @u AND period_key = 'all' ORDER BY name LIMIT 1000");
-        cmd.Parameters.AddWithValue("u", userId);
-
-        var result = new Dictionary<string, long>();
-        await using var reader = await cmd.ExecuteReaderAsync(ct);
-        while (await reader.ReadAsync(ct))
-            result[reader.GetString(0)] = reader.GetInt64(1);
-        return result;
-    }
+    public Task<IReadOnlyDictionary<string, long>> GetStatsAsync(string userId, CancellationToken ct = default) =>
+        _store.LifetimeStatsAsync(userId, 1000, ct);
 
     // ---- listing --------------------------------------------------------------------------------------------
 
@@ -175,29 +136,8 @@ public sealed class ProgressService : IProgress
         var now = _time.UtcNow();
         var keys = PeriodKeys.All.Select(p => PeriodKeys.Key(p, now)).ToArray();
 
-        var values = new Dictionary<(string Stat, string Key), long>();
-        await using (var cmd = _db.CreateCommand(
-            "SELECT name, period_key, value FROM player_stats WHERE user_id = @u AND period_key = ANY(@keys) AND name = ANY(@names)"))
-        {
-            cmd.Parameters.AddWithValue("u", userId);
-            cmd.Parameters.AddWithValue("keys", keys);
-            cmd.Parameters.AddWithValue("names", catalog.Goals.Values.Select(g => g.Stat).Distinct().ToArray());
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct))
-                values[(reader.GetString(0), reader.GetString(1))] = reader.GetInt64(2);
-        }
-
-        var claimed = new HashSet<(string Goal, string Key)>();
-        await using (var cmd = _db.CreateCommand(
-            "SELECT goal_id, period_key FROM goal_claims WHERE user_id = @u AND kind = @k AND period_key = ANY(@keys)"))
-        {
-            cmd.Parameters.AddWithValue("u", userId);
-            cmd.Parameters.AddWithValue("k", kind);
-            cmd.Parameters.AddWithValue("keys", keys);
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct))
-                claimed.Add((reader.GetString(0), reader.GetString(1)));
-        }
+        var values = await _store.StatValuesAsync(userId, catalog.Goals.Values.Select(g => g.Stat).Distinct().ToArray(), keys, ct);
+        var claimed = await _store.ClaimsAsync(userId, kind, keys, ct);
 
         var views = new List<GoalView>();
         foreach (var goal in catalog.Goals.Values.OrderBy(g => g.Sort).ThenBy(g => g.Id, StringComparer.Ordinal))
@@ -234,32 +174,15 @@ public sealed class ProgressService : IProgress
         var now = _time.UtcNow();
         var periodKey = PeriodKeys.Key(goal.Period, now);
 
-        long value;
-        await using (var cmd = _db.CreateCommand(
-            "SELECT COALESCE((SELECT value FROM player_stats WHERE user_id = @u AND name = @n AND period_key = @k), 0)"))
-        {
-            cmd.Parameters.AddWithValue("u", userId);
-            cmd.Parameters.AddWithValue("n", goal.Stat);
-            cmd.Parameters.AddWithValue("k", periodKey);
-            value = (long)(await cmd.ExecuteScalarAsync(ct))!;
-        }
+        var values = await _store.StatValuesAsync(userId, new[] { goal.Stat }, new[] { periodKey }, ct);
+        var value = values.GetValueOrDefault((goal.Stat, periodKey));
 
         if (value < goal.Target)
             throw new GameException("goal_not_complete", "Not completed yet.");
 
-        // Mark it as taken first: the primary key lets only one request win.
-        await using (var cmd = _db.CreateCommand("""
-            INSERT INTO goal_claims (user_id, kind, goal_id, period_key) VALUES (@u, @kind, @g, @k)
-            ON CONFLICT DO NOTHING RETURNING 1
-            """))
-        {
-            cmd.Parameters.AddWithValue("u", userId);
-            cmd.Parameters.AddWithValue("kind", kind);
-            cmd.Parameters.AddWithValue("g", goal.Id);
-            cmd.Parameters.AddWithValue("k", periodKey);
-            if (await cmd.ExecuteScalarAsync(ct) is null)
-                throw new GameException("already_claimed", "The reward was already taken.");
-        }
+        // Mark it as taken first: only one request can win.
+        if (!await _store.TryClaimAsync(userId, kind, goal.Id, periodKey, ct))
+            throw new GameException("already_claimed", "The reward was already taken.");
 
         try
         {
@@ -282,13 +205,7 @@ public sealed class ProgressService : IProgress
     {
         try
         {
-            await using var cmd = _db.CreateCommand(
-                "DELETE FROM goal_claims WHERE user_id = @u AND kind = @kind AND goal_id = @g AND period_key = @k");
-            cmd.Parameters.AddWithValue("u", userId);
-            cmd.Parameters.AddWithValue("kind", kind);
-            cmd.Parameters.AddWithValue("g", goalId);
-            cmd.Parameters.AddWithValue("k", periodKey);
-            await cmd.ExecuteNonQueryAsync(CancellationToken.None);
+            await _store.UnclaimAsync(userId, kind, goalId, periodKey, CancellationToken.None);
         }
         catch
         {

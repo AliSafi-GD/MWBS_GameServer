@@ -1,6 +1,5 @@
 using System.Globalization;
 using GameServer.Abstractions;
-using Npgsql;
 
 namespace GameServer.Core.Shop;
 
@@ -20,15 +19,15 @@ public sealed record ShopPurchaseResult(string ProductId, int Quantity, bool Alr
 /// </summary>
 public sealed class ShopService
 {
-    private readonly NpgsqlDataSource _db;
+    private readonly IShopPurchaseStore _purchases;
     private readonly IEconomy _economy;
     private readonly IConfigStore _config;
     private readonly HookRunner _hooks;
     private readonly TimeProvider _time;
 
-    public ShopService(NpgsqlDataSource db, IEconomy economy, IConfigStore config, HookRunner hooks, TimeProvider time)
+    public ShopService(IShopPurchaseStore purchases, IEconomy economy, IConfigStore config, HookRunner hooks, TimeProvider time)
     {
-        _db = db;
+        _purchases = purchases;
         _economy = economy;
         _config = config;
         _hooks = hooks;
@@ -45,21 +44,8 @@ public sealed class ShopService
     private static readonly string[] Periods = { "day", "week", "month", "lifetime" };
 
     /// <summary>Purchases the player made in the current period of each kind: (product, period key) -> count.</summary>
-    private async Task<Dictionary<(string Product, string Key), int>> CountsAsync(string userId, DateTime nowUtc, CancellationToken ct)
-    {
-        var keys = Periods.Select(p => PeriodKey(p, nowUtc)).ToArray();
-
-        await using var cmd = _db.CreateCommand(
-            "SELECT product_id, period_key, count FROM shop_purchases WHERE user_id = @u AND period_key = ANY(@k)");
-        cmd.Parameters.AddWithValue("u", userId);
-        cmd.Parameters.AddWithValue("k", keys);
-
-        var result = new Dictionary<(string, string), int>();
-        await using var reader = await cmd.ExecuteReaderAsync(ct);
-        while (await reader.ReadAsync(ct))
-            result[(reader.GetString(0), reader.GetString(1))] = reader.GetInt32(2);
-        return result;
-    }
+    private Task<IReadOnlyDictionary<(string Product, string Key), int>> CountsAsync(string userId, DateTime nowUtc, CancellationToken ct) =>
+        _purchases.CountsAsync(userId, Periods.Select(p => PeriodKey(p, nowUtc)).ToArray(), ct);
 
     // ---- listing --------------------------------------------------------------------------------------------
 
@@ -79,7 +65,7 @@ public sealed class ShopService
             .ToArray();
     }
 
-    private static int? RemainingOf(ShopProduct p, Dictionary<(string Product, string Key), int> counts, DateTime now)
+    private static int? RemainingOf(ShopProduct p, IReadOnlyDictionary<(string Product, string Key), int> counts, DateTime now)
     {
         if (p.Limit is null)
             return null;
@@ -88,18 +74,8 @@ public sealed class ShopService
     }
 
     /// <summary>For the admin panel: what a player has bought in the current periods.</summary>
-    public async Task<IReadOnlyList<object>> PurchasesOfAsync(string userId, CancellationToken ct)
-    {
-        await using var cmd = _db.CreateCommand(
-            "SELECT product_id, period_key, count FROM shop_purchases WHERE user_id = @u ORDER BY product_id, period_key DESC LIMIT 500");
-        cmd.Parameters.AddWithValue("u", userId);
-
-        var result = new List<object>();
-        await using var reader = await cmd.ExecuteReaderAsync(ct);
-        while (await reader.ReadAsync(ct))
-            result.Add(new { productId = reader.GetString(0), period = reader.GetString(1), count = reader.GetInt32(2) });
-        return result;
-    }
+    public Task<IReadOnlyList<ShopPurchaseCount>> PurchasesOfAsync(string userId, CancellationToken ct) =>
+        _purchases.ListAsync(userId, 500, ct);
 
     // ---- buying ---------------------------------------------------------------------------------------------
 
@@ -136,7 +112,7 @@ public sealed class ShopService
                 throw new GameException("purchase_limit_reached", "That is more than the limit allows.");
 
             periodKey = PeriodKey(limit.Per, now);
-            if (!await ReserveAsync(userId, product.Id, periodKey, quantity, limit.Count, ct))
+            if (!await _purchases.TryReserveAsync(userId, product.Id, periodKey, quantity, limit.Count, ct))
                 throw new GameException("purchase_limit_reached", "You cannot buy this again for now.");
         }
 
@@ -164,43 +140,11 @@ public sealed class ShopService
         }
     }
 
-    private async Task<bool> ReserveAsync(string userId, string productId, string periodKey, int quantity, int limit, CancellationToken ct)
-    {
-        await using var cmd = _db.CreateCommand("""
-            INSERT INTO shop_purchases (user_id, product_id, period_key, count)
-            VALUES (@u, @p, @k, @q)
-            ON CONFLICT (user_id, product_id, period_key)
-            DO UPDATE SET count = shop_purchases.count + @q
-            WHERE shop_purchases.count + @q <= @limit
-            RETURNING count
-            """);
-        cmd.Parameters.AddWithValue("u", userId);
-        cmd.Parameters.AddWithValue("p", productId);
-        cmd.Parameters.AddWithValue("k", periodKey);
-        cmd.Parameters.AddWithValue("q", quantity);
-        cmd.Parameters.AddWithValue("limit", limit);
-
-        try
-        {
-            return await cmd.ExecuteScalarAsync(ct) is not null;
-        }
-        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.ForeignKeyViolation)
-        {
-            throw new GameException("not_found", "User not found.");
-        }
-    }
-
     private async Task ReleaseAsync(string userId, string productId, string periodKey, int quantity)
     {
         try
         {
-            await using var cmd = _db.CreateCommand(
-                "UPDATE shop_purchases SET count = GREATEST(count - @q, 0) WHERE user_id = @u AND product_id = @p AND period_key = @k");
-            cmd.Parameters.AddWithValue("u", userId);
-            cmd.Parameters.AddWithValue("p", productId);
-            cmd.Parameters.AddWithValue("k", periodKey);
-            cmd.Parameters.AddWithValue("q", quantity);
-            await cmd.ExecuteNonQueryAsync(CancellationToken.None);
+            await _purchases.ReleaseAsync(userId, productId, periodKey, quantity, CancellationToken.None);
         }
         catch
         {

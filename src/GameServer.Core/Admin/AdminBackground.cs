@@ -8,7 +8,9 @@ namespace GameServer.Core.Admin;
 /// <summary>Sends scheduled broadcasts when they are due and records a metrics sample every minute for the dashboard.</summary>
 public sealed class AdminBackground : BackgroundService
 {
-    private readonly AdminStore _store;
+    private readonly IAdminMetrics _metrics;
+    private readonly IAdminAuditLog _audit;
+    private readonly IBroadcastStore _broadcasts;
     private readonly INotificationStore _notifications;
     private readonly ConnectionManager _connections;
     private readonly MatchService _matches;
@@ -17,11 +19,13 @@ public sealed class AdminBackground : BackgroundService
     private readonly TimeProvider _time;
 
     public AdminBackground(
-        AdminStore store, INotificationStore notifications, ConnectionManager connections,
+        IAdminMetrics metrics, IAdminAuditLog audit, IBroadcastStore broadcasts, INotificationStore notifications, ConnectionManager connections,
         MatchService matches, Matchmaker matchmaker, ILogger<AdminBackground> log, TimeProvider time)
     {
         _time = time;
-        _store = store;
+        _metrics = metrics;
+        _audit = audit;
+        _broadcasts = broadcasts;
         _notifications = notifications;
         _connections = connections;
         _matches = matches;
@@ -48,13 +52,14 @@ public sealed class AdminBackground : BackgroundService
                 {
                     lastSample = now;
                     var queued = _matchmaker.CountsByMode().Values.Sum();
-                    await _store.SaveSampleAsync(_connections.Counts().Users, _matches.Count, queued, stoppingToken);
+                    await _metrics.SaveSampleAsync(_connections.Counts().Users, _matches.Count, queued, stoppingToken);
                 }
 
                 if (now - lastPrune >= TimeSpan.FromHours(6))
                 {
                     lastPrune = now;
-                    await _store.PruneAsync(stoppingToken);
+                    await _metrics.PruneAsync(stoppingToken);
+                    await _audit.PruneAsync(stoppingToken);
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -72,7 +77,7 @@ public sealed class AdminBackground : BackgroundService
 
     private async Task SendDueAsync(CancellationToken ct)
     {
-        foreach (var item in await _store.ClaimDueAsync(ct))
+        foreach (var item in await _broadcasts.ClaimDueAsync(ct))
         {
             var sent = 0;
             string? error = null;
@@ -105,7 +110,7 @@ public sealed class AdminBackground : BackgroundService
                 _log.LogWarning(ex, "Scheduled broadcast {Id} failed.", item.Id);
             }
 
-            await _store.FinishBroadcastAsync(item.Id, sent, error, CancellationToken.None);
+            await _broadcasts.FinishBroadcastAsync(item.Id, sent, error, CancellationToken.None);
             _log.LogInformation("Scheduled broadcast {Id} ({Audience}) sent to {Count} players.", item.Id, item.Audience, sent);
         }
     }

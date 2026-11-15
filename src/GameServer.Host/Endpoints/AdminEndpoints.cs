@@ -32,7 +32,9 @@ public static class AdminEndpoints
                     statusCode: StatusCodes.Status404NotFound);
 
             var given = http.Request.Headers["X-Admin-Key"].ToString();
-            var actor = await http.RequestServices.GetRequiredService<AdminStore>().AuthenticateAsync(given, configured, http.RequestAborted);
+            var actor = AdminKeys.IsMaster(given, configured)
+                ? AdminKeys.Root
+                : await http.RequestServices.GetRequiredService<IAdminAccountStore>().AuthenticateAsync(given, http.RequestAborted);
             if (actor is null)
                 return Results.Json(new { error = "forbidden", message = "Wrong admin key." }, statusCode: StatusCodes.Status403Forbidden);
 
@@ -200,22 +202,22 @@ public static class AdminEndpoints
         });
 
         // PUT /admin/api/config/{key}   body: { "value": <any JSON>, "public": true|false }
-        admin.MapPut("/config/{key}", async (string key, ConfigWriteRequest req, HttpContext http, IConfigStore config, AdminStore adminStore, CancellationToken ct) =>
+        admin.MapPut("/config/{key}", async (string key, ConfigWriteRequest req, HttpContext http, IConfigStore config, IConfigHistoryStore history, CancellationToken ct) =>
         {
             ConfigRules.ValidateKey(key);
             ConfigRules.ValidateValue(key, req.Value);
             var isPublic = req.Public || ConfigRules.IsAlwaysPublic(key);
             var previous = await config.GetAsync(key, ct);
             if (previous is not null && (previous.IsPublic != isPublic || previous.Value.GetRawText() != req.Value.GetRawText()))
-                await adminStore.AddConfigHistoryAsync(previous, AdminConsoleEndpoints.Actor(http).Name, ct);
+                await history.AddConfigHistoryAsync(previous, AdminConsoleEndpoints.Actor(http).Name, ct);
             return Results.Ok(await config.SetAsync(key, req.Value, isPublic, ct));
         });
 
-        admin.MapDelete("/config/{key}", async (string key, HttpContext http, IConfigStore config, AdminStore adminStore, CancellationToken ct) =>
+        admin.MapDelete("/config/{key}", async (string key, HttpContext http, IConfigStore config, IConfigHistoryStore history, CancellationToken ct) =>
         {
             var previous = await config.GetAsync(key, ct);
             if (previous is not null)
-                await adminStore.AddConfigHistoryAsync(previous, AdminConsoleEndpoints.Actor(http).Name + " (delete)", ct);
+                await history.AddConfigHistoryAsync(previous, AdminConsoleEndpoints.Actor(http).Name + " (delete)", ct);
             return await config.DeleteAsync(key, ct) ? Results.NoContent() : Results.NotFound(new { error = "not_found" });
         });
     }
