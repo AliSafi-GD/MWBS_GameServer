@@ -2,7 +2,7 @@ using GameServer.Abstractions;
 using GameServer.Core.Social;
 using Npgsql;
 
-namespace GameServer.Core.Postgres;
+namespace GameServer.Infrastructure.Postgres;
 
 /// <summary>
 /// Friendships are stored as two rows per pair, one from each side's point of view:

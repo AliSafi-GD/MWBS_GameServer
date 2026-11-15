@@ -9,8 +9,8 @@ using Microsoft.Extensions.Time.Testing;
 namespace GameServer.Core.Tests;
 
 /// <summary>
-/// The real services from AddGameServerCore with the database parts swapped for the in-memory fakes below and a
-/// FakeTimeProvider as the clock. Nothing opens a database connection.
+/// The real services from AddGameServerCore (without AddGameServerPostgres) plus the in-memory stores below and a
+/// FakeTimeProvider as the clock.
 /// </summary>
 internal sealed class TestServer : IDisposable
 {
@@ -21,7 +21,6 @@ internal sealed class TestServer : IDisposable
         Clock = new FakeTimeProvider(new DateTimeOffset(startUtc));
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["ConnectionStrings:Default"] = "Host=localhost;Database=none;Username=x;Password=x",
             ["GameServer:Match:Transports"] = "",
         }).Build();
 
@@ -30,7 +29,7 @@ internal sealed class TestServer : IDisposable
         services.AddSingleton<TimeProvider>(Clock);
         services.AddGameServerCore(config, realtime: rt => rt.Add("websocket", _ => throw new NotSupportedException()));
 
-        // Registered after AddGameServerCore, so these win over the Postgres ones.
+        // No database at all: the stores these services need are the in-memory ones.
         services.AddSingleton<IConfigStore>(Config);
         services.AddSingleton<IEconomy>(Economy);
         services.AddSingleton<IShopPurchaseStore>(Purchases);

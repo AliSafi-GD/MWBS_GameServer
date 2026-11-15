@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Npgsql;
 
-namespace GameServer.Core.Postgres;
+namespace GameServer.Infrastructure.Postgres;
 
 /// <summary>
 /// Applies core schema migrations at startup. Each migration runs once (tracked in schema_migrations).

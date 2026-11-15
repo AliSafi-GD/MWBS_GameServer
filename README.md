@@ -4,7 +4,8 @@ A small, Nakama-style game backend in C#. One server instance per game; game log
 
 ```
 src/GameServer.Abstractions   interfaces modules compile against (version carefully, only add)
-src/GameServer.Core           module loader, auth (JWT), accounts/profiles, Postgres storage + migrations
+src/GameServer.Core           module loader, auth (JWT), game services (accounts, shop, progress, chat, matches...) and the store interfaces
+src/GameServer.Infrastructure.Postgres   the PostgreSQL stores + migrations (AddGameServerPostgres)
 src/GameServer.Host           ASP.NET Core executable: Program.cs (composition root), Endpoints/ (one file per API area), Middleware/, admin panel (wwwroot/admin), Dockerfile
 samples/HelloGame.Modules     example game module
 ```

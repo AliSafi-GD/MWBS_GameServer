@@ -2,7 +2,7 @@ using GameServer.Abstractions;
 using GameServer.Core.Shop;
 using Npgsql;
 
-namespace GameServer.Core.Postgres;
+namespace GameServer.Infrastructure.Postgres;
 
 /// <summary>Shop limit counters in table shop_purchases (user, product, period key) -> count.</summary>
 public sealed class PostgresShopPurchases : IShopPurchaseStore

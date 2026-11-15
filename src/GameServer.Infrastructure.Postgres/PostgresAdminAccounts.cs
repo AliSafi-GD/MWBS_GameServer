@@ -3,7 +3,7 @@ using GameServer.Core.Admin;
 using Npgsql;
 using NpgsqlTypes;
 
-namespace GameServer.Core.Postgres;
+namespace GameServer.Infrastructure.Postgres;
 
 /// <summary>Admin accounts in table admin_accounts.</summary>
 public sealed class PostgresAdminAccounts : IAdminAccountStore

@@ -2,7 +2,7 @@ using GameServer.Abstractions;
 using GameServer.Core.Social;
 using Npgsql;
 
-namespace GameServer.Core.Postgres;
+namespace GameServer.Infrastructure.Postgres;
 
 public sealed class PostgresGroups : IGroupStore
 {

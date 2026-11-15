@@ -4,7 +4,7 @@ using GameServer.Core.Admin;
 using Npgsql;
 using NpgsqlTypes;
 
-namespace GameServer.Core.Postgres;
+namespace GameServer.Infrastructure.Postgres;
 
 /// <summary>Admin views of a player: storage records and the account timeline.</summary>
 public sealed class PostgresPlayerAdminData : IPlayerAdminData

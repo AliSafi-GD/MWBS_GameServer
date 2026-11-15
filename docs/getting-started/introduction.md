@@ -33,13 +33,14 @@ The repository is laid out like this:
 
 ```
 src/GameServer.Abstractions   interfaces a module compiles against (the contract; only ever grows)
-src/GameServer.Core           module loader, auth (JWT), accounts, storage, Postgres + migrations
+src/GameServer.Core           module loader, auth (JWT), game services and the store interfaces they use
+src/GameServer.Infrastructure.Postgres   PostgreSQL implementation of those stores + migrations
 src/GameServer.Host           the ASP.NET Core executable, admin panel, web playground
 src/GameServer.Transport.*    WebSocket, TCP and UDP (LiteNetLib) transports, each a separate plugin
 samples/HelloGame.Modules     example server module (RPCs, hooks, the Arena match)
 sdk/unity/                    Unity client package com.gameserver.client
 samples/unity-client/         "Tank Arena", a Unity 6 game built on the SDK
-tests/                        smoke test and Arena bots
+tests/                        unit tests (no database), smoke test and Arena bots
 ```
 
 ### Host project layout

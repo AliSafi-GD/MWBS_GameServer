@@ -3,7 +3,7 @@ using GameServer.Core.Admin;
 using Npgsql;
 using NpgsqlTypes;
 
-namespace GameServer.Core.Postgres;
+namespace GameServer.Infrastructure.Postgres;
 
 /// <summary>The admin audit log in table admin_audit.</summary>
 public sealed class PostgresAdminAudit : IAdminAuditLog

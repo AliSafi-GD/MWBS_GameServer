@@ -4,7 +4,7 @@ using GameServer.Abstractions;
 using Microsoft.Extensions.Options;
 using Npgsql;
 
-namespace GameServer.Core.Postgres;
+namespace GameServer.Infrastructure.Postgres;
 
 public sealed class PostgresRefreshTokenStore : IRefreshTokenStore
 {

@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 using GameServer.Abstractions;
 using Npgsql;
 
-namespace GameServer.Core.Postgres;
+namespace GameServer.Infrastructure.Postgres;
 
 public sealed partial class PostgresCompetitions : ICompetitions
 {

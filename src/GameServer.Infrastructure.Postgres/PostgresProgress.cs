@@ -2,7 +2,7 @@ using GameServer.Abstractions;
 using GameServer.Core.Progression;
 using Npgsql;
 
-namespace GameServer.Core.Postgres;
+namespace GameServer.Infrastructure.Postgres;
 
 /// <summary>Stats in table player_stats (user, name, period key) -> value, and taken rewards in goal_claims.</summary>
 public sealed class PostgresProgress : IProgressStore

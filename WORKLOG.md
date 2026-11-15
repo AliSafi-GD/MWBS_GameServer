@@ -64,6 +64,11 @@
 - `AdminStore` حذف شد → `AdminModels.cs` (مدل‌ها + `AdminKeys`/`AdminRules`) + شش interface در `IAdminStores.cs` + شش کلاس `Postgres*`.
 - ۳۰ تست جدید (`ServiceTests.cs`, `Fakes.cs`): خود سرویس‌ها بدون DB. ۱۲۷ unit test.
 
+### ۷. پروژه‌ی `GameServer.Infrastructure.Postgres` (قدم ۴ در CLEANUP.md، 2026-11-15)
+- کل `Postgres/` از Core به پروژه‌ی جدید رفت؛ Core دیگر Npgsql ندارد؛ `InMemoryStorage.cs` (کد مرده) حذف شد.
+- ثبت: `AddGameServerCore(...)` (سرویس‌ها) + `AddGameServerPostgres(config)` (data source، migrator، storeها). `Program.cs` هر دو را دارد.
+- `WiringTests.cs`: کل گراف DI با `ValidateOnBuild` چک می‌شود. ۱۳۱ unit test.
+
 ### نحوه‌ی کار در این جلسه
 - کار اجرایی را agentهای Sonnet 5.5 انجام دادند؛ نتیجه‌ی هر کدام (build، تست‌ها، مقایسه‌ی routeها، کد کلیدی) را جدا چک کردم.
 - آمار فعلی: `dotnet build GameServer.slnx` بدون warning؛ ۶۴ unit test سبز؛ `npm run build` داکیومنت سبز.
@@ -124,7 +129,7 @@ dotnet test tests/GameServer.Core.Tests
 1. **تست روی Postgres** (بخش «هنوز تست نشده» بالا). اگر چیزی خراب بود، اول همان را درست کنیم.
 2. ~~**قدم ۲ در CLEANUP.md:** `TimeProvider` به جای `DateTime.UtcNow`.~~ انجام شد (بخش ۵ بالا).
 3. ~~**قدم ۳:** بیرون کشیدن SQL از سرویس‌ها و تکه کردن `AdminStore`.~~ انجام شد (بخش ۶ بالا).
-4. **قدم ۴:** پروژه‌ی `GameServer.Infrastructure.Postgres` تا Core دیگر Npgsql نداشته باشد.
+4. ~~**قدم ۴:** پروژه‌ی `GameServer.Infrastructure.Postgres`.~~ انجام شد (بخش ۷ بالا).
 5. **SDK (قدم ۸):** interface برای APIها تا بازی‌ها بتوانند fake کنند؛ تکه کردن `Models.cs`، `RealtimeClient.cs`.
 6. **کوچک ولی مفید:** پیش‌فرض امن پورت compose، JSON Schema برای فایل‌های کانفیگ (قدم ۱.۵)، cache کاتالوگ parse‌شده.
 
@@ -136,6 +141,7 @@ dotnet test tests/GameServer.Core.Tests
 | وضعیت پروژه و gotchaها | [NOTES.md](NOTES.md) |
 | composition root سرور | [src/GameServer.Host/Program.cs](src/GameServer.Host/Program.cs) |
 | endpointها | [src/GameServer.Host/Endpoints/](src/GameServer.Host/Endpoints/) |
+| دیتابیس (Postgres، migration، ثبت DI) | [src/GameServer.Infrastructure.Postgres/](src/GameServer.Infrastructure.Postgres/) |
 | login providerها | [src/GameServer.Core/Identity/](src/GameServer.Core/Identity/) |
 | کانفیگ بازی (کد) | [src/GameServer.Core/GameConfig/](src/GameServer.Core/GameConfig/) |
 | کانفیگ نمونه‌ی Tank Arena | [samples/HelloGame.Modules/config/](samples/HelloGame.Modules/config/) |

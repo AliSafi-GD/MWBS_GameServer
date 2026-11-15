@@ -7,6 +7,7 @@ using GameServer.Core.Matches;
 using GameServer.Core.Realtime;
 using GameServer.Host.Endpoints;
 using GameServer.Host.Middleware;
+using GameServer.Infrastructure.Postgres;
 using GameServer.Transports.Tcp;
 using GameServer.Transports.Udp;
 using GameServer.Transports.Ws;
@@ -47,6 +48,10 @@ builder.Services.Configure<AdminOptions>(adminSection);
 builder.Services.AddGameServerCore(builder.Configuration, builder.Environment.IsDevelopment(),
     realtime: rt => rt.AddWebSocket().AddTcp(),
     match: mt => mt.AddWebSocket().AddLiteNetLib());
+
+// Where the data lives: PostgreSQL (ConnectionStrings:Default). Another database would be another AddGameServer... call
+// that implements the same store interfaces of GameServer.Core.
+builder.Services.AddGameServerPostgres(builder.Configuration);
 
 // Login methods: GameServer:Auth:Providers (env GameServer__Auth__Providers, e.g. "device" or "device,googleplay")
 // chooses which are on; not set = device plus every configured one. Pin or extend them in code with
@@ -151,7 +156,7 @@ var gameConfig = app.Services.GetRequiredService<GameServer.Core.GameConfig.Game
 gameConfig.LoadAndValidate();
 
 // Create/upgrade database tables.
-await app.Services.GetRequiredService<GameServer.Core.Postgres.DatabaseMigrator>().MigrateAsync();
+await app.Services.GetRequiredService<DatabaseMigrator>().MigrateAsync();
 
 // Write the config files into the database: only missing keys (mode seed, default), or every difference (mode sync).
 await gameConfig.ApplyAsync();

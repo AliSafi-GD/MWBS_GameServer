@@ -1,6 +1,7 @@
 using GameServer.Abstractions;
 using GameServer.Core.Identity;
 using Microsoft.Extensions.Configuration;
+using GameServer.Infrastructure.Postgres;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -24,6 +25,7 @@ public class AuthRegistrationTests
         services.AddGameServerCore(config,
             realtime: rt => rt.Add("websocket", _ => throw new NotSupportedException()),
             auth: auth);
+        services.AddGameServerPostgres(config);
         return services.BuildServiceProvider().GetRequiredService<IdentityProviders>();
     }
 

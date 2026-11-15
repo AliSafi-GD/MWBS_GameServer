@@ -2,7 +2,7 @@ using GameServer.Abstractions;
 using GameServer.Core.Progression;
 using Npgsql;
 
-namespace GameServer.Core.Postgres;
+namespace GameServer.Infrastructure.Postgres;
 
 /// <summary>Login streaks in table daily_rewards (user -> streak, last_date). A claim holds the row lock in a transaction.</summary>
 public sealed class PostgresDailyRewards : IDailyRewardStore

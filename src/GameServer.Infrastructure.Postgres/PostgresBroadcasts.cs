@@ -4,7 +4,7 @@ using GameServer.Core.Admin;
 using Npgsql;
 using NpgsqlTypes;
 
-namespace GameServer.Core.Postgres;
+namespace GameServer.Infrastructure.Postgres;
 
 /// <summary>Scheduled broadcasts in table scheduled_broadcasts.</summary>
 public sealed class PostgresBroadcasts : IBroadcastStore

@@ -5,6 +5,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\GameServer.Core\GameServer.Core.csproj" />
+    <ProjectReference Include="..\GameServer.Infrastructure.Postgres\GameServer.Infrastructure.Postgres.csproj" />
     <ProjectReference Include="..\GameServer.Transport.LiteNetLib\GameServer.Transport.LiteNetLib.csproj" />
     <ProjectReference Include="..\GameServer.Transport.WebSocket\GameServer.Transport.WebSocket.csproj" />
     <ProjectReference Include="..\GameServer.Transport.Tcp\GameServer.Transport.Tcp.csproj" />

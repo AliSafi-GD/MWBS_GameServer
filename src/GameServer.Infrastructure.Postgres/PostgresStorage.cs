@@ -3,7 +3,7 @@ using GameServer.Abstractions;
 using Npgsql;
 using NpgsqlTypes;
 
-namespace GameServer.Core.Postgres;
+namespace GameServer.Infrastructure.Postgres;
 
 public sealed class PostgresStorage : IStorage
 {

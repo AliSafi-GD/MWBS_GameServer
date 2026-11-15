@@ -4,7 +4,7 @@ using GameServer.Core.Admin;
 using Npgsql;
 using NpgsqlTypes;
 
-namespace GameServer.Core.Postgres;
+namespace GameServer.Infrastructure.Postgres;
 
 /// <summary>Old config values in table config_history.</summary>
 public sealed class PostgresConfigHistory : IConfigHistoryStore

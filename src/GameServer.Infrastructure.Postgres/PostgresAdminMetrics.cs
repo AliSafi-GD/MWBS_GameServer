@@ -3,7 +3,7 @@ using GameServer.Core.Admin;
 using Npgsql;
 using NpgsqlTypes;
 
-namespace GameServer.Core.Postgres;
+namespace GameServer.Infrastructure.Postgres;
 
 /// <summary>Dashboard numbers: per-minute samples in metrics_samples, totals from users and ledger.</summary>
 public sealed class PostgresAdminMetrics : IAdminMetrics

@@ -3,7 +3,7 @@ using GameServer.Abstractions;
 using Npgsql;
 using NpgsqlTypes;
 
-namespace GameServer.Core.Postgres;
+namespace GameServer.Infrastructure.Postgres;
 
 /// <summary>
 /// Config in Postgres with a 5-second in-memory snapshot of all keys, so public clients, the maintenance check and the

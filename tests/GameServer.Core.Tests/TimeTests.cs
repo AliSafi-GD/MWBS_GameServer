@@ -1,5 +1,6 @@
 using GameServer.Core.Progression;
 using GameServer.Core.Shop;
+using GameServer.Infrastructure.Postgres;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
@@ -32,6 +33,7 @@ public class TimeTests
         services.Configure<JwtOptions>(o => o.Secret = "unit-test-secret-unit-test-secret-0123456789"); // the host binds it
         before?.Invoke(services);
         services.AddGameServerCore(config, realtime: rt => rt.Add("websocket", _ => throw new NotSupportedException()));
+        services.AddGameServerPostgres(config);
         return services.BuildServiceProvider();
     }
 

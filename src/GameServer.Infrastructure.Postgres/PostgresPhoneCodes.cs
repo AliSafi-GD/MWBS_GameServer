@@ -1,7 +1,7 @@
 using GameServer.Core.Identity;
 using Npgsql;
 
-namespace GameServer.Core.Postgres;
+namespace GameServer.Infrastructure.Postgres;
 
 /// <summary>The SQL behind <see cref="IPhoneCodeStore"/> (table phone_otps).</summary>
 public sealed class PostgresPhoneCodes : IPhoneCodeStore

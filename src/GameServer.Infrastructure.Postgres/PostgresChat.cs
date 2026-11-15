@@ -2,7 +2,7 @@ using GameServer.Core.Realtime;
 using Npgsql;
 using NpgsqlTypes;
 
-namespace GameServer.Core.Postgres;
+namespace GameServer.Infrastructure.Postgres;
 
 public sealed class PostgresChat : IChatStore
 {

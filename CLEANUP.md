@@ -28,7 +28,7 @@
 
 ## ۴. سرور — مشکلات (به ترتیب اهمیت)
 
-### 4.1 Core سه لایه را قاطی کرده
+### 4.1 Core سه لایه را قاطی کرده — **Postgres جدا شد** (قدم ۴)؛ JWT هنوز در Core
 - **کجا:** [GameServer.Core.csproj](src/GameServer.Core/GameServer.Core.csproj) به `Npgsql` و `Microsoft.AspNetCore.Authentication.JwtBearer` (و `FrameworkReference` به AspNetCore) وابسته است؛ پوشه‌ی [Postgres/](src/GameServer.Core/Postgres) داخل Core است.
 - **چرا مهم:** domain/application نباید از DB و فریم‌ورک خبر داشته باشد؛ تست بدون Postgres ممکن نیست.
 - **راه‌حل:** پروژه‌ی `GameServer.Infrastructure.Postgres` (همه‌ی `Postgres*`، `DatabaseMigrator`) + Core بدون Npgsql. JWT (`TokenService`) هم می‌تواند به Infrastructure/Host برود.
@@ -66,7 +66,7 @@
 - **کجا:** `ShopService.PurchasesOfAsync` → `IReadOnlyList<object>` ([ShopService.cs](src/GameServer.Core/Shop/ShopService.cs)); `MatchActions.CreateAsync/ModesAsync` → `Task<object>` ([MatchActions.cs](src/GameServer.Core/Matches/MatchActions.cs)); `LoginResultAsync` → `Task<object>` در Program.cs؛ و چندین endpoint با anonymous object.
 - **راه‌حل:** recordهای response → قرارداد typed؛ مستندات و SDK نمی‌توانند از سرور جدا شوند (drift). بعداً می‌شود OpenAPI از آن‌ها ساخت.
 
-### 4.9 کد مرده
+### 4.9 کد مرده — **انجام شد** (قدم ۴)
 - [InMemoryStorage.cs](src/GameServer.Core/InMemoryStorage.cs) در هیچ‌جا استفاده نشده (فقط تعریف خودش). حذف کن (یا برای تست‌ها به پروژه‌ی تست ببر).
 
 ### 4.10 unit test نداریم
@@ -138,7 +138,10 @@
   - بیرون `Postgres/` فقط `ServiceCollectionExtensions.cs` هنوز Npgsql دارد (ثبت DI؛ در قدم ۴ جابه‌جا می‌شود).
   - تست‌ها: [ServiceTests.cs](tests/GameServer.Core.Tests/ServiceTests.cs) + [Fakes.cs](tests/GameServer.Core.Tests/Fakes.cs) (۳۰ تست): خود سرویس‌ها از DI واقعی با storeهای حافظه‌ای و `FakeTimeProvider` — خرید و limit روزانه و reset نیمه‌شب، برگشت limit وقتی پرداخت شکست، requestId تکراری، بازه‌ی فروش؛ claim روزانه روز به روز با روز جاافتاده، offset، شکست پرداخت؛ stat و achievement و quest روزانه و reset، claim دوباره، achievement مخفی؛ و قانون‌های admin. جمعاً ۱۲۷ unit test.
   - مانده: storeهای Postgres فقط با SmokeTest روی DB واقعی تست می‌شوند (Testcontainers نیست). `PostgresUserStore` هنوز چاق است (قدم ۶).
-- [ ] **۴.** ساخت `GameServer.Infrastructure.Postgres` و انتقال `Postgres/` + `DatabaseMigrator` + storeهای جدید. *تمام:* `GameServer.Core.csproj` بدون Npgsql؛ حذف `InMemoryStorage.cs`.
+- [x] **۴.** ساخت `GameServer.Infrastructure.Postgres` و انتقال `Postgres/` + `DatabaseMigrator` + storeهای جدید. *تمام:* `GameServer.Core.csproj` بدون Npgsql؛ حذف `InMemoryStorage.cs`.
+  - انجام شد (2026-11-15): پروژه‌ی [GameServer.Infrastructure.Postgres](src/GameServer.Infrastructure.Postgres) (namespace `GameServer.Infrastructure.Postgres`) با هر ۲۱ فایل `Postgres/` (با `git mv`، محتوا جز namespace دست نخورده). ثبت DI دو تکه شد: `AddGameServerCore` فقط سرویس‌ها (دیگر connection string لازم ندارد)، و `AddGameServerPostgres(config)` در [PostgresServiceCollectionExtensions.cs](src/GameServer.Infrastructure.Postgres/PostgresServiceCollectionExtensions.cs) data source، `DatabaseMigrator` و همه‌ی storeها را ثبت می‌کند (خطای نبودن `ConnectionStrings__Default` هم آن‌جاست). `Program.cs` هر دو را صدا می‌زند. `GameServer.Core.csproj` دیگر Npgsql ندارد؛ `InMemoryStorage.cs` حذف شد. Dockerfile عوض نشد (کل `src/` را کپی می‌کند).
+  - تست‌ها: [WiringTests.cs](tests/GameServer.Core.Tests/WiringTests.cs): Core + Postgres با `ValidateOnBuild` (هر سرویس همه‌ی وابستگی‌هایش را دارد)، Core بدون connection string، پیام خطای Postgres بدون connection string، و این‌که assembly ی Core به Npgsql ارجاع ندارد. تست‌های سرویس (`TestServer`) حالا اصلاً Postgres ثبت نمی‌کنند. جمعاً ۱۳۱ unit test.
+  - مانده (4.1): JWT (`TokenService`، پکیج `JwtBearer`) و `FrameworkReference` به AspNetCore هنوز در Core است.
 - [ ] **۵.** حذف `IServiceProvider` از `HookRunner`/`MatchService`/`ProgressService`/`PostgresNotifications` + recordهای typed response (`ShopService.PurchasesOfAsync`, `MatchActions`, `LoginResultAsync`...). *تمام:* هیچ `IServiceProvider` در constructor سرویس‌ها و هیچ `object` به‌عنوان نوع برگشتی در endpointها نیست.
 - [ ] **۶.** تکه کردن `IUserStore` (و interfaceهای کوچک `IPresence` برای `ChatService`/`SocialFacade`/`AccountCleanup`). *تمام:* هر مصرف‌کننده فقط interface لازمش را می‌گیرد.
 - [ ] **۷.** Central Package Management و pin کردن نسخه‌ها. *تمام:* هیچ `10.*` در csprojها؛ `Directory.Packages.props` موجود.

@@ -1,20 +1,19 @@
 using GameServer.Abstractions;
 using GameServer.Core.Identity;
 using GameServer.Core.Matches;
-using GameServer.Core.Postgres;
 using GameServer.Core.Realtime;
 using GameServer.Core.Social;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Npgsql;
 
 namespace GameServer.Core;
 
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers core services. Needs ConnectionStrings:Default (env var ConnectionStrings__Default).
+    /// Registers the core services. They store their data through interfaces (IUserStore, IEconomy, IConfigStore, ...);
+    /// add an implementation too, e.g. <c>AddGameServerPostgres(config)</c> from GameServer.Infrastructure.Postgres.
     /// <paramref name="realtime"/> chooses the chat/realtime transports in code, e.g. <c>rt =&gt; rt.Use("websocket", "tcp")</c>;
     /// without it the config value GameServer:Realtime:Transports (default "websocket") decides.
     /// <paramref name="auth"/> adds or chooses login methods in code, e.g. <c>a =&gt; a.Use("device", "googleplay")</c>;
@@ -26,51 +25,23 @@ public static class ServiceCollectionExtensions
         Action<MatchTransportBuilder>? match = null,
         Action<AuthBuilder>? auth = null)
     {
-        var connectionString = config.GetConnectionString("Default");
-        if (string.IsNullOrWhiteSpace(connectionString))
-            throw new InvalidOperationException(
-                "ConnectionStrings:Default is required (env var ConnectionStrings__Default).");
-
         // The clock every service reads "now" from. Tests (or a host) can register their own before this call,
         // e.g. a FakeTimeProvider, to move time forward without waiting.
         services.TryAddSingleton(TimeProvider.System);
 
+        // ---- modules, tokens, game services ----
         services.AddSingleton<ModuleRegistry>();
         services.AddSingleton<ModuleLoader>();
         services.AddSingleton<TokenService>();
 
-        // Factory registration so the container disposes the data source on shutdown.
-        services.AddSingleton(_ => NpgsqlDataSource.Create(connectionString));
-        services.AddSingleton<DatabaseMigrator>();
-        services.AddSingleton<IStorage, PostgresStorage>();
-        services.AddSingleton<IUserStore, PostgresUserStore>();
-        services.AddSingleton<IRefreshTokenStore, PostgresRefreshTokenStore>();
-        services.AddSingleton<PostgresEconomy>();
-        services.AddSingleton<IEconomyStore>(sp => sp.GetRequiredService<PostgresEconomy>());
-        services.AddSingleton<IEconomy>(sp => sp.GetRequiredService<PostgresEconomy>());
-        services.AddSingleton<PostgresCompetitions>();
-        services.AddSingleton<ICompetitions>(sp => sp.GetRequiredService<PostgresCompetitions>());
-        services.AddSingleton<ILeaderboards>(sp => sp.GetRequiredService<PostgresCompetitions>());
-        services.AddSingleton<GameServer.Core.Shop.IShopPurchaseStore, PostgresShopPurchases>();
         services.AddSingleton<GameServer.Core.Shop.ShopService>();
-        services.AddSingleton<GameServer.Core.Progression.IProgressStore, PostgresProgress>();
-        services.AddSingleton<GameServer.Core.Progression.IDailyRewardStore, PostgresDailyRewards>();
         services.AddSingleton<GameServer.Core.Progression.ProgressService>();
         services.AddSingleton<IProgress>(sp => sp.GetRequiredService<GameServer.Core.Progression.ProgressService>());
         services.AddSingleton<GameServer.Core.Progression.DailyRewardService>();
-        services.AddSingleton<PostgresNotifications>();
-        services.AddSingleton<INotificationStore>(sp => sp.GetRequiredService<PostgresNotifications>());
-        services.AddSingleton<INotifications>(sp => sp.GetRequiredService<PostgresNotifications>());
-        services.AddSingleton<PostgresConfigStore>();
-        services.AddSingleton<IConfigStore>(sp => sp.GetRequiredService<PostgresConfigStore>());
-        services.AddSingleton<IConfig>(sp => sp.GetRequiredService<PostgresConfigStore>());
         services.AddSingleton<GameServer.Core.GameConfig.GameConfigStartup>();
 
         // ---- hooks, social, chat ----
         services.AddSingleton<HookRunner>();
-        services.AddSingleton<IFriendStore, PostgresFriends>();
-        services.AddSingleton<IGroupStore, PostgresGroups>();
-        services.AddSingleton<IChatStore, PostgresChat>();
         services.Configure<PartyOptions>(config.GetSection("GameServer:Parties"));
         services.AddSingleton<FriendsService>();
         services.AddSingleton<GroupService>();
@@ -79,12 +50,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IChat>(sp => sp.GetRequiredService<ChatService>());
         services.AddSingleton<ISocial, SocialFacade>();
         services.AddSingleton<AccountCleanup>();
-        services.AddSingleton<GameServer.Core.Admin.IAdminAccountStore, PostgresAdminAccounts>();
-        services.AddSingleton<GameServer.Core.Admin.IAdminAuditLog, PostgresAdminAudit>();
-        services.AddSingleton<GameServer.Core.Admin.IConfigHistoryStore, PostgresConfigHistory>();
-        services.AddSingleton<GameServer.Core.Admin.IPlayerAdminData, PostgresPlayerAdminData>();
-        services.AddSingleton<GameServer.Core.Admin.IBroadcastStore, PostgresBroadcasts>();
-        services.AddSingleton<GameServer.Core.Admin.IAdminMetrics, PostgresAdminMetrics>();
         services.AddHostedService<GameServer.Core.Admin.AdminBackground>();
         services.AddRealtimeServices(config, realtime);
         services.AddMatchServices(config, match);
@@ -115,7 +80,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IIdentityProvider, DeviceIdentityProvider>();
         services.AddHttpClient<GooglePlayIdentityProvider>(c => c.Timeout = TimeSpan.FromSeconds(10));
         services.AddSingleton<IIdentityProvider>(sp => sp.GetRequiredService<GooglePlayIdentityProvider>());
-        services.AddSingleton<IPhoneCodeStore, PostgresPhoneCodes>();
         services.AddSingleton<IIdentityProvider, PhoneIdentityProvider>();
         foreach (var register in authBuilder.Registrations)
             register(services);
