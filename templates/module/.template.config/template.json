@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "GameServer",
+  "classifications": [ "GameServer", "Module", "Library" ],
+  "identity": "GameServer.Module.Template",
+  "name": "GameServer game module",
+  "shortName": "gameserver-module",
+  "description": "A game module for GameServer: RPC functions, hooks, match handlers and the game's config files.",
+  "sourceName": "MyGame",
+  "preferNameDirectory": true,
+  "tags": { "language": "C#", "type": "project" },
+  "symbols": {
+    "abstractionsVersion": {
+      "type": "parameter",
+      "datatype": "text",
+      "description": "Version of the GameServer.Abstractions package (the server version you run).",
+      "defaultValue": "0.1.0",
+      "replaces": "ABSTRACTIONS_VERSION"
+    }
+  }
+}

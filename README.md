@@ -106,6 +106,13 @@ Full install guides (Docker Compose, Ubuntu with systemd, Windows Service, a VPS
 Outside Development the server refuses to start without `GameServer__Jwt__Secret` (min 32 bytes)
 and `ConnectionStrings__Default`.
 
+## Offline release (no source code, no internet)
+
+`pwsh tools/release/build-release.ps1` builds `artifacts/release/<version>/`: the server for linux-x64, linux-musl-x64,
+linux-arm64, win-x64 and osx-arm64 (self-contained), a Docker folder with the saved images (`docker load`, compose without
+`build:`), and in every archive `sdk/` with the `GameServer.Abstractions` package and a `dotnet new gameserver-module`
+template. Nothing is published anywhere. Details: docs, "Install the server" > "Offline release".
+
 ## Database
 
 Tables are created by `DatabaseMigrator` at startup and tracked in `schema_migrations`.

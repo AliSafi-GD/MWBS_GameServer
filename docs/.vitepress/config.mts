@@ -49,6 +49,7 @@ export default defineConfig({
             { text: 'Linux binary', link: '/install/linux' },
             { text: 'Windows binary', link: '/install/windows' },
             { text: 'Put it on a VPS', link: '/install/vps' },
+            { text: 'Offline release', link: '/install/offline' },
           ],
         },
       ],

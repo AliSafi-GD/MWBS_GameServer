@@ -3,6 +3,11 @@
 A module is where **your game's server logic** lives: RPC functions, hooks and match handlers. It is a normal .NET class library.
 The host loads `modules/<Name>/<Name>.dll` at start.
 
+::: tip Without the server's source code
+The release bundle has the module template and the `GameServer.Abstractions` package in `sdk/`:
+`dotnet new gameserver-module -n MyGame`. See [Offline release](/install/offline#write-a-game-module-offline).
+:::
+
 ## 1. Create the project
 
 ```bash

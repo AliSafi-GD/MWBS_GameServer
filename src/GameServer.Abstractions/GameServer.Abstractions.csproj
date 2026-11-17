@@ -3,5 +3,16 @@
     <PackageId>GameServer.Abstractions</PackageId>
     <!-- Semantic versioning: only ADD to this assembly after a release. Never remove or change members. -->
     <Version>0.1.0</Version>
+    <Description>The contract a GameServer module compiles against: IServerModule, RPC, hooks, match handlers, economy, leaderboards, notifications, social, chat.</Description>
+    <Authors>GameServer</Authors>
+    <PackageTags>gameserver;game-server;module</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- The XML docs go into the package, so module authors see them in their editor. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Not every member and record parameter has a doc comment yet; missing ones are not errors. -->
+    <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 </Project>

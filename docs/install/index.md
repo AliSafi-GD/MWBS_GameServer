@@ -32,6 +32,8 @@ If you are not sure, pick Docker Compose.
 - [Linux binary](./linux): Ubuntu / Debian with systemd
 - [Windows binary](./windows): Windows 10/11 and Windows Server, as a Windows Service
 - [Put it on a VPS](./vps): from "I have never rented a server" to a public address, with optional HTTPS
+- [Offline release](./offline): a bundle with the server for every OS, the Docker images and the module SDK, for machines
+  without internet (no source code needed)
 
 ## What you need for each
 

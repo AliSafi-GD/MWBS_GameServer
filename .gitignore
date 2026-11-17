@@ -38,3 +38,6 @@ samples/unity-client/Assets/Resources.meta
 # Unity Android build scratch
 samples/unity-client/.utmp/
 samples/unity-client/Assets/StreamingAssets/aa/
+
+# release bundles made by tools/release/build-release.ps1
+artifacts/

@@ -69,6 +69,13 @@
 - ثبت: `AddGameServerCore(...)` (سرویس‌ها) + `AddGameServerPostgres(config)` (data source، migrator، storeها). `Program.cs` هر دو را دارد.
 - `WiringTests.cs`: کل گراف DI با `ValidateOnBuild` چک می‌شود. ۱۳۱ unit test.
 
+### ۱۴. بسته‌ی ریلیز آفلاین (2026-11-16)
+- `pwsh tools/release/build-release.ps1` → `artifacts/release/<version>/`: سرور self-contained برای linux-x64، linux-musl-x64، linux-arm64، win-x64، osx-arm64؛ پوشه‌ی Docker با imageهای ذخیره‌شده (`load-images.sh`، compose بدون build، postgres بدون پورت روی host)؛ `examples/`؛ `SHA256SUMS.txt`. با `-IncludeBuildImages` image پایه‌ی ‏.NET هم ذخیره می‌شود.
+- در هر آرشیو `sdk/`: پکیج `GameServer.Abstractions` (nupkg، با XML docs)، DLL خام، و قالب `dotnet new gameserver-module` (از [templates/module](templates/module)). ماژول‌نویس فقط به این پوشه نیاز دارد، نه به سورس سرور.
+- image ریلیز از [tools/release/Dockerfile](tools/release/Dockerfile) ساخته می‌شود که داخل container چیزی build نمی‌کند، پس NuGet لازم ندارد.
+- تست آفلاین (proxy مرده): ساخت ماژول از قالب با فقط پوشه‌ی بسته؛ اجرای سرور win-x64 از zip با آن ماژول (RPCها کار کرد)؛ بسته‌ی Docker با `docker load` و `compose up` (ماژول‌ها لود شدند، کانفیگ seed شد، RPC جواب داد).
+- `.gitattributes`: فایل‌های `.sh` همیشه LF.
+
 ### ۱۳. گفتگوها با تعداد unread (قدم ۹ در CLEANUP.md، 2026-11-15، SDK 0.3.0)
 - سرور: `GET /v1/chat/conversations` و `POST /v1/chat/read` (جدول `chat_reads`)؛ تعداد unread روی همه‌ی دستگاه‌ها یکی است.
 - کلاینت Tank Arena دیگر ۳۰ دوست را poll نمی‌کند و PlayerPrefs ندارد.
